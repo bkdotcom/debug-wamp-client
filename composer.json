@@ -1,0 +1,25 @@
+{
+	"name": "bdk/debug-wamp-client",
+	"description": "Html/Javascript WAMP based debug client used in conjuction with PHPDebugConsole on the server",
+	"keywords": ["debug", "debugging", "wamp", "wampws", "var_dump", "inspect", "errorhandler", "phpdebugconsole"],
+	"homepage": "http://github.com/bkdotcom/DebugWampClient",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Brad Kent",
+			"email": "bkfake-github@yahoo.com",
+			"homepage": "http://www.bradkent.com/",
+			"role": "Developer"
+		}
+	],
+	"autoload": {
+		"psr-4": { "bdk\\Debug\\": "src/" }
+	},
+	"require": {
+		"bdk/debug": "^2.0",
+		"bdk/wamp-publisher": "*"
+	},
+	"suggest": {
+		"voryx/thruway": "A PHP based WAMP router"
+	}
+}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>PHPDebugConsole</title>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+	<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous"></script>
+	<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous" />
+	<link rel="stylesheet" href="?action=css">
+</head>
+<body>
+
+	<nav class="navbar navbar-default navbar-fixed-top">
+		<div class="container-fluid">
+			<!-- Brand and toggle get grouped for better mobile display -->
+			<div class="navbar-header">
+				<span class="navbar-brand">PHPDebugConsole</span>
+			</div>
+
+			<!-- Collect the nav links, forms, and other content for toggling -->
+			<div class="collapse navbar-collapse" id="navbar-collapse">
+				<form class="navbar-form navbar-left">
+					<button accesskey="c" type="button" class="btn btn-link clear" title="Clear the console [c]"><i class="glyphicon glyphicon-ban-circle"></i></button>
+				</form>
+				<ul class="nav navbar-nav navbar-right">
+					<li>
+						<a accesskey="s" href="#modal-settings" class="settings-toggle" data-toggle="modal" role="button" title="settings [s]"><i class="glyphicon glyphicon-cog"></i></a>
+					</li>
+				</ul>
+			</div><!-- /.navbar-collapse -->
+		</div><!-- /.container-fluid -->
+	</nav>
+
+	<div id="body" class="container-fluid">
+
+        <div id="alert" class="alert alert-info alert-dismissible connecting">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            Connecting to debug server&hellip;
+        </div>
+
+	</div>
+
+	<form class="modal fade form-horizontal" id="modal-settings" tabindex="-1" role="dialog" aria-labelledby="modal-settings-title">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="modal-settings-title">Settings</h4>
+				</div>
+				<div class="modal-body">
+
+					<div class="form-group">
+						<label for="wsUrl" class="col-sm-3 control-label">Websocket Url</label>
+						<div class="col-sm-9">
+							<input type="url" name="wsUrl" id="wsUrl" class="form-control" placeholder="ws://" />
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="realm" class="col-sm-3 control-label">Realm</label>
+						<div class="col-sm-9">
+							<input type="text" name="realm" id="realm" class="form-control" />
+						</div>
+					</div>
+
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+					<button type="submit" class="btn btn-primary">Apply</button>
+				</div>
+			</div><!-- /.modal-content -->
+		</div><!-- /.modal-dialog -->
+	</form><!-- /.modal -->
+
+    <script src="?action=script"></script>
+
+</body>
+</html>
