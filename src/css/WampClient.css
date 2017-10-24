@@ -56,6 +56,7 @@ body { padding-top:50px; }
 .panel-heading * { font-size:inherit; }
 .panel-heading > i { float: left; }
 .panel-heading .label { padding: .1em .6em .2em; }
+.panel-heading .http-host { opacity: 0.6; }
 .label-default { background-color: rgba(119, 119, 119, 0.3); color: inherit; }
 
 .btn-remove-session {

@@ -164,9 +164,10 @@ var logDumper = (function($, module){
             html += '<dd class="magic-method info">This object has a <code>__get()</code> method</dd>' + "\n";
         }
         $.each(properties, function(k, info) {
-            // console.warn('dump', module.dump.toString());
+            // console.info('property info', info);
             var viaDebugInfo = info.viaDebugInfo;
-            html += '<dd class="property visibility-' + info.visibility + ' ' + (viaDebugInfo ? 'debug-value' : '') + '">' +
+            var isPrivateAncestor = info['visibility'] == 'private' && info['inheritedFrom'];
+            var $dd = $('<dd class="property">' +
                 '<span class="t_modifier">' + info.visibility + '</span>' +
                 (info.type
                     ? ' <span class="t_type">[' + info.type + ']</span>'
@@ -180,7 +181,16 @@ var logDumper = (function($, module){
                     '>' + k + '</span>' +
                 ' <span class="t_operator">=</span> ' +
                 module.dump(info.value) +
-                '</dd>' + "\n";
+                '</dd>'
+            );
+            $dd.addClass("visibility-" + info.visibility);
+            if (viaDebugInfo) {
+                $dd.addClass("debug-value");
+            }
+            if (isPrivateAncestor) {
+                $dd.addClass("private-ancestor");
+            }
+            html += $dd[0].outerHTML;
         });
         return html;
     }
@@ -191,9 +201,11 @@ var logDumper = (function($, module){
             : 'no methods';
         var html = '<dt class="methods">' + label + '</dt>';
         $.each(methods, function(k, info) {
+            // console.info('method info', info);
             var paramStr = dumpMethodParams(info.params);
             var modifiers = [];
             var returnType = '';
+            var $dd;
             if (info.isFinal) {
                 modifiers.push('<span class="t_modifier">final</span>');
             }
@@ -209,7 +221,7 @@ var logDumper = (function($, module){
                     ) +
                     '>' + info.phpDoc.return[0].type + '</span>';
             }
-            html += '<dd class="method visibility-' + info.visibility + '">' +
+            $dd = $('<dd class="method">' +
                 modifiers.join(' ') +
                 returnType +
                 ' <span class="method-name"' +
@@ -223,7 +235,13 @@ var logDumper = (function($, module){
                     ? '<br /><span class="indent">' + module.dump(info.returnValue, true) + '</span>'
                     : ''
                 ) +
-                '</dd>' + "\n";
+                '</dd>'
+            );
+            $dd.addClass("visibility-" + info.visibility);
+            if (info.isDeprecated) {
+                $dd.addClass("deprecated");
+            }
+            html += $dd[0].outerHTML;
         });
         return html;
     }

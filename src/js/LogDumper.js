@@ -312,24 +312,7 @@ var logDumper = (function($, module) {
 				}
 				args[i] = atob(arg);
 			});
-			$container.find(".panel-heading .panel-heading-body .pull-right").remove();
-			// console.log('args', args);
-			if (args.REQUEST_METHOD) {
-				$container
-					.find(".panel-heading .panel-heading-body .panel-title")
-					.html(args.REQUEST_METHOD);
-			}
-			if (args.REQUEST_URI) {
-				$container
-					.find(".panel-heading .panel-heading-body .panel-title")
-					.append(' ' + args.REQUEST_URI);
-			}
-			if (args.REQUEST_TIME) {
-				var date = (new Date(args.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
-				$container
-					.find(".panel-heading .panel-heading-body")
-					.prepend('<span class="pull-right">'+date+'</span>');
-			}
+			methodMeta($container, args);
 		} else if (method === "table") {
 			// console.log('table', args[1], args[0]);
 			$.each(args[2], function(i,col) {
@@ -399,6 +382,29 @@ var logDumper = (function($, module) {
 			$node.closest(".m_group").prev().removeClass("empty");
 		}
 	};
+
+	function methodMeta($container, args) {
+		$container.find(".panel-heading .panel-heading-body .pull-right").remove();
+		var $title = $container.find(".panel-heading .panel-heading-body .panel-title").html('');
+		if (args.HTTPS === "on") {
+			$title.append('<i class="fa fa-lock fa-lg"></i> ');
+		}
+		if (args.REQUEST_METHOD) {
+			$title.append(args.REQUEST_METHOD + ' ');
+		}
+		if (args.HTTP_HOST) {
+			$title.append('<span class="http-host">' + args.HTTP_HOST + '</span>');
+		}
+		if (args.REQUEST_URI) {
+			$title.append('<span class="request-uri">' + args.REQUEST_URI + '</span>');
+		}
+		if (args.REQUEST_TIME) {
+			var date = (new Date(args.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
+			$container
+				.find(".panel-heading .panel-heading-body")
+				.prepend('<span class="pull-right">'+date+'</span>');
+		}
+	}
 
 	function checkTimestamp(val)
     {
@@ -494,8 +500,7 @@ var logDumper = (function($, module) {
 		return html;
 	}
 
-	function processSubstitutions(args)
-	{
+	function processSubstitutions(args) {
 		var subRegex = '%' +
 			'(?:' +
 			'[coO]|' +				// c: css, o: obj with max info, O: obj w generic info
@@ -591,8 +596,7 @@ var logDumper = (function($, module) {
      *
      * @return string
      */
-    function substitutionAsString(val)
-    {
+    function substitutionAsString(val) {
         var type = module.getType(val);
         // var count;
         if (type == 'string') {
