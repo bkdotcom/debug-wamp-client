@@ -35,7 +35,7 @@ Download Composer (if not already installed) [more info](https://getcomposer.org
 
 **Install a WAMP router** (if you don't already have one)  
 If you don't already have a WAMP router up and running, you might as well install a PHP-based one here in the same folder *(but again, it could be installed anywhere, or be a node based router)*
-One client+router install can support many PHPDebugConsole projects
+One client+router install can support many PHPDebugConsole projects  
 `$ php composer.phar require voryx/thruway`
 
 **Start the WAMP router.**  
@@ -54,7 +54,7 @@ $debug = \bdk\Debug::getInstance();
 new \bdk\Debug\WampClient($debug);
 ```
 
-**Navigate to the client in your browser**
+**Navigate to the client in your browser**  
 `http://localhost/debugWampClient`
 
 The client should have connected to the router and is ready to receive log messages
@@ -62,7 +62,7 @@ The client should have connected to the router and is ready to receive log messa
 **Add PHPDebugConsole to the project you wish to debug**  
 `$ php composer.phar require bdk/debug`
 
-**Install a outputWamp plugin dependency**  
+**Install a PHPDebugConsole/outputWamp plugin dependency**  
 `$ php composer.phar require bdk/wamp-publisher`
 
 Add the OutputWamp plugin to your application

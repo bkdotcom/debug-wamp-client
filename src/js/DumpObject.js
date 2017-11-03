@@ -168,7 +168,7 @@ var logDumper = (function($, module){
             var viaDebugInfo = info.viaDebugInfo;
             var isPrivateAncestor = info['visibility'] == 'private' && info['inheritedFrom'];
             var $dd = $('<dd class="property">' +
-                '<span class="t_modifier">' + info.visibility + '</span>' +
+                '<span class="t_modifier_'+info.visibility+'">' + info.visibility + '</span>' +
                 (info.type
                     ? ' <span class="t_type">[' + info.type + ']</span>'
                     : ''
@@ -183,7 +183,9 @@ var logDumper = (function($, module){
                 module.dump(info.value) +
                 '</dd>'
             );
-            $dd.addClass("visibility-" + info.visibility);
+            if (info.visibility != "debug") {
+                $dd.addClass(info.visibility);
+            }
             if (viaDebugInfo) {
                 $dd.addClass("debug-value");
             }
@@ -207,11 +209,11 @@ var logDumper = (function($, module){
             var returnType = '';
             var $dd;
             if (info.isFinal) {
-                modifiers.push('<span class="t_modifier">final</span>');
+                modifiers.push('<span class="t_modifier_final">final</span>');
             }
-            modifiers.push('<span class="t_modifier">' + info.visibility + '</span>');
+            modifiers.push('<span class="t_modifier_'+info.visibility+'">' + info.visibility + '</span>');
             if (info.isStatic) {
-                modifiers.push('<span class="t_modifier">static</span>');
+                modifiers.push('<span class="t_modifier_static">static</span>');
             }
             if (typeof info.phpDoc.return != "undefined") {
                 returnType = ' <span class="t_type"' +
@@ -237,7 +239,7 @@ var logDumper = (function($, module){
                 ) +
                 '</dd>'
             );
-            $dd.addClass("visibility-" + info.visibility);
+            $dd.addClass(info.visibility);
             if (info.isDeprecated) {
                 $dd.addClass("deprecated");
             }
