@@ -95,8 +95,8 @@ var logDumper = (function($, module) {
 		} else if (type === "resource") {
 			val = atob(val.value);
 		} else if (type === "callable") {
-			val = '<span class="t_type">callable</span>' +
-					' ' + atob(val.values[0]) + '::' + atob(val.values[1]);
+			val = '<span class="t_type">callable</span> ' +
+					module.markupClassname(atob(val.values[0]) + '::' + atob(val.values[1]));
 		}
 		/*
 		} else if (typeof val == "object") {
@@ -435,11 +435,9 @@ var logDumper = (function($, module) {
 			collapsedClass = method == 'groupCollapsed'
 				? 'collapsed'
 				: 'expanded';
-		if (!args.length) {
-			// args[] = 'group';
-			label = 'group';
-		} else {
-			label = atob(args.shift());
+		label = atob(args.shift());
+		if (meta.isMethodName) {
+			label = module.markupClassname(label);
 		}
 		for (i = 0; i < args.length; i++) {
 			args[i] = module.dump(args[i]);
@@ -609,7 +607,8 @@ var logDumper = (function($, module) {
             val = '<span class="t_keyword">Array</span>' +
                 '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
         } else if (type == 'object') {
-            val = '<span class="t_object-class">' + atob(val['className']) + '</span>';
+            // val = '<span class="t_classname">' + atob(val['className']) + '</span>';
+            val = module.markupClassname(atob(val['className']));
         } else {
             val = module.dump(val);
         }

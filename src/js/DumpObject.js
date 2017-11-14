@@ -5,9 +5,9 @@ var logDumper = (function($, module){
         // console.info('dumpObject', abs);
         var html = '';
         var title = (abs.phpDoc.summary + "\n\n" + abs.phpDoc.description).trim();
-        var strClassName = '<b class="t_object-class" '+
-            (title.length ? 'title="'+title+'" ' : "") +
-            '>' + abs.className + ' object</b>';
+        var strClassName = module.markupClassname(abs.className, "span", {
+            title : title.length ? title : null
+        })
         // var misc = '';
         var objToString = '';
         var toStringVal = '';
@@ -77,6 +77,28 @@ var logDumper = (function($, module){
             }
         }
         return html;
+    }
+
+    module.markupClassname = function(str, tag, attribs) {
+        var classname = str;
+        var opMethod = '';
+        var split = [];
+        tag = tag || 'span';
+        attribs = attribs || {};
+        if (matches = str.match(/^(.+)(::|->)(.+)$/)) {
+            classname = matches[1];
+            opMethod = '<span class="t_operator">' + matches[2] + '</span>'
+                    + '<span class="method-name">' + matches[3] + '</span>';
+        }
+        split = classname.split('\\');
+        if (split.length > 1) {
+            classname = split.pop();
+            classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
+                + classname;
+        }
+        attribs.class = 't_classname';
+        return  $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
+            + opMethod;
     }
 
     module.base64DecodeObj = function(abs) {

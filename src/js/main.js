@@ -138,7 +138,8 @@ var events = (function(){
 
 $(function() {
     var classCollapsed = 'glyphicon-chevron-down',
-        classExpanded = 'glyphicon-chevron-up';
+        classExpanded = 'glyphicon-chevron-up',
+        timeoutHandler;
         // connection = getConnection(),
         // myWorker = new Worker('socketWorker.js');
     /*
@@ -190,6 +191,22 @@ $(function() {
 
     $(".clear").on("click", function() {
         $("#body > .panel").not(".working").remove();
+    });
+
+    $("body").on("mouseup", function(e){
+        if (timeoutHandler) {
+            e.preventDefault();
+            clearInterval(timeoutHandler);
+            timeoutHandler = null;
+        }
+    });
+
+    $(".clear").on("mousedown", function(e){
+        timeoutHandler = setTimeout(() => {
+            // has been long pressed (3 seconds)
+            // clear all (incl working)
+            $("#body > .panel").remove();
+        }, 3000);
     });
 
     $("body").on("shown.bs.collapse hidden.bs.collapse", ".panel-body", function(e) {

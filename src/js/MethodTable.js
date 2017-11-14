@@ -12,8 +12,7 @@ var logDumper = (function($, module){
 			colLength,
 			row,
 			$table,
-			$tr,
-			$td;
+			$tr;
 		if (classname === undefined) {
 			classname = "table-bordered";
 		}
@@ -41,11 +40,9 @@ var logDumper = (function($, module){
 			$tr = $('<tr><th scope="row" class="t_key '+classname+'">'+classAndInner.innerhtml+'</th></tr>');
 			if (row.debug == module.ABSTRACTION && row.type == "object") {
 				haveObj = true;
-				$td = $('<td class="t_object-class"></td>').text(row.className);
-				if (row.phpDoc.summary) {
-					$td.prop("title", row.phpDoc.summary);
-				}
-				$tr.append($td);
+				$tr.append(module.markupClassname(row.className, 'td', {
+					title: row.phpDoc.summary ? row.phpDoc.summary : null
+				}));
 			}
 			values = getValues(row, colKeys);
 			for (vali = 0, colLength = values.length; vali < colLength; vali++) {
