@@ -293,13 +293,15 @@ var logDumper = (function($, module) {
 			}
 			$toggle = $currentNode.prev();
 			// console.info('groupEnd', $toggle.text());
-			$toggle.debugEnhance();
 			if (!$currentNode.is(".debug-content")) {
 				$container.data("currentNode", $currentNode.parent());
 			}
 			if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
 				$toggle.remove();
 				$currentNode.remove();
+			}
+			if ($toggle.is(":visible")) {
+				$toggle.debugEnhance();
 			}
 		} else if (method == "groupUncollapse") {
 			// console.log('expand');
@@ -375,8 +377,10 @@ var logDumper = (function($, module) {
 				$table = this.methodTable(meta.backtrace, "trace", ["file","line","function"], "trace table-bordered");
 				$node.append($table);
 			}
-			// $node.debugEnhance();
 			$currentNode.append($node);
+			if ($node.is(':visible')) {
+				$node.debugEnhance();
+			}
 		}
 		if ($node) {
 			$node.closest(".m_group").prev().removeClass("empty");

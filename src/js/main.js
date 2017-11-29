@@ -151,7 +151,7 @@ $(function() {
     */
 
     events.subscribe('websocket', function(cmd, data) {
-        // console.warn('rcvd websocket', cmd);
+        // console.warn('rcvd websocket', cmd, JSON.stringify(data));
         if (cmd == "msg" && data) {
             try {
                 logDumper.outputLogEntry(data[0], data[1], data[2]);

@@ -51,7 +51,7 @@ function getConnection() {
 		// var myWorker = new Worker('socketWorker.js');
 		// SUBSCRIBE to a topic and receive events
 		session.subscribe('bdk.debug', function (row) {
-			// console.log('recvd args', JSON.parse(JSON.stringify(row)));
+			// console.log('recvd args', Object.keys(row[1][1]));
 			if (!hasMsgQueue) {
 				hasMsgQueue = true;
 				// postMessage(["msg", row]);
