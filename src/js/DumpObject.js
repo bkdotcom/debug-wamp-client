@@ -208,6 +208,9 @@ var logDumper = (function($, module){
             if (info.visibility != "debug") {
                 $dd.addClass(info.visibility);
             }
+            if (info.isMagic) {
+                $dd.addClass('magic-property');
+            }
             if (viaDebugInfo) {
                 $dd.addClass("debug-value");
             }
