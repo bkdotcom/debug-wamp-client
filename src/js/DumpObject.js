@@ -68,7 +68,7 @@ var logDumper = (function($, module){
                         ) +
                         dumpObjectProperties(abs, {'viaDebugInfo': abs.viaDebugInfo}) +
                         (abs.collectMethods // outputMethods
-                            ? dumpObjectMethods(abs.methods)
+                            ? dumpObjectMethods(abs)
                             : ''
                         ) +
                     '</dl>';
@@ -136,8 +136,8 @@ var logDumper = (function($, module){
             }
             if (info.phpDoc) {
                 if (typeof info.phpDoc.return != "undefined") {
-                    info.phpDoc.return[0].desc = atob(info.phpDoc.return[0].desc);
-                    info.phpDoc.return[0].type = atob(info.phpDoc.return[0].type);
+                    info.phpDoc.return.desc = atob(info.phpDoc.return.desc);
+                    info.phpDoc.return.type = atob(info.phpDoc.return.type);
                 }
                 info.phpDoc.summary = info.phpDoc.summary
                     ? atob(info.phpDoc.summary) : null;
@@ -172,7 +172,6 @@ var logDumper = (function($, module){
     }
 
     function dumpObjectProperties(abs, meta) {
-
         var html = '';
         var properties = abs.properties;
         var label = Object.keys(properties).length
@@ -182,9 +181,7 @@ var logDumper = (function($, module){
             label += ' <span class="text-muted">(via __debugInfo)</span>';
         }
         html = '<dt class="properties">' + label + '</dt>';
-        if (abs.methods.__get) {
-            html += '<dd class="magic-method info">This object has a <code>__get()</code> method</dd>' + "\n";
-        }
+        html += magicMethodInfo(abs, ['__get', '__set']);
         $.each(properties, function(k, info) {
             // console.info('property info', info);
             var viaDebugInfo = info.viaDebugInfo;
@@ -192,7 +189,7 @@ var logDumper = (function($, module){
             var $dd = $('<dd class="property">' +
                 '<span class="t_modifier_'+info.visibility+'">' + info.visibility + '</span>' +
                 (info.type
-                    ? ' <span class="t_type">[' + info.type + ']</span>'
+                    ? ' <span class="t_type">' + info.type + '</span>'
                     : ''
                 ) +
                 ' <span class="property-name"' +
@@ -208,9 +205,6 @@ var logDumper = (function($, module){
             if (info.visibility != "debug") {
                 $dd.addClass(info.visibility);
             }
-            if (info.isMagic) {
-                $dd.addClass('magic-property');
-            }
             if (viaDebugInfo) {
                 $dd.addClass("debug-value");
             }
@@ -222,12 +216,13 @@ var logDumper = (function($, module){
         return html;
     }
 
-    function dumpObjectMethods(methods) {
-        var label = Object.keys(methods).length
+    function dumpObjectMethods(abs) {
+        var label = Object.keys(abs.methods).length
             ? 'methods'
             : 'no methods';
         var html = '<dt class="methods">' + label + '</dt>';
-        $.each(methods, function(k, info) {
+        html += magicMethodInfo(abs, ['__call', '__callStatic']);
+        $.each(abs.methods, function(k, info) {
             // console.info('method info', info);
             var paramStr = dumpMethodParams(info.params);
             var modifiers = [];
@@ -242,11 +237,11 @@ var logDumper = (function($, module){
             }
             if (typeof info.phpDoc.return != "undefined") {
                 returnType = ' <span class="t_type"' +
-                    (info.phpDoc.return[0].desc !== null
-                        ? ' title="' + info.phpDoc.return[0].desc.escapeHtml() + '"'
+                    (info.phpDoc.return.desc !== null
+                        ? ' title="' + info.phpDoc.return.desc.escapeHtml() + '"'
                         : ''
                     ) +
-                    '>' + info.phpDoc.return[0].type + '</span>';
+                    '>' + info.phpDoc.return.type + '</span>';
             }
             $dd = $('<dd class="method">' +
                 modifiers.join(' ') +
@@ -292,7 +287,8 @@ var logDumper = (function($, module){
                     defaultValue = defaultValue.replace("\n", " ");
                 }
                 html += ' <span class="t_operator">=</span> ';
-                html += '<span class="t_parameter-default">' + module.dump(defaultValue, true, true, false) + '</span>';
+                html += $(module.dump(defaultValue, true, true, false))
+                    .addClass('t_parameter-default')[0].outerHTML;
             }
             html += '</span>, '; // end .parameter
         });
@@ -300,6 +296,25 @@ var logDumper = (function($, module){
             html = html.substr(0, html.length-2);   // remove ', '
         }
         return html;
+    }
+
+    function magicMethodInfo(abs, methods) {
+        var methodsHave = [],
+            method;
+        for (i = 0; i < methods.length; i++) {
+            method = methods[i];
+            if (abs.methods[method]) {
+                methodsHave.push('<code>'+method+'</code>');
+            }
+        }
+        if (methodsHave.length < 1) {
+            return '';
+        }
+        methods = methodsHave.join(' and ');
+        methods = methodsHave.length == 1
+            ? 'a ' + methods + ' method'
+            : methods + ' methods';
+        return '<dd class="magic info">This object has ' + methods + '</dd>';
     }
 
     return module;
