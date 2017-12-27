@@ -22,7 +22,7 @@ All 3 components *can* be be running on the same server/environment, or be on 3 
 
 ### Installation
 
-Download Composer (if not already installed) [more info](https://getcomposer.org/doc/00-intro.md#downloading-the-composer-executable)
+**Download Composer** (if not already installed) [more info](https://getcomposer.org/doc/00-intro.md#downloading-the-composer-executable)  
 `$ curl -sS https://getcomposer.org/installer | php`
 
 **create a project directory in your webroot**
