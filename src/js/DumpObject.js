@@ -149,6 +149,9 @@ var logDumper = (function($, module){
                 if (info.desc) {
                     info.desc = atob(info.desc);
                 }
+                if (info.constantName) {
+                    info.constantName = atob(info.constantName);
+                }
                 info.name = atob(info.name);
                 if (typeof info.defaultValue == "string" && info.defaultValue.length) {
                     info.defaultValue = atob(info.defaultValue);
@@ -270,7 +273,8 @@ var logDumper = (function($, module){
 
     function dumpMethodParams(params) {
         var html = '',
-            defaultValue;
+            defaultValue,
+            title;
         $.each(params, function(i,info) {
             html += '<span class="parameter">';
             if (typeof info.type === "string") {
@@ -282,13 +286,20 @@ var logDumper = (function($, module){
                     : ''
                 ) + '>' + info.name.escapeHtml() + '</span>';
             if (info.defaultValue !== logDumper.UNDEFINED) {
-                var defaultValue = info.defaultValue;
+                defaultValue = info.defaultValue;
                 if (typeof defaultValue == "string") {
                     defaultValue = defaultValue.replace("\n", " ");
                 }
                 html += ' <span class="t_operator">=</span> ';
-                html += $(module.dump(defaultValue, true, true, false))
-                    .addClass('t_parameter-default')[0].outerHTML;
+                if (info.constantName) {
+                    title = JSON.stringify(info.defaultValue).escapeHtml();
+                    html += '<span class="t_parameter-default t_const" title="value: '+title+'">'
+                        +info.constantName
+                        +'</span>';
+                } else {
+                    html += $(module.dump(defaultValue, true, true, false))
+                        .addClass('t_parameter-default')[0].outerHTML;
+                }
             }
             html += '</span>, '; // end .parameter
         });
