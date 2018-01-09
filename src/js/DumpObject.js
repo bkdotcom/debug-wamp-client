@@ -10,7 +10,7 @@ var logDumper = (function($, module){
         })
         // var misc = '';
         var objToString = '';
-        var toStringVal = '';
+        var toStringVal = null;
         var toStringLen;
         var toStringValAppend;
         var $toStringDump;
@@ -22,8 +22,12 @@ var logDumper = (function($, module){
             html = strClassName +
                 ' <span class="excluded">(not inspected)</span>';
         } else {
-            if (typeof abs.methods.__toString !== "undefined" && abs.methods.__toString.returnValue) {
+            if (typeof abs.stringified !== "undefined") {
+                toStringVal = abs.stringified
+            } else if (typeof abs.methods.__toString !== "undefined" && abs.methods.__toString.returnValue) {
                 toStringVal = abs.methods.__toString.returnValue;
+            }
+            if (toStringVal) {
                 toStringLen = toStringVal.length;
                 toStringValAppend = '';
                 if (toStringLen > 100) {
@@ -53,7 +57,8 @@ var logDumper = (function($, module){
                             : ''
                         ) +
                         (abs.implements.length
-                            ? '<dt>implements</dt><dd>' + abs.implements.join('<br />') + '</dd>'
+                            ? '<dt>implements</dt>' +
+                                '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
                             : ''
                         ) +
                         /*
@@ -131,9 +136,11 @@ var logDumper = (function($, module){
             }
         });
         $.each(abs.methods, function(k, info) {
-            if (typeof info.visibility == "string") {
-                info.visibility = atob(info.visibility);
-            }
+            $.each(['implements','visibility'], function (i, what) {
+                if (typeof info[what] == "string" && info[what].length) {
+                    info[what] = atob(info[what]);
+                }
+            });
             if (info.phpDoc) {
                 if (typeof info.phpDoc.return != "undefined") {
                     info.phpDoc.return.desc = atob(info.phpDoc.return.desc);
@@ -143,19 +150,11 @@ var logDumper = (function($, module){
                     ? atob(info.phpDoc.summary) : null;
             }
             $.each(info.params, function(i,info) {
-                if (typeof info.type == "string") {
-                    info.type = atob(info.type);
-                }
-                if (info.desc) {
-                    info.desc = atob(info.desc);
-                }
-                if (info.constantName) {
-                    info.constantName = atob(info.constantName);
-                }
-                info.name = atob(info.name);
-                if (typeof info.defaultValue == "string" && info.defaultValue.length) {
-                    info.defaultValue = atob(info.defaultValue);
-                }
+                $.each(['type','desc','constantName','name','defaultValue'], function (i, what) {
+                    if (typeof info[what] == "string" && info[what].length) {
+                        info[what] = atob(info[what]);
+                    }
+                });
             });
         });
     }
@@ -226,7 +225,7 @@ var logDumper = (function($, module){
         var html = '<dt class="methods">' + label + '</dt>';
         html += magicMethodInfo(abs, ['__call', '__callStatic']);
         $.each(abs.methods, function(k, info) {
-            // console.info('method info', info);
+            // console.info('method info', k, info);
             var paramStr = dumpMethodParams(info.params);
             var modifiers = [];
             var returnType = '';
@@ -265,6 +264,9 @@ var logDumper = (function($, module){
             $dd.addClass(info.visibility);
             if (info.isDeprecated) {
                 $dd.addClass("deprecated");
+            }
+            if (info.implements && info.implements.length) {
+                $dd.attr("data-implements", info.implements);
             }
             html += $dd[0].outerHTML;
         });
