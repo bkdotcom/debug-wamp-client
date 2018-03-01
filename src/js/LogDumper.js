@@ -221,9 +221,24 @@ var logDumper = (function($, module) {
 			$toggle,
 			$toggleNodes;
 		if (method === "alert") {
-			$node = $('<div class="alert"></div>')
-				.addClass("alert-"+atob(args.class))
-				.html(atob(args.message));
+			$node = $('<div class="alert"></div>');
+			var message = args.message
+				? atob(args.message)
+				: atob(args[0]);
+            var className = args.message
+            	? atob(args.message) // pre 2.1.0
+            	: meta.class;
+            var dismissible = args.message
+            	? args.dismissible
+            	: meta.dismissible;
+			$node.addClass("alert-"+className)
+				.html(message);
+			if (dismissible) {
+				$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
+                    +'<span aria-hidden="true">&times;</span>'
+                    +'</button>');
+				$node.addClass("alert-dismissible");
+			}
 			$container.find(".debug-header").before($node);
 		} else if (method == "endOutput") {
 			$container.removeClass("working");
@@ -237,6 +252,9 @@ var logDumper = (function($, module) {
 			});
 			if (args.responseCode && args.responseCode != "200") {
 				$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
+				if (args.responseCode.toString().match('/^5/')) {
+					$container.addClass("panel-danger");
+				}
 			}
 		} else if (method == 'errorNotConsoled') {
 			$node = $container.find('.alert.error-summary');
