@@ -220,188 +220,197 @@ var logDumper = (function($, module) {
 			$table,
 			$toggle,
 			$toggleNodes;
-		if (method === "alert") {
-			$node = $('<div class="alert"></div>');
-			var message = args.message
-				? atob(args.message)
-				: atob(args[0]);
-            var className = args.message
-            	? atob(args.message) // pre 2.1.0
-            	: meta.class;
-            var dismissible = args.message
-            	? args.dismissible
-            	: meta.dismissible;
-			$node.addClass("alert-"+className)
-				.html(message);
-			if (dismissible) {
-				$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
-                    +'<span aria-hidden="true">&times;</span>'
-                    +'</button>');
-				$node.addClass("alert-dismissible");
-			}
-			$container.find(".debug-header").before($node);
-		} else if (method == "endOutput") {
-			$container.removeClass("working");
-			$container.find(".panel-heading .fa-spinner").remove();
-			$container.find(".panel-body > .fa-spinner").remove();
-			$.each(args, function(i, arg) {
-				if (typeof arg != "string") {
-					return;
+		try {
+			if (method === "alert") {
+				$node = $('<div class="alert"></div>');
+				var message = args.message
+					? atob(args.message)
+					: atob(args[0]);
+	            var className = args.message
+	            	? atob(args.message) // pre 2.1.0
+	            	: meta.class;
+	            var dismissible = args.message
+	            	? args.dismissible
+	            	: meta.dismissible;
+				$node.addClass("alert-"+className)
+					.html(message);
+				if (dismissible) {
+					$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
+	                    +'<span aria-hidden="true">&times;</span>'
+	                    +'</button>');
+					$node.addClass("alert-dismissible");
 				}
-				args[i] = atob(arg);
-			});
-			if (args.responseCode && args.responseCode != "200") {
-				$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
-				if (args.responseCode.toString().match('/^5/')) {
-					$container.addClass("panel-danger");
-				}
-			}
-		} else if (method == 'errorNotConsoled') {
-			$node = $container.find('.alert.error-summary');
-			if (!$node.length) {
-				$node = $('<div class="alert alert-danger error-summary">' +
-					'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
-					'<ul class="list-unstyled indent">' +
-					'</ul>' +
-					'</div>');
-				$container.find(".panel-body").prepend($node);
-			}
-			$node = $node.find('ul');
-			$node.append($("<li></li>").text(atob(args[0])));
-			if (meta.class == "danger") {
-				// console.log('panel-danger');
-				$container.addClass("panel-danger");
-				$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-			} else if (!$container.hasClass("panel-danger")) {
-				// console.log('panel warning');
-				$container.addClass("panel-warning");
-			}
-			$container.removeClass('panel-default');
-		} else if (["group", "groupCollapsed"].indexOf(method) > -1) {
-			$groupHeader = groupHeader(method, args, meta);
-			$node = $("<div>").addClass("m_group");
-			$currentNode.append( $groupHeader );
-			$currentNode.append( $node );
-			$container.data("currentNode", $node);
-		} else if (method == "groupSummary") {
-			// see if priority already exists
-			var priority = args[0];
-			$container.find(".debug-header .m_groupSummary").each(function(){
-				var priorityCur = $(this).data("priority");
-				if (priorityCur == priority) {
-					$node = $(this);
-					return false; // break
-				} else if (priorityCur < priority) {
-					$node = $("<div>").addClass("m_groupSummary").data("priority", priority);
-					$(this).before($node);
-					return false; // break
-				}
-			});
-			if (!$node) {
-				$node = $("<div>").addClass("m_groupSummary").data("priority", priority);
-				$container
-					.find(".debug-header")
-					.append( $node );
-			}
-			$container.data("currentNodeSummary", $node);
-		} else if (method == "groupEnd") {
-			if ($currentNode.is(".m_groupSummary")) {
-				$container.removeData("currentNodeSummary");
-				return;
-			}
-			$toggle = $currentNode.prev();
-			// console.info('groupEnd', $toggle.text());
-			if (!$currentNode.is(".debug-content")) {
-				$container.data("currentNode", $currentNode.parent());
-			}
-			if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
-				$toggle.remove();
-				$currentNode.remove();
-			}
-			if ($toggle.is(":visible")) {
-				$toggle.debugEnhance();
-			}
-		} else if (method == "groupUncollapse") {
-			// console.log('expand');
-			$toggleNodes = $currentNode.parentsUntil(".debug-header, .debug-content").add($currentNode).prev();
-			$toggleNodes.removeClass("collapsed").addClass("expanded");
-		} else if (method === "meta") {
-			$.each(args, function(i, arg) {
-				if (typeof arg != "string") {
-					return;
-				}
-				args[i] = atob(arg);
-			});
-			methodMeta($container, args);
-		} else if (method === "table") {
-			// console.log('table', args[1], args[0]);
-			$.each(args[2], function(i,col) {
-				args[2][i] = atob(col);
-			});
-			$table = this.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
-			// $table.debugEnhance();
-			$currentNode.append($table);
-		} else if (method === "trace") {
-			$table = this.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
-			$currentNode.append($table);
-		} else {
-			if (["error","warn"].indexOf(method) > -1) {
-				// console.log('meta', meta);
-				if (meta.file) {
-					attribs.title = meta.file +  ': line ' + meta.line;
-				}
-				/*
-					update panel header to empasize error
-				*/
-				if (meta.errorCat) {
-					// console.warn('errorCat', meta.errorCat);
-					attribs.class += ' error-' + meta.errorCat;
-					if (method == "error") {
-						// console.log('panel-danger');
+				$container.find(".debug-header").before($node);
+			} else if (method == "endOutput") {
+				$container.removeClass("working");
+				$container.find(".panel-heading .fa-spinner").remove();
+				$container.find(".panel-body > .fa-spinner").remove();
+				$.each(args, function(i, arg) {
+					if (typeof arg != "string") {
+						return;
+					}
+					args[i] = atob(arg);
+				});
+				if (args.responseCode && args.responseCode != "200") {
+					$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
+					if (args.responseCode.toString().match('/^5/')) {
 						$container.addClass("panel-danger");
-						$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-					} else if (!$container.hasClass("panel-danger")) {
-						// console.log('panel warning');
-						$container.addClass("panel-warning");
 					}
-					$container.removeClass('panel-default');
 				}
-			}
-			hasSubs = false;
-			if (['error','info','log','warn'].indexOf(method) > -1 && typeof args[0] == "string" && args.length > 1) {
-				args = processSubstitutions(args, hasSubs);
-			}
-			if (hasSubs) {
-				glue = '';
+			} else if (method == 'errorNotConsoled') {
+				$node = $container.find('.alert.error-summary');
+				if (!$node.length) {
+					$node = $('<div class="alert alert-danger error-summary">' +
+						'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
+						'<ul class="list-unstyled indent">' +
+						'</ul>' +
+						'</div>');
+					$container.find(".panel-body").prepend($node);
+				}
+				$node = $node.find('ul');
+				$node.append($("<li></li>").text(atob(args[0])));
+				if (meta.class == "danger") {
+					// console.log('panel-danger');
+					$container.addClass("panel-danger");
+					$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+				} else if (!$container.hasClass("panel-danger")) {
+					// console.log('panel warning');
+					$container.addClass("panel-warning");
+				}
+				$container.removeClass('panel-default');
+			} else if (["group", "groupCollapsed"].indexOf(method) > -1) {
+				$groupHeader = groupHeader(method, args, meta);
+				$node = $("<div>").addClass("m_group");
+				$currentNode.append( $groupHeader );
+				$currentNode.append( $node );
+				$container.data("currentNode", $node);
+			} else if (method == "groupSummary") {
+				// see if priority already exists
+				var priority = args[0];
+				$container.find(".debug-header .m_groupSummary").each(function(){
+					var priorityCur = $(this).data("priority");
+					if (priorityCur == priority) {
+						$node = $(this);
+						return false; // break
+					} else if (priorityCur < priority) {
+						$node = $("<div>").addClass("m_groupSummary").data("priority", priority);
+						$(this).before($node);
+						return false; // break
+					}
+				});
+				if (!$node) {
+					$node = $("<div>").addClass("m_groupSummary").data("priority", priority);
+					$container
+						.find(".debug-header")
+						.append( $node );
+				}
+				$container.data("currentNodeSummary", $node);
+			} else if (method == "groupEnd") {
+				if ($currentNode.is(".m_groupSummary")) {
+					$container.removeData("currentNodeSummary");
+					return;
+				}
+				$toggle = $currentNode.prev();
+				// console.info('groupEnd', $toggle.text());
+				if (!$currentNode.is(".debug-content")) {
+					$container.data("currentNode", $currentNode.parent());
+				}
+				if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
+					$toggle.remove();
+					$currentNode.remove();
+				}
+				if ($toggle.is(":visible")) {
+					$toggle.debugEnhance();
+				}
+			} else if (method == "groupUncollapse") {
+				// console.log('expand');
+				$toggleNodes = $currentNode.parentsUntil(".debug-header, .debug-content").add($currentNode).prev();
+				$toggleNodes.removeClass("collapsed").addClass("expanded");
+			} else if (method === "meta") {
+				$.each(args, function(i, arg) {
+					if (typeof arg != "string") {
+						return;
+					}
+					args[i] = atob(arg);
+				});
+				methodMeta($container, args);
+			} else if (method === "table") {
+				// console.log('table', args[1], args[0]);
+				$.each(args[2], function(i,col) {
+					args[2][i] = atob(col);
+				});
+				$table = this.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
+				// $table.debugEnhance();
+				$currentNode.append($table);
+			} else if (method === "trace") {
+				$table = this.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
+				$currentNode.append($table);
 			} else {
-				if (args.length == 2 && typeof args[0] == "string") {
-					glue = ' = ';
-				}
-				for (i = 0, numArgs = args.length; i < numArgs; i++) {
-					arg = args[i];
-					if (i > 0 || typeof arg != "string") {
-						args[i] = module.dump(arg, true);
-					} else {
-						args[i] = module.dump(arg, false);
+				if (["error","warn"].indexOf(method) > -1) {
+					// console.log('meta', meta);
+					if (meta.file) {
+						attribs.title = meta.file +  ': line ' + meta.line;
+					}
+					/*
+						update panel header to empasize error
+					*/
+					if (meta.errorCat) {
+						// console.warn('errorCat', meta.errorCat);
+						attribs.class += ' error-' + meta.errorCat;
+						if (method == "error") {
+							// console.log('panel-danger');
+							$container.addClass("panel-danger");
+							$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+						} else if (!$container.hasClass("panel-danger")) {
+							// console.log('panel warning');
+							$container.addClass("panel-warning");
+						}
+						$container.removeClass('panel-default');
 					}
 				}
+				hasSubs = false;
+				if (['error','info','log','warn'].indexOf(method) > -1 && typeof args[0] == "string" && args.length > 1) {
+					args = processSubstitutions(args, hasSubs);
+				}
+				if (hasSubs) {
+					glue = '';
+				} else {
+					if (args.length == 2 && typeof args[0] == "string") {
+						glue = ' = ';
+					}
+					for (i = 0, numArgs = args.length; i < numArgs; i++) {
+						arg = args[i];
+						if (i > 0 || typeof arg != "string") {
+							args[i] = module.dump(arg, true);
+						} else {
+							args[i] = module.dump(arg, false);
+						}
+					}
+				}
+				$node = $("<div>").addClass(attribs.class).html(args.join(glue));
+				if (attribs.title) {
+					$node.prop('title', attribs.title);
+				}
+				if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
+					// console.warn("have backtrace");
+					$table = this.methodTable(meta.backtrace, "trace", ["file","line","function"], "trace table-bordered");
+					$node.append($table);
+				}
+				$currentNode.append($node);
+				if ($node.is(':visible')) {
+					$node.debugEnhance();
+				}
 			}
-			$node = $("<div>").addClass(attribs.class).html(args.join(glue));
-			if (attribs.title) {
-				$node.prop('title', attribs.title);
+			if ($node) {
+				$node.closest(".m_group").prev().removeClass("empty");
 			}
-			if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
-				// console.warn("have backtrace");
-				$table = this.methodTable(meta.backtrace, "trace", ["file","line","function"], "trace table-bordered");
-				$node.append($table);
-			}
-			$currentNode.append($node);
-			if ($node.is(':visible')) {
-				$node.debugEnhance();
-			}
-		}
-		if ($node) {
-			$node.closest(".m_group").prev().removeClass("empty");
+		} catch (err) {
+            module.outputLogEntry('error', [
+            	btoa("%cDebugWampClient: %cerror processing %c"+method+"()"),
+            	btoa("font-weight:bold;"),
+            	"",
+            	btoa("font-family:monospace;"
+            )], meta);
 		}
 	};
 

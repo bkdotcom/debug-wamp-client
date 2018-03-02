@@ -153,15 +153,9 @@ $(function() {
     events.subscribe('websocket', function(cmd, data) {
         // console.warn('rcvd websocket', cmd, JSON.stringify(data));
         if (cmd == "msg" && data) {
-            try {
-                logDumper.outputLogEntry(data[0], data[1], data[2]);
-                // myWorker.postMessage("getMsg"); // request next msg
-                events.publish('onmessage', 'getMsg');
-            } catch (err) {
-                console.warn(err);
-                // logDumper.outputLogEntry("error", ["error processing log entry"], row[1]);
-                logDumper.outputLogEntry('error', ["error processing log entry"], evt.data[1][1]);
-            }
+            logDumper.outputLogEntry(data[0], data[1], data[2]);
+            // myWorker.postMessage("getMsg"); // request next msg
+            events.publish('onmessage', 'getMsg');
         } else if (cmd == "connectionClosed") {
             $("#alert.connecting").remove();
             if ($("#alert.closed").length) {
