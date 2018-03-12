@@ -287,7 +287,9 @@ var logDumper = (function($, module) {
 				connections[meta.requestId].push($node)
 			} else if (method == "groupSummary") {
 				// see if priority already exists
-				var priority = args[0];
+				var priority = typeof meta.priority !== "undefined"
+					? meta.priority // v2.1
+					: args[0];
 				$container.find(".debug-header .m_groupSummary").each(function(){
 					var priorityCur = $(this).data("priority");
 					if (priorityCur == priority) {
