@@ -6,6 +6,14 @@ var logDumper = (function($, module) {
 	var strDump = new StrDump();
 	var hasSubs = false;
 
+	var connections = {
+		/*
+		requestId : {
+			groupStack: [ $node, ... ]
+		}
+		*/
+	};
+
 	module.UNDEFINED = UNDEFINED;
 	module.ABSTRACTION = ABSTRACTION;
 
@@ -32,9 +40,6 @@ var logDumper = (function($, module) {
 				try {
 					val = atob(val);
 				} catch (e) {
-					// console.warn('e', e);
-					// console.log('valOrig', valOrig);
-					// console.trace();
 					val = valOrig;
 				}
 			}
@@ -124,14 +129,10 @@ var logDumper = (function($, module) {
 			return currentNodes[requestId];
 		} else
 		*/
-		if ($("#"+requestId).length) {
-			// found "session"
-			$nodeWrapper = $("#"+requestId)
-			$node = $nodeWrapper.data("currentNodeSummary")
-				? $nodeWrapper.data("currentNodeSummary")
-				: $nodeWrapper.data('currentNode');
-			// currentNodes[requestId] = $node;
+		if (typeof connections[requestId] !== "undefined") {
+			$node = connections[requestId].slice(-1)[0];
 		} else {
+			// create
 			$nodeWrapper = $(''
 				+'<div class="panel panel-default working">'
 					+'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">'
@@ -150,9 +151,8 @@ var logDumper = (function($, module) {
 				+'</div>'
 			);
 			$node = $nodeWrapper.find(".debug-content");
-			$nodeWrapper
-				.attr("id", requestId)
-				.data("currentNode", $node);
+			connections[requestId] = [ $node ];
+			$nodeWrapper.attr("id", requestId);
 			$("#body").append($nodeWrapper);
 			// currentNodes[requestId] = $node;
 		}
@@ -257,6 +257,7 @@ var logDumper = (function($, module) {
 						$container.addClass("panel-danger");
 					}
 				}
+				delete connections[meta.requestId];
 			} else if (method == 'errorNotConsoled') {
 				$node = $container.find('.alert.error-summary');
 				if (!$node.length) {
@@ -283,7 +284,7 @@ var logDumper = (function($, module) {
 				$node = $("<div>").addClass("m_group");
 				$currentNode.append( $groupHeader );
 				$currentNode.append( $node );
-				$container.data("currentNode", $node);
+				connections[meta.requestId].push($node)
 			} else if (method == "groupSummary") {
 				// see if priority already exists
 				var priority = args[0];
@@ -304,23 +305,20 @@ var logDumper = (function($, module) {
 						.find(".debug-header")
 						.append( $node );
 				}
-				$container.data("currentNodeSummary", $node);
+				connections[meta.requestId].push($node);
 			} else if (method == "groupEnd") {
-				if ($currentNode.is(".m_groupSummary")) {
-					$container.removeData("currentNodeSummary");
-					return;
-				}
-				$toggle = $currentNode.prev();
-				// console.info('groupEnd', $toggle.text());
-				if (!$currentNode.is(".debug-content")) {
-					$container.data("currentNode", $currentNode.parent());
-				}
-				if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
-					$toggle.remove();
-					$currentNode.remove();
-				}
-				if ($toggle.is(":visible")) {
-					$toggle.debugEnhance();
+				if (connections[meta.requestId].length > 1) {
+					// closing a summary group
+					connections[meta.requestId].pop();
+				} else {
+					$toggle = $currentNode.prev();
+					if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
+						$toggle.remove();
+						$currentNode.remove();
+					}
+					if ($toggle.is(":visible")) {
+						$toggle.debugEnhance();
+					}
 				}
 			} else if (method == "groupUncollapse") {
 				// console.log('expand');
@@ -335,12 +333,15 @@ var logDumper = (function($, module) {
 				});
 				methodMeta($container, args);
 			} else if (method === "table") {
-				// console.log('table', args[1], args[0]);
-				$.each(args[2], function(i,col) {
-					args[2][i] = atob(col);
-				});
-				$table = this.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
-				// $table.debugEnhance();
+				if (typeof meta.caption !== "undefined") {
+					// v2.1 +
+					$table = this.methodTable(args[0], meta.caption, meta.columns, "m_table table-bordered sortable");
+				} else {
+					$.each(args[2], function(i,col) {
+						args[2][i] = atob(col);
+					});
+					$table = this.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
+				}
 				$currentNode.append($table);
 			} else if (method === "trace") {
 				$table = this.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
