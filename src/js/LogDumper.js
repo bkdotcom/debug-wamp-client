@@ -86,7 +86,7 @@ var logDumper = (function($, module) {
 				}
 			}
 		} else if (type == "recursion") {
-			val = '<span class="t_keyword">Array</span> <span class="t_recursion">*RECURSION*</span>';
+			val = '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
 			wrap = false;
 		} else if (type == "undefined") {
 			val = '';
@@ -253,7 +253,7 @@ var logDumper = (function($, module) {
 				});
 				if (args.responseCode && args.responseCode != "200") {
 					$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
-					if (args.responseCode.toString().match('/^5/')) {
+					if (args.responseCode.toString().match(/^5/)) {
 						$container.addClass("panel-danger");
 					}
 				}
@@ -510,12 +510,12 @@ var logDumper = (function($, module) {
 		} else
 		*/
 		if (length == 0) {
-			html = '<span class="t_keyword">Array</span>' +
+			html = '<span class="t_keyword">array</span>' +
 					'<span class="t_punct">(</span>' + "\n" +
 					'<span class="t_punct">)</span>';
 		} else {
 			delete array['__debug_key_order__'];
-			html = '<span class="t_keyword">Array</span>' +
+			html = '<span class="t_keyword">array</span>' +
 				'<span class="t_punct">(</span>' + "\n" +
 				'<span class="array-inner">' + "\n";
 			for (i = 0; i < length; i++) {
@@ -638,7 +638,7 @@ var logDumper = (function($, module) {
             // val = val.replace('class="t_', 'class="no-pseudo t_');
         } else if (type == 'array') {
         	delete val['__debug_key_order__'];
-            val = '<span class="t_keyword">Array</span>' +
+            val = '<span class="t_keyword">array</span>' +
                 '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
         } else if (type == 'object') {
             // val = '<span class="t_classname">' + atob(val['className']) + '</span>';
