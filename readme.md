@@ -1,9 +1,9 @@
-PHPDebugConsole WAMP Plugin Client
+PHPDebugConsole WAMP Plugin/Client
 ===============
 
 Debug your PHP applications (both web and console) in realtime.
 
-Debug/log information is sent completely "out-of-bounds" via websockets.  Since log data isn't sent in the message body or headers of your application, we can debug any request method (including ajax and console application) without affecting the output.
+Debug/log information is sent completely "out-of-bounds" via websockets.  Since log data isn't sent in the message body or headers of your application, we can debug any request method (including ajax and console application) without affecting the application's output.
 
 All [PHPDebugConsole](https://github.com/bkdotcom/PHPDebugConsole) methods are supported.
 
@@ -11,7 +11,7 @@ All [PHPDebugConsole](https://github.com/bkdotcom/PHPDebugConsole) methods are s
 ### Overview
 There are 3 parts to this logging solution.
 
- * This client.  Think of this as an undocked (separate-windowed) browser console.  Instead of viewing javascript info, it's PHP stuff<sup>†</sup>.
+ * This client.  Think of this as an undocked (separate-windowed) browser console.  Instead of viewing javascript stuff, it's PHP stuff<sup>†</sup>.
  * The PHP application thats "publishing" log messages (via [PHPDebugConsole](https://github.com/bkdotcom/PHPDebugConsole))
  * [A WAMP (websockets protocol) router](http://wamp-proto.org/implementations/#routers) that serves as a middle man between this client and the PHP application
 
@@ -22,7 +22,7 @@ All 3 components *can* be be running on the same server/environment, or be on 3 
 
 ### Installation
 
-**Download Composer** (if not already installed) [more info](https://getcomposer.org/doc/00-intro.md#downloading-the-composer-executable)  
+**Download Composer** (if not already installed) [more info](https://getcomposer.org/doc/00-intro.md#downloading-the-composer-executable)
 `$ curl -sS https://getcomposer.org/installer | php`
 
 **create a project directory in your webroot**
@@ -30,19 +30,24 @@ All 3 components *can* be be running on the same server/environment, or be on 3 
     $ mkdir debugWampClient
     $ cd debugWampClient
 
-**Install this client**  
+**Install this client**
+
+(make sure you're in the project directory)
+
 `$ php composer.phar require bdk/debug-wamp-client`
 
-**Install a WAMP router** (if you don't already have one)  
+**Install a WAMP router** (if you don't already have one)
 If you don't already have a WAMP router up and running, you might as well install a PHP-based one here in the same folder *(but again, it could be installed anywhere, or be a node based router)*
-One client+router install can support many PHPDebugConsole projects  
+One client+router install can support many PHPDebugConsole projects
 `$ php composer.phar require voryx/thruway`
 
-**Start the WAMP router.**  
+**Start the WAMP router.**
 `$ php vendor/voryx/thruway/Examples/SimpleWsRouter.php`
-*(note that the router doesn't play well with x-debug.  You will likely need to disable x-debug for this process)*
+*(note that the router doesn't play well with x-debug.  You will likely need to disable x-debug for this process.  See [this gist](https://gist.github.com/bkdotcom/4b635f7c7c07dd5800dee89cdb99e4f6))*
 
 **Create an `index.php` for the client**
+
+(this index.php should be created in the project directory)
 
 ```php
 <?php
@@ -54,15 +59,15 @@ $debug = \bdk\Debug::getInstance();
 new \bdk\Debug\WampClient($debug);
 ```
 
-**Navigate to the client in your browser**  
+**Navigate to the client in your browser**
 `http://localhost/debugWampClient`
 
 The client should have connected to the router and is ready to receive log messages
 
-**Add PHPDebugConsole to the project you wish to debug**  
+**Add PHPDebugConsole to the project you wish to debug**
 `$ php composer.phar require bdk/debug`
 
-**Install a PHPDebugConsole/outputWamp plugin dependency**  
+**Install a PHPDebugConsole/outputWamp plugin dependency**
 `$ php composer.phar require bdk/wamp-publisher`
 
 Add the OutputWamp plugin to your application
@@ -75,6 +80,9 @@ $debug = new \bdk\Debug(array(
 $wampPublisher = new \bdk\WampPublisher(array(
     'realm'=>'debug'
 ));
-$outputWamp = new \bdk\Debug\OutputWamp($debug, $wampPublisher);
+$outputWamp = new \bdk\Debug\Output\Wamp($debug, $wampPublisher);  // see note below
 $debug->addPlugin($outputWamp);   // or $debug->setCfg('outputAs', $outputWamp);  to prevent the default in-page html output
 ```
+
+\* The wamp-plugin classname changed in PHPDebugConsole v2.1.  If you're using pre 2.1 use:
+`new \bdk\Debug\OutputWamp($debug, $wampPublisher);`
