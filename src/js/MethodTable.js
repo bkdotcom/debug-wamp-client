@@ -20,7 +20,11 @@ var logDumper = (function($, module){
 		$table = $('<table><caption>'+caption.escapeHtml()+'</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
 			.addClass(classname);
 		for (keyi = 0, colLength = colKeys.length; keyi < colLength; keyi++) {
-			$table.find('thead tr').append('<th scope="col">'+module.dump(colKeys[keyi], true, false, false)+'</th>');
+			var  val = colKeys[keyi];
+			if (val === '') {
+				val = 'value';
+			}
+			$table.find('thead tr').append('<th scope="col">'+module.dump(val, true, false, false)+'</th>');
 		}
 		for (keyi = 0, rowLength = keys.length; keyi < rowLength; keyi++) {
 			key = keys[keyi];
@@ -39,10 +43,13 @@ var logDumper = (function($, module){
 			classname = /^\d+$/.test(key) ? 't_int' : classAndInner.lass;
 			$tr = $('<tr><th scope="row" class="t_key '+classname+'">'+classAndInner.innerhtml+'</th></tr>');
 			if (row.debug == module.ABSTRACTION && row.type == "object") {
-				haveObj = true;
-				$tr.append(module.markupClassname(row.className, 'td', {
-					title: row.phpDoc.summary ? row.phpDoc.summary : null
-				}));
+				var isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
+				if (!isStringified && row.className != 'Closure') {
+					haveObj = true;
+					$tr.append(module.markupClassname(row.className, 'td', {
+						title: row.phpDoc.summary ? row.phpDoc.summary : null
+					}));
+				}
 			}
 			values = getValues(row, colKeys);
 			for (vali = 0, colLength = values.length; vali < colLength; vali++) {
@@ -60,17 +67,26 @@ var logDumper = (function($, module){
 
 	function getTableKeys(obj) {
 		var i, key,
+			isAbstraction,
 			keys = [],
 			row = {};
 		delete obj['__debug_key_order__'];
 		for (i in obj) {
 			row = obj[i];
-			if (typeof row == "object" && typeof row.debug == "string" && atob(row.debug) == module.ABSTRACTION) {
+			isAbstraction = typeof row == "object" && typeof row.debug == "string" && atob(row.debug) == module.ABSTRACTION;
+			if (isAbstraction) {
 				// abstraction
-				if (atob(row.type) == "object") {
-					module.base64DecodeObj(row);
-					if (row.implements.indexOf("Traversable") > -1) {
+				module.base64DecodeObj(row);
+				if (row.type == "object") {
+					if (typeof row.traverseValues !== "undefined" && Object.keys(row.traverseValues).length) {
+						row = row.traverseValues;
+					} else if (typeof row.values !== "undefined" && Object.keys(row.values).length) {
+						// pre 2.1
 						row = row.values;
+					} else if (row.stringified && row.stringified.length) {
+						row = null;
+					} else if (typeof row.methods.__toString !== "undefined") {
+						row = null;
 					} else {
 						row = row.properties;
 						for (key in row) {
@@ -80,8 +96,12 @@ var logDumper = (function($, module){
 						}
 					}
 				} else {
+					// ie callable or resource
 					row = null;
 				}
+			}
+			if (typeof row != "object") {
+				row = {'':null};
 			}
 			for (key in row) {
 				if (keys.indexOf(key) < 0) {
@@ -99,35 +119,52 @@ var logDumper = (function($, module){
 		var rowIsObject = rowIsAbstraction && (row.type == "object" || atob(row.type) == "object");
 		*/
 		// var type = module.getType(row);
-		var type = typeof row.debug == "string" && row.debug == module.ABSTRACTION ? row.type : "array";
-		var isTraversable = false;
+		var isAbstraction = typeof row.debug == "string" && row.debug == module.ABSTRACTION;
+		var type = isAbstraction ? row.type : "array";
 		var i, k, length, info, values = [], value;
-		if (type == "object") {
-			// module.base64DecodeObj(row);
-			isTraversable = row.implements.indexOf('Traversable') > -1 && typeof row.values != "undefined";
-			if (isTraversable) {
-				row = row.values;
-			} else {
-				for (k in row.properties) {
-					info = row.properties[k];
-					if (info.visibility !== 'public') {
-						delete row.properties[k];
-					} else {
-						row.properties[k] = info.value;
+		if (isAbstraction) {
+			if (type == "object") {
+				if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
+					row = row.traverseValues;
+				} else if (typeof row.values !== "undefined" && Object.keys(row.values).length) {
+					// pre 2.1
+					row = row.values;
+				} else if (row.stringified && row.stringified.length) {
+					row = row.stringified;
+				} else if (typeof row.methods.__toString !== "undefined") {
+					row = row.methods.__toString.returnValue;
+				} else if (row.className == 'Closure') {
+					row = {'':row};
+				} else {
+					for (k in row.properties) {
+						info = row.properties[k];
+						if (info.visibility !== 'public') {
+							delete row.properties[k];
+						} else {
+							row.properties[k] = info.value;
+						}
 					}
+					row = row.properties;
 				}
-				row = row.properties;
+			} else {
+				row = {'':row};
 			}
+		}
+		if (typeof row !== "object") {
+			row = {'':row};
 		}
 		for (i = 0, length = keys.length; i < length; i++) {
 			k = keys[i];
-			value = module.UNDEFINED;
-			if (typeof row === "object") {
-				if (typeof row[k] !== "undefined") {
-					value = row[k];
+			value = typeof row[k] !== "undefined"
+				? row[k]
+				: module.UNDEFINED;
+			isAbstraction = typeof value == "object" && typeof value.debug == "string" && value.debug == module.ABSTRACTION;
+			if (isAbstraction && value.type == "object") {
+				if (value.stringified && value.stringified.length) {
+					value = value.stringified;
+				} else if (typeof value.methods.__toString !== "undefined") {
+					value = value.methods.__toString.returnValue;
 				}
-			} else if (k === '') {
-				value = row;
 			}
 			values.push(value);
 		}
@@ -148,6 +185,6 @@ var logDumper = (function($, module){
 			};
 	}
 
-    return module;
+	return module;
 
 }(jQuery, logDumper || {}));

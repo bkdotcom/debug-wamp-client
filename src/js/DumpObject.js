@@ -110,6 +110,9 @@ var logDumper = (function($, module){
         var props = ["className","debug","extends","implements","type"],
             prop,
             i;
+        if (abs.debug === module.ABSTRACTION) {
+            return;
+        }
         for (i = 0; i < props.length; i++) {
             prop = props[i];
             if (typeof abs[prop] == "string") {

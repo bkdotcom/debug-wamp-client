@@ -190,11 +190,13 @@ var logDumper = (function($, module) {
 		}
 		if (typeof val == "object") { // already checked for null
 			// console.log('val', val);
-			var debug = typeof val.debug == "string" ? atob(val.debug) : val.debug;
-			type = typeof val.type == "string" ? atob(val.type) : val.type;
-			if (typeof debug == "undefined" || debug !== ABSTRACTION) {
-				// plain ol associative array
-				type = "array";
+			type = "array";
+			if (typeof val.debug == "string") {
+				if (val.debug === ABSTRACTION) {
+					type = val.type;
+				} else if (atob(val.debug) == ABSTRACTION) {
+					type = atob(val.type);
+				}
 			}
 			return type;
 		}
