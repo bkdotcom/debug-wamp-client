@@ -158,8 +158,7 @@ var logDumper = (function($, module){
 			value = typeof row[k] !== "undefined"
 				? row[k]
 				: module.UNDEFINED;
-			isAbstraction = typeof value == "object" && typeof value.debug == "string" && value.debug == module.ABSTRACTION;
-			if (isAbstraction && value.type == "object") {
+			if (module.getType(value) == "object") {
 				if (value.stringified && value.stringified.length) {
 					value = value.stringified;
 				} else if (typeof value.methods.__toString !== "undefined") {
