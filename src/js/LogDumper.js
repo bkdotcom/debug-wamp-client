@@ -410,6 +410,7 @@ var logDumper = (function($, module) {
 				$node.closest(".m_group").prev().removeClass("empty");
 			}
 		} catch (err) {
+        	console.warn(err);
             module.outputLogEntry('error', [
             	btoa("%cDebugWampClient: %cerror processing %c"+method+"()"),
             	btoa("font-weight:bold;"),

@@ -1,13 +1,16 @@
 var logDumper = (function($, module){
 
+	var colClasses = {};
+
 	module.methodTable = function (rows, caption, columns, classname) {
 		// console.log('methodTable', rows);
 		var classAndInner,
 			haveObj = false,
-			keyi,
-			keys = rows['__debug_key_order__'] || Object.keys(rows),
-			key,
-			colKeys = columns.length ? columns : getTableKeys(rows),
+			i, i2,
+			rowKeys = [],
+			rowKey,
+			colKeys = [],
+			colKey,
 			rowLength,
 			colLength,
 			row,
@@ -16,33 +19,48 @@ var logDumper = (function($, module){
 		if (classname === undefined) {
 			classname = "table-bordered";
 		}
-		delete rows['__debug_key_order__'];
 		$table = $('<table><caption>'+caption.escapeHtml()+'</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
 			.addClass(classname);
-		for (keyi = 0, colLength = colKeys.length; keyi < colLength; keyi++) {
-			var  val = colKeys[keyi];
-			if (val === '') {
-				val = 'value';
+		if (isAbstraction(rows)) {
+			if (atob(rows.type) == "object") {
+				$table.find('caption').append(' ' + module.markupClassname(atob(rows.className)));
 			}
-			$table.find('thead tr').append('<th scope="col">'+module.dump(val, true, false, false)+'</th>');
+			if (Object.keys(rows.traverseValues).length) {
+				rows = rows.traverseValues;
+			}
 		}
-		for (keyi = 0, rowLength = keys.length; keyi < rowLength; keyi++) {
-			key = keys[keyi];
-			row = rows[key];
+		rowKeys = rows['__debug_key_order__'] || Object.keys(rows);
+		colKeys = columns.length ? columns : getTableKeys(rows);
+
+		colClasses = {};
+		for (i = 0, colLength = colKeys.length; i < colLength; i++) {
+			colKey = colKeys[i];
+			if (colKey === '') {
+				colKey = 'value';
+			}
+			colClasses[colKey] = null;
+			$table.find('thead tr').append(
+				'<th scope="col">'+module.dump(colKey, true, false, false)+'</th>'
+			);
+		}
+		delete rows['__debug_key_order__'];
+		for (i = 0, rowLength = rowKeys.length; i < rowLength; i++) {
+			rowKey = rowKeys[i];
+			row = rows[rowKey];
 			if (columns.length > 0) {
 				// getTableKeys not called... need to base64decode
 				module.base64DecodeObj(row);
 			}
 			// using for in, so every key will be a string
 			//  check if actually an integer
-			if (typeof key == "string" && key.match(/^\d+$/) && Number.isSafeInteger(key)) {
-				key = parseInt(key, 10);
+			if (typeof rowKey == "string" && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
+				rowKey = parseInt(rowKey, 10);
 			}
 			// console.log('row', row);
-			classAndInner = parseAttribString(module.dump(key, true, true, false));
-			classname = /^\d+$/.test(key) ? 't_int' : classAndInner.lass;
+			classAndInner = parseAttribString(module.dump(rowKey, true, true, false));
+			classname = /^\d+$/.test(rowKey) ? 't_int' : classAndInner.class;
 			$tr = $('<tr><th scope="row" class="t_key '+classname+'">'+classAndInner.innerhtml+'</th></tr>');
-			if (row.debug == module.ABSTRACTION && row.type == "object") {
+			if (isAbstraction(row) && row.type == "object") {
 				var isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
 				if (!isStringified && row.className != 'Closure') {
 					haveObj = true;
@@ -52,12 +70,23 @@ var logDumper = (function($, module){
 				}
 			}
 			values = getValues(row, colKeys);
-			for (vali = 0, colLength = values.length; vali < colLength; vali++) {
-				// key = colKeys[keyi];
-				classAndInner = parseAttribString(module.dump(values[vali], true));
+			for (i2 = 0, colLength = values.length; i2 < colLength; i2++) {
+				classAndInner = parseAttribString(module.dump(values[i2], true));
 				$tr.append('<td class="'+classAndInner.class+'">'+classAndInner.innerhtml+'</td>');
 			}
 			$table.append($tr);
+		}
+		for (colKey in colClasses) {
+			if (!colClasses[colKey]) {
+				continue;
+			}
+			$table.find('thead tr th').each(function(){
+				if ($(this).text() === colKey) {
+					var classname = atob(colClasses[colKey]);
+					$(this).append(' '+module.markupClassname(classname));
+					return false;
+				}
+			});
 		}
 		if (haveObj) {
 			$table.find('thead tr > *').eq(0).after("<th>&nbsp;</th>");
@@ -65,16 +94,23 @@ var logDumper = (function($, module){
 		return $table;
 	};
 
+	function isAbstraction(val) {
+		return val
+			&& typeof val == "object"
+			&& typeof val.debug == "string"
+			&& (val.debug === module.ABSTRACTION || atob(val.debug) === module.ABSTRACTION)	;
+	}
+
 	function getTableKeys(obj) {
 		var i, key,
-			isAbstraction,
+			isAbs,
 			keys = [],
 			row = {};
 		delete obj['__debug_key_order__'];
 		for (i in obj) {
 			row = obj[i];
-			isAbstraction = typeof row == "object" && typeof row.debug == "string" && atob(row.debug) == module.ABSTRACTION;
-			if (isAbstraction) {
+			isAbs = isAbstraction(row);
+			if (isAbs) {
 				// abstraction
 				module.base64DecodeObj(row);
 				if (row.type == "object") {
@@ -113,16 +149,10 @@ var logDumper = (function($, module){
 	}
 
 	function getValues(row, keys) {
-		/*
-		var isAbstraction = typeof row == "object" &&
-			(row.debug === module.ABSTRACTION || atob(row.debug) == module.ABSTRACTION);
-		var rowIsObject = rowIsAbstraction && (row.type == "object" || atob(row.type) == "object");
-		*/
-		// var type = module.getType(row);
-		var isAbstraction = typeof row.debug == "string" && row.debug == module.ABSTRACTION;
-		var type = isAbstraction ? row.type : "array";
+		var isAbs = isAbstraction(row);
+		var type = isAbs ? row.type : "array";
 		var i, k, length, info, values = [], value;
-		if (isAbstraction) {
+		if (isAbs) {
 			if (type == "object") {
 				if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
 					row = row.traverseValues;
@@ -160,10 +190,18 @@ var logDumper = (function($, module){
 				: module.UNDEFINED;
 			if (module.getType(value) == "object") {
 				if (value.stringified && value.stringified.length) {
+					colClasses[k] = colClasses[k] === null || colClasses[k] == value.className
+						? value.className
+						: false;
 					value = value.stringified;
 				} else if (typeof value.methods.__toString !== "undefined") {
+					colClasses[k] = colClasses[k] === null || colClasses[k] == value.className
+						? value.className
+						: false;
 					value = value.methods.__toString.returnValue;
 				}
+			} else if (value !== module.UNDEFINED && value !== null) {
+				colClasses[k] = false;
 			}
 			values.push(value);
 		}
