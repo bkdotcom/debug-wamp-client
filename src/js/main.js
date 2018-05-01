@@ -58,7 +58,8 @@ var config = (function($, module) {
     // var $currentNode = $('.debug .debug-content');
     var configDefault = {
         url: "ws://127.0.0.1:9090/",
-        realm: "debug"
+        realm: "debug",
+        "font-size": "1em"
     };
     var config = getLocalStorageItem('debugConsoleConfig');
 
@@ -150,6 +151,34 @@ $(function() {
     }
     */
 
+    function findCssRule(selector) {
+        var stylesheet = $("#wampClientCss")[0].sheet;
+        var rules = stylesheet.cssRules;
+        var len = rules.length;
+        var i;
+        var rule;
+        for (i = 0; i < len; i++) {
+            rule = rules[i];
+            if (rule.selectorText == selector) {
+                return rule;
+            }
+        }
+        // not found -> create
+        stylesheet.insertRule(selector + ' {  }');
+        return stylesheet.cssRules[0];
+    }
+
+    function updateCssProperty(selector, rule, value) {
+        var cssRule = findCssRule(selector);
+        var ruleCamel = rule.replace(/-([a-z])/g, function(matach, p1){
+            return p1.toUpperCase();
+        });
+        cssRule.style[ruleCamel] = value;
+    }
+
+    updateCssProperty(".debug", "font-size", "inherit");
+    updateCssProperty("#body", "font-size", config.get("font-size"));
+
     events.subscribe('websocket', function(cmd, data) {
         // console.warn('rcvd websocket', cmd, JSON.stringify(data));
         if (cmd == "msg" && data) {
@@ -216,8 +245,11 @@ $(function() {
     $('#modal-settings').on("show.bs.modal", function (e) {
         $("#wsUrl").val(config.get("url"));
         $("#realm").val(config.get("realm"));
+        $("#font-size").val(config.get("font-size"));
     });
-
+    $("#font-size").on("change", function(){
+        updateCssProperty("#body", "font-size", $("#font-size").val());
+    });
     $('#modal-settings').on("submit", function(e) {
         e.preventDefault();
         if ($("#wsUrl").val() != config.get("url") || $("#realm").val() != config.get("realm")) {
@@ -231,7 +263,11 @@ $(function() {
             events.publish('onmessage', 'connectionClose');
             events.publish('onmessage', 'connectionOpen');
         }
+        config.set("font-size", $("#font-size").val());
         $(this).modal("hide");
+    });
+    $('#modal-settings').on("hide.bs.modal", function (e) {
+        updateCssProperty("#body", "font-size", config.get("font-size"));
     });
 
     $().debugEnhance("addCss");

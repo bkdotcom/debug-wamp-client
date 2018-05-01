@@ -42,19 +42,15 @@ body { padding-top:50px; }
 	}
 
 .alert {
-	/*
-	font-size: 11px;
-	*/
 	padding: 10px;
 	margin-bottom: 10px;
 	border: 1px solid transparent;
-	/*border-radius: 4px;*/
 }
 .alert-dismissible { padding-right: 35px; }
 
-.panel-heading { font-size:9px; cursor:pointer; }
+.panel-heading { cursor:pointer; }
 .panel-heading * { font-size:inherit; }
-.panel-heading > i { float: left; }
+.panel-heading > i { float:left; }
 .panel-heading .label { padding: .1em .6em .2em; }
 .panel-heading .http-host { opacity: 0.6; }
 .label-default { background-color: rgba(119, 119, 119, 0.3); color: inherit; }
