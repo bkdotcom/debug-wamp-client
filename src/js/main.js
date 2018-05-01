@@ -63,6 +63,8 @@ var config = (function($, module) {
     };
     var config = getLocalStorageItem('debugConsoleConfig');
 
+    module.haveSavedConfig = config !== null;
+
     config = $.extend(configDefault, config);
 
     module.get = function (key) {
@@ -75,6 +77,7 @@ var config = (function($, module) {
     module.set = function(key, val) {
         config[key] = val;
         setLocalStorageItem("debugConsoleConfig", config);
+        module.haveSavedConfig = true;
         // events.publish('config.set', config);
     };
 
@@ -196,6 +199,9 @@ $(function() {
                     'Not connected to debug server' +
                 '</div>'
             );
+            if (!config.haveSavedConfig) {
+                $('#modal-settings').modal("show");
+            }
         } else if (cmd == "connectionOpened") {
             $("#alert").remove();
         }
