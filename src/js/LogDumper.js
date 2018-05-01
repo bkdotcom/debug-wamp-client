@@ -379,6 +379,7 @@ var logDumper = (function($, module) {
 				}
 				if (hasSubs) {
 					glue = '';
+					args[0] = module.dump(args[0], false, true, false);
 				} else {
 					if (args.length == 2 && typeof args[0] == "string") {
 						glue = ' = ';
