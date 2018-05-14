@@ -69,6 +69,25 @@ class WampClient
 	}
 
 	/**
+	 * Output Img
+	 *
+	 * @return void
+	 */
+	public function actionImg()
+	{
+		$src = isset($_GET['src']) ? $_GET['src'] : null;
+		$srcSanitized = __DIR__.'/img/'.str_replace('..', '', $src);
+		if ($src && file_exists($srcSanitized)) {
+			header('Content-Type: image/png');
+			header('Content-Disposition: inline; filename="'.rawurlencode(basename($srcSanitized)).'"');
+			header('Content-Length: '.filesize($srcSanitized));
+			readfile($srcSanitized);
+		} else {
+			header("HTTP/1.0 404 Not Found");
+		}
+	}
+
+	/**
 	 * Output Javascript
 	 *
 	 * @return void
