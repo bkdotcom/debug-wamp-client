@@ -143,6 +143,7 @@ var events = (function(){
 $(function() {
     var classCollapsed = 'glyphicon-chevron-down',
         classExpanded = 'glyphicon-chevron-up',
+        hasConnected = false,
         timeoutHandler;
         // connection = getConnection(),
         // myWorker = new Worker('socketWorker.js');
@@ -199,10 +200,11 @@ $(function() {
                     'Not connected to debug server' +
                 '</div>'
             );
-            if (!config.haveSavedConfig) {
+            if (!config.haveSavedConfig && !hasConnected) {
                 $('#modal-settings').modal("show");
             }
         } else if (cmd == "connectionOpened") {
+            hasConnected = true;
             $("#alert").remove();
         }
     });
