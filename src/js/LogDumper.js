@@ -506,7 +506,26 @@ var logDumper = (function($, module) {
 			},
 			$node;
 		try {
-			if (methods[method]) {
+			/*
+			console.log({
+				method: method,
+				args: args,
+				meta: meta
+			});
+			*/
+			if (meta.format == "html") {
+				if (typeof args == "object") {
+					$node = $('<div />', {class:"m_"+method});
+					for (i = 0; i < args.length; i++) {
+						$node.append(args[i]);
+					}
+				} else {
+					$node = $(args);
+					if ($node.find("> .m_"+method).length == 0) {
+						$node = $('<div />', {class:"m_"+method}).html(args);	// $node.wrap('<div />').addClass("m_"+method);
+					}
+				}
+			} else if (methods[method]) {
 				$node = methods[method](method, args, meta, info);
 			} else {
 				$node = methods.default(method, args, meta, info);
