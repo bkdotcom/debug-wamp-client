@@ -128,8 +128,8 @@ var logDumper = (function($, module) {
 			delete connections[meta.requestId];
 		},
 		errorNotConsoled: function (method, args, meta, info) {
-			var $node = $container.find('.alert.error-summary');
-			var $container = info.$container;
+			var $container = info.$container,
+				$node = $container.find('.alert.error-summary');
 			if (!$node.length) {
 				$node = $('<div class="alert alert-danger error-summary">' +
 					'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
