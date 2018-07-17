@@ -237,7 +237,7 @@ $(function() {
             // has been long pressed (3 seconds)
             // clear all (incl working)
             $("#body > .panel").remove();
-        }, 3000);
+        }, 2000);
     });
 
     $("body").on("shown.bs.collapse hidden.bs.collapse", ".panel-body", function(e) {

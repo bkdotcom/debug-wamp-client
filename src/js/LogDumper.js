@@ -24,7 +24,8 @@ var logDumper = (function($, module) {
 				? args.dismissible
 				: meta.dismissible;
 			var $node = $('<div class="alert"></div>').addClass("alert-"+className)
-				.html(message);
+				.html(message)
+				.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
 			if (dismissible) {
 				$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
 					+'<span aria-hidden="true">&times;</span>'
@@ -38,9 +39,11 @@ var logDumper = (function($, module) {
 					class: 'm_clear',
 					title: meta.file + ': line ' + meta.line
 				},
+				channelFilter = function() {
+					return $(this).data('channel') == meta.channel;
+				},
 				flags = meta.flags,
 				i,
-				msg = atob(args[0]),
 				$container = info.$container,
 				$curNodeLog,
 				$curTreeSummary,
@@ -49,6 +52,7 @@ var logDumper = (function($, module) {
 				$node,
 				$remove,
 				stackLen = connections[meta.requestId].length;
+			args = processSubstitutions(args)
 			for (i = stackLen - 1; i >= 0; i--) {
 				$node = connections[meta.requestId][i];
 				if ($node.closest(".debug-header").length && !$curTreeSummary) {
@@ -65,13 +69,14 @@ var logDumper = (function($, module) {
 				}
 			}
 			if (flags.alerts) {
-				$container.find('.alert').remove();
+				$container.find('.alert').filter(channelFilter).remove();
 			}
 			if (flags.summary) {
 				$container.find(".debug-header > .m_groupSummary").each(function(){
 					$remove = $(this)
 						.find('*')
-						.not($curTreeSummary);
+						.not($curTreeSummary)
+						.filter(channelFilter);
 					if (!flags.summaryErrors) {
 						$remove = $remove.not(".m_error, .m_warn");
 						$nestedError = $(this).find(".m_group .m_error, .m_group .m_warn");
@@ -80,12 +85,13 @@ var logDumper = (function($, module) {
 					$remove.remove();
 				});
 			} else if (flags.summaryErrors) {
-				$container.find(".debug-header .m_error, .debug-header .m_warn").remove();
+				$container.find(".debug-header .m_error, .debug-header .m_warn").filter(channelFilter).remove();
 			}
 			if (flags.log) {
 				$remove = $container
 					.find('.debug-content > *, .debug-content .m_group > *')
-					.not($curTreeLog);
+					.not($curTreeLog)
+					.filter(channelFilter);
 				if (!flags.logErrors) {
 					$remove = $remove.not(".m_error, .m_warn");
 					$nestedError = $(".debug-content .m_group").find(".m_error, .m_warn");
@@ -93,7 +99,7 @@ var logDumper = (function($, module) {
 				}
 				$remove.remove();
 			} else if (flags.logErrors) {
-				$container.find(".debug-content .m_error, .debug-content .m_warn").remove();
+				$container.find(".debug-content .m_error, .debug-content .m_warn").filter(channelFilter).remove();
 			}
 			if (!flags.silent) {
 				/*
@@ -103,7 +109,7 @@ var logDumper = (function($, module) {
 				}
 				*/
 				info.$currentNode = $curNodeLog;
-				return $('<div>', attribs).html(msg);
+				return $('<div>', attribs).html(args[0]);
 			}
 		},
 		endOutput: function (method, args, meta, info) {
@@ -243,10 +249,12 @@ var logDumper = (function($, module) {
 				});
 				$table = module.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
 			}
+			$table.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
 			info.$currentNode.append($table);
 		},
 		trace: function (method, args, meta, info) {
 			var $table = module.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
+			$table.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
 			info.$currentNode.append($table);
 		},
 		default: function (method, args, meta, info) {
@@ -283,7 +291,7 @@ var logDumper = (function($, module) {
 					$container.removeClass('panel-default');
 				}
 			}
-			if (['error','info','log','warn'].indexOf(method) > -1 && typeof args[0] == "string" && numArgs > 1) {
+			if (['assert','error','info','log','warn'].indexOf(method) > -1 && numArgs > 1) {
 				args = processSubstitutions(args);
 			}
 			if (hasSubs) {
@@ -434,11 +442,16 @@ var logDumper = (function($, module) {
 						+'<i class="glyphicon glyphicon-chevron-down"></i>'
 						+'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>'
 						+'<div class="panel-heading-body">'
-							+'<h3 class="panel-title">Toggle</h3>'
+							+'<h3 class="panel-title">Building Request...</h3>'
 							+'<i class="fa fa-spinner fa-pulse fa-lg"></i>'
 						+'</div>'
 					+'</div>'
 					+'<div class="panel-body collapse debug">'
+						+'<fieldset class="channels" style="display:none;">'
+							+'<legend>Channels</legend>'
+							+'<ul class="list-unstyled">'
+							+'</ul>'
+						+'</fieldset>'
 						+'<div class="debug-header m_group"></div>'
 						+'<div class="debug-content m_group"></div>'
 						+'<i class="fa fa-spinner fa-pulse"></i>'
@@ -504,6 +517,8 @@ var logDumper = (function($, module) {
 				$currentNode: module.getNode(meta.requestId),
 				$container: $("#"+meta.requestId)
 			},
+			channels = info.$container.data('channels') || [],
+			$channelCheckbox,
 			$node;
 		try {
 			/*
@@ -530,8 +545,15 @@ var logDumper = (function($, module) {
 			} else {
 				$node = methods.default(method, args, meta, info);
 			}
+			if (meta.channel !== undefined && channels.indexOf(meta.channel) < 0) {
+				addChannel(info.$container, meta.channel);
+			}
 			if ($node) {
 				info.$currentNode.append($node);
+				$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+				if (channels.length > 1 && !info.$container.find('.channels input[value="'+meta.channel+'"]').prop("checked")) {
+					$node.addClass("hidden-channel");
+				}
 				if ($node.is(':visible')) {
 					$node.debugEnhance();
 				}
@@ -548,8 +570,22 @@ var logDumper = (function($, module) {
 		}
 	};
 
-	function checkTimestamp(val)
-	{
+	function addChannel($container, channel, info) {
+		var channels = $container.data("channels") || [],
+			$li = $('<li><label>'
+				+'<input checked data-is-root="false" data-toggle="channel" type="checkbox" value="" /> '
+				+channel
+				+'</label></li>');
+		channels.push(channel);
+		$container.data("channels", channels);
+		$li.find("input").val(channel);
+		$container.find(".channels ul").append($li);
+		if (channels.length > 1) {
+			$container.find(".channels").show();
+		}
+	}
+
+	function checkTimestamp(val) {
 		var secs = 86400 * 90; // 90 days worth o seconds
 		var tsNow = Date.now() / 1000;
 		val = parseFloat(val, 10);
@@ -593,6 +629,7 @@ var logDumper = (function($, module) {
 						: '' ) +
 				'</span>' +
 			'</div>');
+		$header.attr("data-channel", meta.channel);	// using attr, so can use [data-channel=xxx] selector
 		if (meta['hideIfEmpty']) {
 			$header.addClass('hide-if-empty');
 		}
@@ -660,6 +697,9 @@ var logDumper = (function($, module) {
 		var segments = [];
 		var segment = '';
 		var argsNew = [];
+		if (typeof args[0] != "string" || args.length < 2) {
+			return args;
+		}
 		subRegex = new RegExp(subRegex, 'g');
 		/*
 		if (subRegex.test(atob(args[0]))) {
