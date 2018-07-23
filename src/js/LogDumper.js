@@ -236,7 +236,6 @@ var logDumper = (function($, module) {
 					.find(".panel-heading .panel-heading-body")
 					.prepend('<span class="pull-right">'+date+'</span>');
 			}
-
 		},
 		table: function (method, args, meta, info) {
 			var $table;
@@ -249,13 +248,10 @@ var logDumper = (function($, module) {
 				});
 				$table = module.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
 			}
-			$table.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-			info.$currentNode.append($table);
+			return $table;
 		},
 		trace: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
-			$table.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-			info.$currentNode.append($table);
+			return module.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
 		},
 		default: function (method, args, meta, info) {
 			var arg,
