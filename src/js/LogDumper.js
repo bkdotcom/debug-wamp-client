@@ -159,6 +159,10 @@ var logDumper = (function($, module) {
 		group: function (method, args, meta, info) {
 			var $groupHeader = groupHeader(method, args, meta);
 			var $node = $("<div>").addClass("m_group");
+			if (meta.level) {
+				$groupHeader.addClass("level-"+meta.level);
+				$node.addClass("level-"+meta.level);
+			}
 			info.$currentNode.append( $groupHeader );
 			info.$currentNode.append( $node );
 			connections[meta.requestId].push($node)
