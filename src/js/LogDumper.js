@@ -265,6 +265,7 @@ var logDumper = (function($, module) {
 				},
 				$container = info.$container,
 				glue = ", ",
+				i,
 				// hasSubs = false,
 				$node,
 				numArgs = args.length;
@@ -518,6 +519,7 @@ var logDumper = (function($, module) {
 				$container: $("#"+meta.requestId)
 			},
 			channels = info.$container.data('channels') || [],
+			i,
 			$channelCheckbox,
 			$node;
 		try {
@@ -590,7 +592,6 @@ var logDumper = (function($, module) {
 		var tsNow = Date.now() / 1000;
 		val = parseFloat(val, 10);
 		if (val > tsNow - secs && val < tsNow + secs) {
-			// return date('Y-m-d H:i:s', $val);
 			return (new Date(val*1000)).toString();
 		}
 		return false;

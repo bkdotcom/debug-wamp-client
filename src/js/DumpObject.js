@@ -127,7 +127,12 @@ var logDumper = (function($, module){
         abs.implements = abs.implements.map(atob);
         */
         $.each(abs.properties, function(k, info) {
-            info.visibility = atob(info.visibility);
+            if (typeof info.visibility != "object") {
+                info.visibility = [ info.visibility ];
+            }
+            $.each(info.visibility, function(k, vis) {
+                info.visibility[k] = atob(vis);
+            });
             info.type = info.type ? atob(info.type) : null;
             info.desc = info.desc ? atob(info.desc) : null;
         });
@@ -189,10 +194,14 @@ var logDumper = (function($, module){
         html += magicMethodInfo(abs, ['__get', '__set']);
         $.each(properties, function(k, info) {
             // console.info('property info', info);
-            var viaDebugInfo = info.viaDebugInfo;
-            var isPrivateAncestor = info['visibility'] == 'private' && info['inheritedFrom'];
-            var $dd = $('<dd class="property">' +
-                '<span class="t_modifier_'+info.visibility+'">' + info.visibility + '</span>' +
+            var isPrivateAncestor = $.inArray("private", info.visibility) >= 0 && info['inheritedFrom'];
+            var modifiers = '';
+            var $dd;
+            $.each(info.visibility, function(i, vis) {
+                modifiers += '<span class="t_modifier_'+vis+'">' + vis + '</span> ';
+            });
+            $dd = $('<dd class="property">' +
+                modifiers +
                 (info.type
                     ? ' <span class="t_type">' + info.type + '</span>'
                     : ''
@@ -207,11 +216,14 @@ var logDumper = (function($, module){
                 module.dump(info.value) +
                 '</dd>'
             );
-            if (info.visibility != "debug") {
-                $dd.addClass(info.visibility);
+            if ($.inArray("debug", info.visibility) < 0) {
+                $dd.addClass(info.visibility.join(' '));
             }
-            if (viaDebugInfo) {
-                $dd.addClass("debug-value");
+            if (info.viaDebugInfo) {
+                $dd.addClass("debuginfo-value");
+            }
+            if (info["isExcluded"]) {
+                $dd.addClass("excluded");
             }
             if (isPrivateAncestor) {
                 $dd.addClass("private-ancestor");
