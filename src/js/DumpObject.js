@@ -22,8 +22,8 @@ var logDumper = (function($, module){
             html = strClassName +
                 ' <span class="excluded">(not inspected)</span>';
         } else {
-            if (typeof abs.stringified !== "undefined") {
-                toStringVal = abs.stringified
+            if (abs.stringified !== null) {
+                toStringVal = abs.stringified;
             } else if (typeof abs.methods.__toString !== "undefined" && abs.methods.__toString.returnValue) {
                 toStringVal = abs.methods.__toString.returnValue;
             }
@@ -38,10 +38,12 @@ var logDumper = (function($, module){
                 $toStringDump = $( module.dump(toStringVal) );
                 // console.log('$toStringDump', $toStringDump);
                 // var classAndValue = $this->debug->utilities->parseAttribString($toStringDump);
-                objToString = '<span class="' + $toStringDump.prop('class') + ' t_toStringValue" title="__toString()">' +
+                objToString = '<span class="' + $toStringDump.prop('class') + ' t_toStringValue" ' +
+                    (!abs.stringified ? 'title="__toString()"' : '') +
+                    ">" +
                     $toStringDump.html() +
                     toStringValAppend +
-                    '</span> ';
+                    "</span> ";
             }
             /*
             $.each(abs.misc, function(k, v) {
