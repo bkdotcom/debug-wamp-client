@@ -59,7 +59,7 @@ var logDumper = (function($, module){
 			// console.log('row', row);
 			classAndInner = parseAttribString(module.dump(rowKey, true, true, false));
 			classname = /^\d+$/.test(rowKey) ? 't_int' : classAndInner.class;
-			$tr = $('<tr><th scope="row" class="t_key '+classname+'">'+classAndInner.innerhtml+'</th></tr>');
+			$tr = $('<tr><th scope="row" class="t_key '+classname+' text-right">'+classAndInner.innerhtml+'</th></tr>');
 			if (isAbstraction(row) && row.type == "object") {
 				var isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
 				if (!isStringified && row.className != 'Closure') {

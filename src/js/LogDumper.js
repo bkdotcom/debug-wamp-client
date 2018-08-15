@@ -242,20 +242,18 @@ var logDumper = (function($, module) {
 			}
 		},
 		table: function (method, args, meta, info) {
-			var $table;
-			if (typeof meta.caption !== "undefined") {
-				// v2.1 +
-				$table = module.methodTable(args[0], meta.caption, meta.columns, "m_table table-bordered sortable");
-			} else {
-				$.each(args[2], function(i,col) {
-					args[2][i] = atob(col);
-				});
-				$table = module.methodTable(args[0], atob(args[1]), args[2], "m_table table-bordered sortable");
+			var $table = module.methodTable(args[0], meta.caption, meta.columns, "m_table table-bordered");
+			if (meta.sortable) {
+				$table.addClass("sortable");
 			}
 			return $table;
 		},
 		trace: function (method, args, meta, info) {
-			return module.methodTable(args[0], "trace", ["file","line","function"], "m_trace table-bordered");
+			var $table = module.methodTable(args[0], meta.caption, meta.columns, "m_trace table-bordered");
+			if (meta.sortable) {
+				$table.addClass("sortable");
+			}
+			return $table
 		},
 		default: function (method, args, meta, info) {
 			var arg,
