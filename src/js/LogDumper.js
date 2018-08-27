@@ -166,6 +166,9 @@ var logDumper = (function($, module) {
 			info.$currentNode.append( $groupHeader );
 			info.$currentNode.append( $node );
 			connections[meta.requestId].push($node)
+			if ($groupHeader.is(":visible")) {
+				$groupHeader.debugEnhance();
+			}
 		},
 		groupSummary: function (method, args, meta, info) {
 			// see if priority already exists
@@ -194,17 +197,15 @@ var logDumper = (function($, module) {
 		},
 		groupEnd: function (method, args, meta, info) {
 			var $toggle;
-			if (connections[meta.requestId].length > 1) {
-				// closing a summary group
-				connections[meta.requestId].pop();
-			} else {
-				$toggle = $currentNode.prev();
+			var isSummaryRoot = connections[meta.requestId].length > 1
+					&& info.$currentNode.hasClass("m_groupSummary");
+			connections[meta.requestId].pop();
+			if (!isSummaryRoot) {
+				$toggle = info.$currentNode.prev();
+				$toggle.debugEnhance('enhanceGroupHeader');
 				if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
 					$toggle.remove();
-					$currentNode.remove();
-				}
-				if ($toggle.is(":visible")) {
-					$toggle.debugEnhance();
+					info.$currentNode.remove();
 				}
 			}
 		},
