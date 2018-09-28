@@ -14,6 +14,7 @@ var logDumper = (function($, module){
         var toStringLen;
         var toStringValAppend;
         var $toStringDump;
+        var title;
         if (abs.isRecursion) {
             html = strClassName +
                 ' <span class="t_recursion">*RECURSION*</span>';
@@ -36,10 +37,12 @@ var logDumper = (function($, module){
                 }
                 // console.warn('dump(toStringVal)', module.dump(toStringVal));
                 $toStringDump = $( module.dump(toStringVal) );
-                // console.log('$toStringDump', $toStringDump);
-                // var classAndValue = $this->debug->utilities->parseAttribString($toStringDump);
-                objToString = '<span class="' + $toStringDump.prop('class') + ' t_toStringValue" ' +
-                    (!abs.stringified ? 'title="__toString()"' : '') +
+                title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop("title");
+                if (title == '__toString() : ') {
+                    title = '__toString()';
+                }
+                objToString = '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
+                    (title.length ? 'title="'+title+'"' : '') +
                     ">" +
                     $toStringDump.html() +
                     toStringValAppend +

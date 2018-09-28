@@ -39,10 +39,10 @@ class WampClient
 	 */
 	public function handleRequest()
 	{
-		$action = isset($_GET['action']) && method_exists($this, 'action'.ucfirst($_GET['action']))
+		$action = isset($_GET['action']) && \method_exists($this, 'action'.\ucfirst($_GET['action']))
 			? $_GET['action']
 			: 'index';
-		$this->{'action'.ucfirst($action)}();
+		$this->{'action'.\ucfirst($action)}();
 	}
 
 	/**
@@ -52,8 +52,8 @@ class WampClient
 	 */
 	public function actionIndex()
 	{
-		header('Content-Type: text/html');
-		readfile(__DIR__.'/views/index.html');
+		\header('Content-Type: text/html');
+		\readfile(__DIR__.'/views/index.html');
 	}
 
 	/**
@@ -63,9 +63,9 @@ class WampClient
 	 */
 	public function actionCss()
 	{
-		header('Content-Type: text/css');
+		\header('Content-Type: text/css');
 		echo $this->debug->output->getCss();
-		readfile(__DIR__.'/css/WampClient.css');
+		\readfile(__DIR__.'/css/WampClient.css');
 	}
 
 	/**
@@ -76,14 +76,14 @@ class WampClient
 	public function actionImg()
 	{
 		$src = isset($_GET['src']) ? $_GET['src'] : null;
-		$srcSanitized = __DIR__.'/img/'.str_replace('..', '', $src);
-		if ($src && file_exists($srcSanitized)) {
-			header('Content-Type: image/png');
-			header('Content-Disposition: inline; filename="'.rawurlencode(basename($srcSanitized)).'"');
-			header('Content-Length: '.filesize($srcSanitized));
-			readfile($srcSanitized);
+		$srcSanitized = __DIR__.'/img/'.\str_replace('..', '', $src);
+		if ($src && \file_exists($srcSanitized)) {
+			\header('Content-Type: image/png');
+			\header('Content-Disposition: inline; filename="'.\rawurlencode(\basename($srcSanitized)).'"');
+			\header('Content-Length: '.\filesize($srcSanitized));
+			\readfile($srcSanitized);
 		} else {
-			header("HTTP/1.0 404 Not Found");
+			\header("HTTP/1.0 404 Not Found");
 		}
 	}
 
@@ -105,11 +105,11 @@ class WampClient
 		    'DumpObject.js',
 		    'MethodTable.js',
 		);
-		header('Content-Type: application/javascript');
-		readfile($this->debug->getCfg('filepathScript'));
+		\header('Content-Type: application/javascript');
+		\readfile($this->debug->getCfg('filepathScript'));
 		foreach ($scripts as $path) {
 			$path = __DIR__.'/js/'.$path;
-			readfile($path);
+			\readfile($path);
 		}
 	}
 }
