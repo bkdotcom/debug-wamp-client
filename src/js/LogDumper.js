@@ -79,9 +79,8 @@ var logDumper = (function($, module) {
 						.filter(channelFilter);
 					if (!flags.summaryErrors) {
 						$remove = $remove.not(".m_error, .m_warn");
-						$nestedError = $(this).find(".m_group .m_error, .m_group .m_warn");
-						$(this).prepend($nestedError);
 					}
+					$remove.filter(".group-header").not(".enhanced").debugEnhance("expand");
 					$remove.remove();
 				});
 			} else if (flags.summaryErrors) {
@@ -94,20 +93,17 @@ var logDumper = (function($, module) {
 					.filter(channelFilter);
 				if (!flags.logErrors) {
 					$remove = $remove.not(".m_error, .m_warn");
-					$nestedError = $(".debug-content .m_group").find(".m_error, .m_warn");
-					$(".debug-content").prepend($nestedError);
 				}
+				$remove.filter(".group-header").not(".enhanced").debugEnhance("expand");
 				$remove.remove();
 			} else if (flags.logErrors) {
 				$container.find(".debug-content .m_error, .debug-content .m_warn").filter(channelFilter).remove();
 			}
 			if (!flags.silent) {
-				/*
 				if (info.$currentNode.closest(".debug-header").length) {
 					// we're in summary.. let's switch to content
-					info.$currentNode = $(".debug-content");
+					info.$currentNode = $container.find(".debug-content");
 				}
-				*/
 				info.$currentNode = $curNodeLog;
 				return $('<div>', attribs).html(args[0]);
 			}

@@ -277,7 +277,4 @@ $(function() {
     $('#modal-settings').on("hide.bs.modal", function (e) {
         updateCssProperty("#body", "font-size", config.get("font-size"));
     });
-
-    $().debugEnhance("addCss");
-    $("#body").debugEnhance("registerListeners");
 });
