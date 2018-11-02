@@ -227,7 +227,10 @@ var logDumper = (function($, module){
             if (info.viaDebugInfo) {
                 $dd.addClass("debuginfo-value");
             }
-            if (info["isExcluded"]) {
+            if (info.forceShow) {
+                $dd.addClass("forceShow");
+            }
+            if (info.isExcluded) {
                 $dd.addClass("excluded");
             }
             if (isPrivateAncestor) {
