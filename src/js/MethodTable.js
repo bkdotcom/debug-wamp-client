@@ -1,25 +1,31 @@
 var logDumper = (function($, module){
 
+	var colKeys = [];
 	var colClasses = {};
+	var rowObjInfo = [];
+	var totals = {};
+	var $table;
 
-	module.methodTable = function (rows, caption, columns, classname) {
-		// console.log('methodTable', rows);
-		var classAndInner,
-			haveObj = false,
-			i, i2,
-			rowKeys = [],
-			rowKey,
-			colKeys = [],
-			colKey,
-			rowLength,
-			colLength,
-			row,
-			$table,
-			$tr;
+	module.methodTable = function (rows, meta, classname) {
+		// console.warn('methodTable', meta, classname);
+		var i,
+			length;
 		if (classname === undefined) {
 			classname = "table-bordered";
 		}
-		$table = $('<table><caption>'+caption.escapeHtml()+'</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
+		if (meta.caption === null) {
+			meta.caption = '';
+		}
+		colKeys = [];
+		colClasses = {};
+		rowObjInfo = [];
+		totals = {};
+		if (meta.totalCols) {
+			for (i = 0, length = meta.totalCols.length; i < length; i++) {
+				totals[meta.totalCols[i]] = null;
+			}
+		}
+		$table = $('<table><caption>'+meta.caption.escapeHtml()+'</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
 			.addClass(classname);
 		if (isAbstraction(rows)) {
 			if (atob(rows.type) == "object") {
@@ -29,25 +35,45 @@ var logDumper = (function($, module){
 				rows = rows.traverseValues;
 			}
 		}
-		rowKeys = rows['__debug_key_order__'] || Object.keys(rows);
-		colKeys = columns.length ? columns : getTableKeys(rows);
+		colKeys = meta.columns.length ? meta.columns : getTableKeys(rows);
+		buildHead();
+		buildBody(rows, meta);
+		addTotals();
+		addColObjInfo();
+		addRowObjInfo();
+		return $table;
+	};
 
-		colClasses = {};
-		for (i = 0, colLength = colKeys.length; i < colLength; i++) {
+	function buildHead() {
+		var i, length, colKey;
+		for (i = 0, length = colKeys.length; i < length; i++) {
 			colKey = colKeys[i];
 			if (colKey === '') {
 				colKey = 'value';
 			}
-			colClasses[colKey] = null;
+			colClasses[colKey] = null;  // initialize
 			$table.find('thead tr').append(
 				'<th scope="col">'+module.dump(colKey, true, false, false)+'</th>'
 			);
 		}
-		delete rows['__debug_key_order__'];
-		for (i = 0, rowLength = rowKeys.length; i < rowLength; i++) {
+	}
+
+	function buildBody(rows, meta) {
+		var i, length,
+			i2, length2,
+			classAndInner,
+			classname,
+			rowKeys = [],
+			rowKey,
+			row,
+			$tr,
+			values;
+		rowKeys = rows.__debug_key_order__ || Object.keys(rows);
+		delete rows.__debug_key_order__;
+		for (i = 0, length = rowKeys.length; i < length; i++) {
 			rowKey = rowKeys[i];
 			row = rows[rowKey];
-			if (columns.length > 0) {
+			if (meta.columns.length > 0) {
 				// getTableKeys not called... need to base64decode
 				module.base64DecodeObj(row);
 			}
@@ -56,58 +82,101 @@ var logDumper = (function($, module){
 			if (typeof rowKey == "string" && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
 				rowKey = parseInt(rowKey, 10);
 			}
-			// console.log('row', row);
 			classAndInner = parseAttribString(module.dump(rowKey, true, true, false));
 			classname = /^\d+$/.test(rowKey) ? 't_int' : classAndInner.class;
 			$tr = $('<tr><th scope="row" class="t_key '+classname+' text-right">'+classAndInner.innerhtml+'</th></tr>');
-			if (isAbstraction(row) && row.type == "object") {
-				var isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
-				if (!isStringified && row.className != 'Closure') {
-					haveObj = true;
-					$tr.append(module.markupClassname(row.className, 'td', {
-						title: row.phpDoc.summary ? row.phpDoc.summary : null
-					}));
+			values = getValues(row);
+			for (i2 = 0, length2 = values.length; i2 < length2; i2++) {
+				if (totals[colKeys[i2]] !== undefined) {
+					totals[colKeys[i2]] += values[i2];
 				}
-			}
-			values = getValues(row, colKeys);
-			for (i2 = 0, colLength = values.length; i2 < colLength; i2++) {
 				classAndInner = parseAttribString(module.dump(values[i2], true));
 				$tr.append('<td class="'+classAndInner.class+'">'+classAndInner.innerhtml+'</td>');
 			}
 			$table.append($tr);
 		}
+	}
+
+	function addColObjInfo() {
+		var colKey, classname;
 		for (colKey in colClasses) {
 			if (!colClasses[colKey]) {
 				continue;
 			}
 			$table.find('thead tr th').each(function(){
 				if ($(this).text() === colKey) {
-					var classname = atob(colClasses[colKey]);
+					classname = atob(colClasses[colKey]);
 					$(this).append(' '+module.markupClassname(classname));
 					return false;
 				}
 			});
 		}
-		if (haveObj) {
-			$table.find('thead tr > *').eq(0).after("<th>&nbsp;</th>");
+	}
+
+	function addRowObjInfo() {
+		var i, length, $trs;
+		if (rowObjInfo.filter(function(val){
+			return val !== null;
+		}).length) {
+			$table.find('thead tr > :first-child, tfoot tr > :first-child').after("<th>&nbsp;</th>");
+			$trs = $table.find('tbody > tr');
+			for (i=0, length=rowObjInfo.length; i<length; i++) {
+				$trs.eq(i).find(':first-child').after(rowObjInfo[i]);
+			}
 		}
-		return $table;
-	};
+	}
+
+	/*
+		Add totals (tfoot)
+	*/
+	function addTotals() {
+		var i,
+			length,
+			cell = '',
+			cells = [],
+			classAndInner,
+			colHasTotal = false,
+			colKey,
+			haveTotal = false;
+		for (i = 0, length = colKeys.length; i < length; i++) {
+			colKey = colKeys[i];
+			colHasTotal = totals[colKey] !== undefined && totals[colKey] !== null;
+			haveTotal = haveTotal || colHasTotal;
+			cell = '<td></td>';
+			if (colHasTotal) {
+				classAndInner = parseAttribString(module.dump(totals[colKey], true));
+				cell = '<td class="'+classAndInner.class+'">'+classAndInner.innerhtml+'</td>';
+			}
+			cells.push(cell);
+		}
+		if (haveTotal) {
+			$table.append('<tfoot>' +
+				'<tr><td>&nbsp;</td>' +
+					cells.join('') +
+				'</tr>' +
+				'</tfoot>'
+			);
+		}
+	}
 
 	function isAbstraction(val) {
-		return val
-			&& typeof val == "object"
-			&& typeof val.debug == "string"
-			&& (val.debug === module.ABSTRACTION || atob(val.debug) === module.ABSTRACTION)	;
+		return val &&
+			typeof val == "object" &&
+			typeof val.debug == "string" &&
+			(val.debug === module.ABSTRACTION || atob(val.debug) === module.ABSTRACTION);
 	}
 
 	function getTableKeys(obj) {
 		var i, key,
 			isAbs,
+			vis,
+			isPublic = false,
 			keys = [],
 			row = {};
-		delete obj['__debug_key_order__'];
 		for (i in obj) {
+			if (i === "__debug_key_order__") {
+				continue;
+			}
 			row = obj[i];
 			isAbs = isAbstraction(row);
 			if (isAbs) {
@@ -126,7 +195,11 @@ var logDumper = (function($, module){
 					} else {
 						row = row.properties;
 						for (key in row) {
-							if (row[key].visibility !== "public") {
+							vis = row[key].visibility;
+							isPublic = typeof vis === "string"
+								? vis === "public"
+								: vis.indexOf("public") > -1;
+							if (!isPublic) {
 								delete row[key];
 							}
 						}
@@ -148,12 +221,26 @@ var logDumper = (function($, module){
 		return keys;
 	}
 
-	function getValues(row, keys) {
-		var isAbs = isAbstraction(row);
-		var type = isAbs ? row.type : "array";
-		var i, k, length, info, values = [], value;
+	function getValues(row) {
+		var isAbs = isAbstraction(row),
+			type = isAbs ? row.type : "array",
+			i, k, length,
+			info,
+			values = [],
+			value,
+			vis,
+			isPublic,
+			isStringified,
+			objInfo = null;
 		if (isAbs) {
 			if (type == "object") {
+				isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
+				if (!isStringified && row.className != 'Closure') {
+					// haveObj = true;
+					objInfo = module.markupClassname(row.className, 'td', {
+						title: row.phpDoc.summary ? row.phpDoc.summary : null
+					});
+				}
 				if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
 					row = row.traverseValues;
 				} else if (typeof row.values !== "undefined" && Object.keys(row.values).length) {
@@ -168,7 +255,11 @@ var logDumper = (function($, module){
 				} else {
 					for (k in row.properties) {
 						info = row.properties[k];
-						if (info.visibility !== 'public') {
+						vis = info.visibility;
+						isPublic = typeof vis === "string"
+							? vis === "public"
+							: vis.indexOf("public") > -1;
+						if (!isPublic) {
 							delete row.properties[k];
 						} else {
 							row.properties[k] = info.value;
@@ -180,11 +271,12 @@ var logDumper = (function($, module){
 				row = {'':row};
 			}
 		}
+		rowObjInfo.push(objInfo);
 		if (typeof row !== "object") {
 			row = {'':row};
 		}
-		for (i = 0, length = keys.length; i < length; i++) {
-			k = keys[i];
+		for (i = 0, length = colKeys.length; i < length; i++) {
+			k = colKeys[i];
 			value = typeof row[k] !== "undefined"
 				? row[k]
 				: module.UNDEFINED;

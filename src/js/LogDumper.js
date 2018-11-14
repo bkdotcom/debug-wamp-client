@@ -238,15 +238,22 @@ var logDumper = (function($, module) {
 					.prepend('<span class="pull-right">'+date+'</span>');
 			}
 		},
+		profileEnd: function (method, args, meta, info) {
+			var $table = module.methodTable(args[0], meta, "m_profileEnd table-bordered");
+			if (meta.sortable) {
+				$table.addClass("sortable");
+			}
+			return $table;
+		},
 		table: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta.caption, meta.columns, "m_table table-bordered");
+			var $table = module.methodTable(args[0], meta, "m_table table-bordered");
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
 			return $table;
 		},
 		trace: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta.caption, meta.columns, "m_trace table-bordered");
+			var $table = module.methodTable(args[0], meta, "m_trace table-bordered");
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
@@ -310,7 +317,14 @@ var logDumper = (function($, module) {
 			if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
 				// console.warn("have backtrace");
 				$node.append(
-					module.methodTable(meta.backtrace, "trace", ["file","line","function"], "trace table-bordered")
+					module.methodTable(
+						meta.backtrace,
+						{
+							caption: "trace",
+							columns: ["file","line","function"]
+						},
+						"trace table-bordered"
+					)
 				);
 			}
 			return $node;
