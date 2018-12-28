@@ -239,25 +239,33 @@ var logDumper = (function($, module) {
 			}
 		},
 		profileEnd: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta, "m_profileEnd table-bordered");
+			var $table = module.methodTable(args[0], meta, "table-bordered");
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $table;
+			return $('<div class="m_profileEnd"></div>').append($table);
 		},
 		table: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta, "m_table table-bordered");
-			if (meta.sortable) {
-				$table.addClass("sortable");
+			var $table;
+			if (typeof args[0] == "object" && args[0] !== null && Object.keys(args[0]).length) {
+				$table = module.methodTable(args[0], meta, "table-bordered");
+				if (meta.sortable) {
+					$table.addClass("sortable");
+				}
+				return $('<div class="m_table"></div>').append($table);
+			} else {
+				if (meta["caption"]) {
+					args.unshift(btoa(meta["caption"]));
+				}
+				return methods.default("log", args, meta, info);
 			}
-			return $table;
 		},
 		trace: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta, "m_trace table-bordered");
+			var $table = module.methodTable(args[0], meta, "table-bordered");
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $table
+			return $('<div class="m_trace"></div>').append($table);
 		},
 		default: function (method, args, meta, info) {
 			var arg,
