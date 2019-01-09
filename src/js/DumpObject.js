@@ -58,7 +58,8 @@ var logDumper = (function($, module){
                     strClassName +
                     '<dl class="object-inner">' +
                         (abs.extends.length
-                            ? '<dt>extends</dt><dd>' + abs.extends.join('<br />') + '</dd>'
+                            ? '<dt>extends</dt>' +
+                                '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
                             : ''
                         ) +
                         (abs.implements.length

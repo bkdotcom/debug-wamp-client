@@ -105,7 +105,7 @@ var logDumper = (function($, module) {
 					info.$currentNode = $container.find(".debug-content");
 				}
 				info.$currentNode = $curNodeLog;
-				return $('<div>', attribs).html(args[0]);
+				return $('<div>', attribs).html(atob(args[0]));
 			}
 		},
 		endOutput: function (method, args, meta, info) {
@@ -274,9 +274,7 @@ var logDumper = (function($, module) {
 					"title" : null
 				},
 				$container = info.$container,
-				glue = ", ",
 				i,
-				// hasSubs = false,
 				$node,
 				numArgs = args.length;
 			hasSubs = false;
@@ -305,23 +303,8 @@ var logDumper = (function($, module) {
 			if (['assert','error','info','log','warn'].indexOf(method) > -1 && numArgs > 1) {
 				args = processSubstitutions(args);
 			}
-			if (hasSubs) {
-				glue = '';
-				args[0] = module.dump(args[0], false, true, false);
-			} else {
-				if (args.length == 2 && typeof args[0] == "string") {
-					glue = ' = ';
-				}
-				for (i = 0, numArgs = args.length; i < numArgs; i++) {
-					arg = args[i];
-					if (i > 0 || typeof arg != "string") {
-						args[i] = module.dump(arg, true);
-					} else {
-						args[i] = module.dump(arg, false);
-					}
-				}
-			}
-			$node = $("<div>", attribs).html(args.join(glue));
+			$node = buildEntryNode(args, meta.sanitize);
+			$node.attr(attribs);
 			if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
 				// console.warn("have backtrace");
 				$node.append(
@@ -604,6 +587,38 @@ var logDumper = (function($, module) {
 		}
 	}
 
+	function buildEntryNode(args, sanitize) {
+		var glue = ', ',
+			glueAfterFirst = true,
+			i,
+			numArgs,
+			arg;
+		if (sanitize === undefined) {
+			sanitize = true;
+		}
+		if (typeof args[0] == "string") {
+			if (args[0].match(/[=:] ?$/)) {
+				// first arg ends with "=" or ":"
+				glueAfterFirst = false;
+			} else if (args.length == 2) {
+				glue = ' = ';
+			}
+		}
+		for (i = 0, numArgs = args.length; i < numArgs; i++) {
+			arg = args[i];
+			if (i > 0) {	//  || typeof arg != "string"
+				args[i] = module.dump(arg, sanitize);
+			} else {
+				args[i] = module.dump(arg, false);
+			}
+		}
+		if (!glueAfterFirst) {
+			return $("<div>").html(args[0] + args.slice(1).join(glue));
+		} else {
+			return $("<div>").html(args.join(glue));
+		}
+	}
+
 	function checkTimestamp(val) {
 		var secs = 86400 * 90; // 90 days worth o seconds
 		var tsNow = Date.now() / 1000;
@@ -782,7 +797,7 @@ var logDumper = (function($, module) {
 		}
 		*/
 		if (hasSubs) {
-			args = [ arg0 ];
+			args = [ btoa(arg0) ];
 		}
 		return args;
 	}
