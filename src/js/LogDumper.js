@@ -590,26 +590,25 @@ var logDumper = (function($, module) {
 	function buildEntryNode(args, sanitize) {
 		var glue = ', ',
 			glueAfterFirst = true,
+			firstArgIsString = typeof args[0] == "string",
 			i,
-			numArgs,
-			arg;
+			arg,
+			numArgs = args.length;
 		if (sanitize === undefined) {
 			sanitize = true;
 		}
-		if (typeof args[0] == "string") {
+		for (i = 0; i < numArgs; i++) {
+			arg = args[i];
+			args[i] = i > 0
+				? module.dump(arg, sanitize)
+				: module.dump(arg, false);
+		}
+		if (firstArgIsString) {
 			if (args[0].match(/[=:] ?$/)) {
 				// first arg ends with "=" or ":"
 				glueAfterFirst = false;
-			} else if (args.length == 2) {
+			} else if (numArgs == 2) {
 				glue = ' = ';
-			}
-		}
-		for (i = 0, numArgs = args.length; i < numArgs; i++) {
-			arg = args[i];
-			if (i > 0) {	//  || typeof arg != "string"
-				args[i] = module.dump(arg, sanitize);
-			} else {
-				args[i] = module.dump(arg, false);
 			}
 		}
 		if (!glueAfterFirst) {

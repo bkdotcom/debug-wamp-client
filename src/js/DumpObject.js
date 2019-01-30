@@ -127,20 +127,19 @@ var logDumper = (function($, module){
                 abs[prop] = abs[prop].map(atob);
             }
         }
-        /*
-        if (abs.extends) {
-        }
-        abs.implements = abs.implements.map(atob);
-        */
+        props = ["desc","inheritedFrom","type","visibility"];
         $.each(abs.properties, function(k, info) {
             if (typeof info.visibility != "object") {
                 info.visibility = [ info.visibility ];
             }
-            $.each(info.visibility, function(k, vis) {
-                info.visibility[k] = atob(vis);
-            });
-            info.type = info.type ? atob(info.type) : null;
-            info.desc = info.desc ? atob(info.desc) : null;
+            for (i = 0; i < props.length; i++) {
+                prop = props[i];
+                if (typeof info[prop] == "string") {
+                    info[prop] = atob(info[prop]);
+                } else if (typeof info[prop] == "object" && info[prop] !== null) {
+                    info[prop] = info[prop].map(atob);
+                }
+            }
         });
         $.each(abs.phpDoc, function(k, str) {
             if (typeof str == "string") {
@@ -157,7 +156,9 @@ var logDumper = (function($, module){
             });
             if (info.phpDoc) {
                 if (typeof info.phpDoc.return != "undefined") {
-                    info.phpDoc.return.desc = atob(info.phpDoc.return.desc);
+                    info.phpDoc.return.desc = info.phpDoc.return.desc !== null
+                        ? atob(info.phpDoc.return.desc)
+                        : null;
                     info.phpDoc.return.type = atob(info.phpDoc.return.type);
                 }
                 info.phpDoc.summary = info.phpDoc.summary
@@ -206,8 +207,15 @@ var logDumper = (function($, module){
             $.each(info.visibility, function(i, vis) {
                 modifiers += '<span class="t_modifier_'+vis+'">' + vis + '</span> ';
             });
+            if (info.isStatic) {
+                modifiers += '<span class="t_modifier_static">static</span> ';
+            }
             $dd = $('<dd class="property">' +
                 modifiers +
+                (isPrivateAncestor
+                    ? ' (<i>' + info.inheritedFrom + '</i>)'
+                    : ''
+                ) +
                 (info.type
                     ? ' <span class="t_type">' + info.type + '</span>'
                     : ''
