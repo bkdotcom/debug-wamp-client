@@ -28,8 +28,8 @@ var logDumper = (function($, module){
 		$table = $('<table><caption>'+meta.caption.escapeHtml()+'</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
 			.addClass(classname);
 		if (isAbstraction(rows)) {
-			if (atob(rows.type) == "object") {
-				$table.find('caption').append(' ' + module.markupClassname(atob(rows.className)));
+			if (rows.type == "object") {
+				$table.find('caption').append(' ' + module.markupClassname(rows.className));
 			}
 			if (Object.keys(rows.traverseValues).length) {
 				rows = rows.traverseValues;
@@ -73,10 +73,6 @@ var logDumper = (function($, module){
 		for (i = 0, length = rowKeys.length; i < length; i++) {
 			rowKey = rowKeys[i];
 			row = rows[rowKey];
-			if (meta.columns.length > 0) {
-				// getTableKeys not called... need to base64decode
-				module.base64DecodeObj(row);
-			}
 			// using for in, so every key will be a string
 			//  check if actually an integer
 			if (typeof rowKey == "string" && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
@@ -105,7 +101,7 @@ var logDumper = (function($, module){
 			}
 			$table.find('thead tr th').each(function(){
 				if ($(this).text() === colKey) {
-					classname = atob(colClasses[colKey]);
+					classname = colClasses[colKey];
 					$(this).append(' '+module.markupClassname(classname));
 					return false;
 				}
@@ -163,7 +159,7 @@ var logDumper = (function($, module){
 		return val &&
 			typeof val == "object" &&
 			typeof val.debug == "string" &&
-			(val.debug === module.ABSTRACTION || atob(val.debug) === module.ABSTRACTION);
+			val.debug === module.ABSTRACTION;
 	}
 
 	function getTableKeys(obj) {
@@ -181,7 +177,6 @@ var logDumper = (function($, module){
 			isAbs = isAbstraction(row);
 			if (isAbs) {
 				// abstraction
-				module.base64DecodeObj(row);
 				if (row.type == "object") {
 					if (typeof row.traverseValues !== "undefined" && Object.keys(row.traverseValues).length) {
 						row = row.traverseValues;

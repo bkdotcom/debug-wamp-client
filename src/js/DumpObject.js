@@ -1,20 +1,18 @@
 var logDumper = (function($, module){
 
     module.dumpObject = function(abs) {
-        module.base64DecodeObj(abs);
         // console.info('dumpObject', abs);
-        var html = '';
-        var title = (abs.phpDoc.summary + "\n\n" + abs.phpDoc.description).trim();
-        var strClassName = module.markupClassname(abs.className, "span", {
-            title : title.length ? title : null
-        })
-        // var misc = '';
-        var objToString = '';
-        var toStringVal = null;
-        var toStringLen;
-        var toStringValAppend;
-        var $toStringDump;
-        var title;
+        var html = '',
+            title = (abs.phpDoc.summary + "\n\n" + abs.phpDoc.description).trim(),
+            strClassName = module.markupClassname(abs.className, "span", {
+                title : title.length ? title : null
+            }),
+            objToString = '',
+            toStringVal = null,
+            toStringLen,
+            toStringValAppend,
+            $toStringDump,
+            title;
         if (abs.isRecursion) {
             html = strClassName +
                 ' <span class="t_recursion">*RECURSION*</span>';
@@ -112,6 +110,7 @@ var logDumper = (function($, module){
             + opMethod;
     }
 
+    /*
     module.base64DecodeObj = function(abs) {
         var props = ["className","debug","extends","implements","type"],
             prop,
@@ -127,7 +126,7 @@ var logDumper = (function($, module){
                 abs[prop] = abs[prop].map(atob);
             }
         }
-        props = ["desc","inheritedFrom","type","visibility"];
+        props = ["desc","inheritedFrom","type","valueFrom","visibility"];
         $.each(abs.properties, function(k, info) {
             if (typeof info.visibility != "object") {
                 info.visibility = [ info.visibility ];
@@ -173,6 +172,7 @@ var logDumper = (function($, module){
             });
         });
     }
+    */
 
     function dumpObjectConstants(constants) {
         var html = Object.keys(constants).length
@@ -201,9 +201,20 @@ var logDumper = (function($, module){
         html += magicMethodInfo(abs, ['__get', '__set']);
         $.each(properties, function(k, info) {
             // console.info('property info', info);
-            var isPrivateAncestor = $.inArray("private", info.visibility) >= 0 && info['inheritedFrom'];
-            var modifiers = '';
-            var $dd;
+            var $dd,
+                isPrivateAncestor = $.inArray("private", info.visibility) >= 0 && info['inheritedFrom'],
+                modifiers = '',
+                classes = {
+                    "debuginfo-value" : info.valueFrom == "debugInfo",
+                    "debug-value" : info.valueFrom == "debug",
+                    "forceShow" : info.forceShow,
+                    "excluded" : info.isExcluded,
+                    "private-ancestor" : info.isPrivateAncestor
+                };
+            if (typeof info.visibility != "object") {
+                info.visibility = [ info.visibility ];
+            }
+            classes[info.visibility.join(' ')] = $.inArray("debug", info.visibility) < 0;
             $.each(info.visibility, function(i, vis) {
                 modifiers += '<span class="t_modifier_'+vis+'">' + vis + '</span> ';
             });
@@ -230,21 +241,11 @@ var logDumper = (function($, module){
                 module.dump(info.value) +
                 '</dd>'
             );
-            if ($.inArray("debug", info.visibility) < 0) {
-                $dd.addClass(info.visibility.join(' '));
-            }
-            if (info.viaDebugInfo) {
-                $dd.addClass("debuginfo-value");
-            }
-            if (info.forceShow) {
-                $dd.addClass("forceShow");
-            }
-            if (info.isExcluded) {
-                $dd.addClass("excluded");
-            }
-            if (isPrivateAncestor) {
-                $dd.addClass("private-ancestor");
-            }
+            $.each(classes, function(classname, useClass) {
+                if (useClass) {
+                    $dd.addClass(classname);
+                }
+            })
             html += $dd[0].outerHTML;
         });
         return html;

@@ -14,12 +14,8 @@ var logDumper = (function($, module) {
 
 	var methods = {
 		alert: function (method, args, meta, info) {
-			var message = args.message
-				? atob(args.message)
-				: atob(args[0]);
-			var className = args.message
-				? atob(args.message) // pre 2.1.0
-				: meta.class;
+			var message = args[0];
+			var className = meta.class;
 			var dismissible = args.message
 				? args.dismissible
 				: meta.dismissible;
@@ -105,7 +101,7 @@ var logDumper = (function($, module) {
 					info.$currentNode = $container.find(".debug-content");
 				}
 				info.$currentNode = $curNodeLog;
-				return $('<div>', attribs).html(atob(args[0]));
+				return $('<div>', attribs).html(args[0]);
 			}
 		},
 		endOutput: function (method, args, meta, info) {
@@ -115,12 +111,6 @@ var logDumper = (function($, module) {
 			$container.removeClass("working");
 			$container.find(".panel-heading .fa-spinner").remove();
 			$container.find(".panel-body > .fa-spinner").remove();
-			$.each(args, function(i, arg) {
-				if (typeof arg != "string") {
-					return;
-				}
-				args[i] = atob(arg);
-			});
 			if (args.responseCode && args.responseCode != "200") {
 				$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
 				if (args.responseCode.toString().match(/^5/)) {
@@ -141,7 +131,7 @@ var logDumper = (function($, module) {
 				$container.find(".panel-body").prepend($node);
 			}
 			$node = $node.find('ul');
-			$node.append($("<li></li>").text(atob(args[0])));
+			$node.append($("<li></li>").text(args[0]));
 			if (meta.class == "danger") {
 				// console.log('panel-danger');
 				$container.addClass("panel-danger");
@@ -212,12 +202,6 @@ var logDumper = (function($, module) {
 		meta: function (method, args, meta, info) {
 			var i, arg,
 				$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html('')
-			$.each(args, function(i, arg) {
-				if (typeof arg != "string") {
-					return; //continue;
-				}
-				args[i] = atob(arg);
-			});
 			info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
 			if (args.HTTPS === "on") {
 				$title.append('<i class="fa fa-lock fa-lg"></i> ');
@@ -255,7 +239,7 @@ var logDumper = (function($, module) {
 				return $('<div class="m_table"></div>').append($table);
 			} else {
 				if (meta["caption"]) {
-					args.unshift(btoa(meta["caption"]));
+					args.unshift(meta["caption"]);
 				}
 				return methods.default("log", args, meta, info);
 			}
@@ -330,28 +314,12 @@ var logDumper = (function($, module) {
 		// console.log('dump', JSON.stringify(val));
 		var $span = $('<span></span>'),
 			type,
-			date,
-			// valDecoded,
-			valOrig,
-			view;
+			date;
 		if (typeof sanitize == "undefined") {
 			sanitize = true;
 		}
 		if (typeof wrap == "undefined") {
 			wrap = true;
-		}
-		if (typeof decodeString == "undefined") {
-			decodeString = true;
-		}
-		if (typeof val == "string") {
-			valOrig = val;
-			if (decodeString) {
-				try {
-					val = atob(val);
-				} catch (e) {
-					val = valOrig;
-				}
-			}
 		}
 		type = module.getType(val);
 		if (val === null) {
@@ -374,16 +342,10 @@ var logDumper = (function($, module) {
 					$span.addClass("timestamp").attr("title", date);
 				}
 			} else {
-				bytes = decodeString
-					? new Uint8Array(base64.decode(valOrig))
-					: strDump.encodeUTF16toUTF8(valOrig);
-				// console.log('view', view);
+				bytes = val.indexOf("_b64_:") == 0
+					? new Uint8Array(base64.decode(val.substr(6)))
+					: strDump.encodeUTF16toUTF8(val);
 				// console.log('bytes', bytes);
-				/*
-				if (val.indexOf("base64:\x02") == 0) {
-					val = atob(val.substr(8));
-				}
-				*/
 				if (!sanitize) {
 					$span.addClass("no-pseudo");
 					val = strDump.dump(bytes, false);
@@ -407,24 +369,11 @@ var logDumper = (function($, module) {
 			);
 			val = module.dumpObject(val);
 		} else if (type === "resource") {
-			val = atob(val.value);
+			val = val.value;
 		} else if (type === "callable") {
 			val = '<span class="t_type">callable</span> ' +
-					module.markupClassname(atob(val.values[0]) + '::' + atob(val.values[1]));
+					module.markupClassname(val.values[0] + '::' + val.values[1]);
 		}
-		/*
-		} else if (typeof val == "object") {
-			// console.warn('val', val);
-			var debug = typeof val.debug == "string" ? atob(val.debug) : val.debug;
-			var type = typeof val.type == "string" ? atob(val.type) : val.type;
-			if (typeof debug == "undefined" || debug !== ABSTRACTION) {
-				// plain ol associative array
-			}
-		} else if (typeof val == "undefined") {
-			$span.addClass("t_undefined");
-			val = '';
-		}
-		*/
 		return wrap
 			? $span.addClass("t_"+type).html(val)[0].outerHTML
 			: val;
@@ -469,23 +418,17 @@ var logDumper = (function($, module) {
 
 	module.getType = function(val) {
 		var type;
-		var valDecoded;
 		if (val === null) {
-			return null;
+			return "null";
 		}
 		if (typeof val == "boolean") {
 			return "bool";
 		}
 		if (typeof val == "string") {
-			try {
-				valDecoded = atob(val);
-			} catch (e) {
-				valDecoded = val;
-			}
-			if (valDecoded === UNDEFINED) {
+			if (val === UNDEFINED) {
 				return "undefined";
 			}
-			if (valDecoded === RECURSION) {
+			if (val === RECURSION) {
 				return "recursion";
 			}
 			return "string";
@@ -502,8 +445,8 @@ var logDumper = (function($, module) {
 			if (typeof val.debug == "string") {
 				if (val.debug === ABSTRACTION) {
 					type = val.type;
-				} else if (atob(val.debug) == ABSTRACTION) {
-					type = atob(val.type);
+				} else if (val.debug == ABSTRACTION) {
+					type = val.type;
 				}
 			}
 			return type;
@@ -564,11 +507,11 @@ var logDumper = (function($, module) {
 		} catch (err) {
 			console.warn(err);
 			module.outputLogEntry('error', [
-				btoa("%cDebugWampClient: %cerror processing %c"+method+"()"),
-				btoa("font-weight:bold;"),
+				"%cDebugWampClient: %cerror processing %c"+method+"()",
+				"font-weight:bold;",
 				"",
-				btoa("font-family:monospace;"
-			)], meta);
+				"font-family:monospace;"
+			], meta);
 		}
 	};
 
@@ -640,12 +583,11 @@ var logDumper = (function($, module) {
 	function groupHeader(method, args, meta) {
 		var i = 0,
 			$header,
-			label,
 			argStr = '',
+			label = args.shift(),
 			collapsedClass = method == 'groupCollapsed'
 				? 'collapsed'
 				: 'expanded';
-		label = atob(args.shift());
 		if (meta.isMethodName) {
 			label = module.markupClassname(label);
 		}
@@ -680,11 +622,6 @@ var logDumper = (function($, module) {
 		} else {
 			console.log('array keys', keys);
 		}
-		*/
-		/*
-		if (array.isRecursion) {
-			html = '<span class="t_keyword">Array</span> <span class="t_recursion">*RECURSION*</span>'
-		} else
 		*/
 		if (length == 0) {
 			html = '<span class="t_keyword">array</span>' +
@@ -733,12 +670,7 @@ var logDumper = (function($, module) {
 			return args;
 		}
 		subRegex = new RegExp(subRegex, 'g');
-		/*
-		if (subRegex.test(atob(args[0]))) {
-			console.info('processSubstitutions', atob(args[0]));
-		}
-		*/
-		var arg0 = atob(args[0]).replace(subRegex, function (match) {
+		var arg0 = args[0].replace(subRegex, function (match) {
 			var replacement = match;
 			var type = match.substr(-1);
 			hasSubs = true;
@@ -748,7 +680,6 @@ var logDumper = (function($, module) {
 			} else if (type == "f") {
 				replacement = parseFloat(args[index], 10);
 			} else if (type == "s") {
-				// replacement = atob(args[index]).escapeHtml();
 				replacement = substitutionAsString(args[index]);
 			} else if (type === 'c') {
 				replacement = '';
@@ -756,47 +687,16 @@ var logDumper = (function($, module) {
 					// close prev
 					replacement = '</span>';
 				}
-				replacement += '<span style="'+atob(args[index]).escapeHtml()+'">';
+				replacement += '<span style="'+args[index].escapeHtml()+'">';
 				indexes['c'].push(index);
 			} else if ("oO".indexOf(type) > -1) {
 				replacement = module.dump(args[index]);
 			}
-			/*
-			 else {
-			   indexes[type.toLowerCase()].push(index);
-			}
-			*/
 			// console.log('replacement', replacement);
 			return replacement;
 		});
 		if (indexes['c'].length) {
 			arg0 += '</span>';
-		}
-		/*
-			now handle %o & %O
-		*/
-		/*
-		if (indexes['o'].length) {
-			segments = arg0.split(/%[oO]/);
-			for (i=0, length=indexes['o'].length; i < length; i++) {
-				index = indexes['o'][i];
-				segment = segments.shift();
-				if (segment.trim().length) {
-					argsNew.push(segment);
-				}
-				if (typeof args[index] !== "undefined") {
-					argsNew.push(module.dump(args[index]));
-				}
-			}
-			argsNew.push(segments.shift());
-			args = argsNew;   // unused args are tossed
-		} else if (hasSubs) {
-			// toss unused args
-			args = [ arg0 ];
-		}
-		*/
-		if (hasSubs) {
-			args = [ btoa(arg0) ];
 		}
 		return args;
 	}
@@ -812,17 +712,13 @@ var logDumper = (function($, module) {
 		var type = module.getType(val);
 		// var count;
 		if (type == 'string') {
-			// val = $(module.dump(val)).addClass("no-pseudo")[0].outerHTML;
 			val = module.dump(val, true, false);
-			// console.log('val', val);
-			// val = val.replace('class="t_', 'class="no-pseudo t_');
 		} else if (type == 'array') {
 			delete val['__debug_key_order__'];
 			val = '<span class="t_keyword">array</span>' +
 				'<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
 		} else if (type == 'object') {
-			// val = '<span class="t_classname">' + atob(val['className']) + '</span>';
-			val = module.markupClassname(atob(val['className']));
+			val = module.markupClassname(val['className']);
 		} else {
 			val = module.dump(val);
 		}

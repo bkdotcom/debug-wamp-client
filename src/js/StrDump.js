@@ -34,7 +34,6 @@ var StrDump = function() {
     ];
 };
 
-
 StrDump.prototype.bytesToString = function(bytes) {
     var str = '',
         info = {};
@@ -305,12 +304,11 @@ StrDump.prototype.utf16ToUnicode = function(str) {
     for (i = 0; i < str.length; i++) {
         code1 = str.charCodeAt(i);
         if (code1 >= 0xD800 && code1 <= 0xDFFF) {
-            console.warn('code1', code1.toString(16));
+            // console.warn('code1', code1.toString(16));
             if (i + 1 < str.length) {
                 i++;
                 code2 = str.charCodeAt(i);
-                console.warn('code2', code2.toString(16));
-                // console.log("code2", i, code2, code2.toString(16));
+                // console.warn('code2', code2.toString(16));
                 if (code2 >= 0xDC00 && code2 <= 0xDFFF) {
                     codes.push((code1-0xD800)*0x400 + code2-0xDC00+0x10000);
                     code2 = null;
