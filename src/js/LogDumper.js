@@ -117,6 +117,7 @@ var logDumper = (function($, module) {
 					$container.addClass("panel-danger");
 				}
 			}
+			$container.data('lastNode', info.$currentNode);
 			delete connections[meta.requestId];
 		},
 		errorNotConsoled: function (method, args, meta, info) {
@@ -384,6 +385,9 @@ var logDumper = (function($, module) {
 			$node;
 		if (typeof connections[requestId] !== "undefined") {
 			$node = connections[requestId].slice(-1)[0];
+		} else if ($("#"+requestId).length) {
+			// "session alrleady closed?"  do our best to continue where we left off
+			$node = $("#"+requestId).data("lastNode");
 		} else {
 			// create
 			$nodeWrapper = $(''
