@@ -237,8 +237,11 @@ var logDumper = (function($, module){
                         : ''
                     ) +
                     '>' + k + '</span>' +
-                ' <span class="t_operator">=</span> ' +
-                module.dump(info.value) +
+                (info.value !== logDumper.UNDEFINED
+                    ? ' <span class="t_operator">=</span> ' +
+                        module.dump(info.value)
+                    : ''
+                ) +
                 '</dd>'
             );
             $.each(classes, function(classname, useClass) {
