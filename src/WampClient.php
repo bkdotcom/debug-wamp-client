@@ -21,14 +21,22 @@ use bdk\Debug;
 class WampClient
 {
 
+	protected $cfg = array(
+		'jquery' => '//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js',
+		'bootstrapJs' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js',
+		'bootstrapCss' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css',
+	);
+
 	/**
 	 * Constructor
 	 *
 	 * @param Debug $debug debug instance
+	 * @param array $cfg   config opts
 	 */
-	public function __construct(Debug $debug)
+	public function __construct(Debug $debug, $cfg = array())
 	{
 		$this->debug = $debug;
+		$this->cfg = \array_merge($this->cfg, $cfg);
 		$this->handleRequest();
 	}
 
@@ -39,10 +47,17 @@ class WampClient
 	 */
 	public function handleRequest()
 	{
-		$action = isset($_GET['action']) && \method_exists($this, 'action'.\ucfirst($_GET['action']))
+		$action = isset($_GET['action'])
 			? $_GET['action']
 			: 'index';
-		$this->{'action'.\ucfirst($action)}();
+		$method = 'action'.\ucfirst($action);
+		if (\method_exists($this, $method)) {
+			$this->{$method}();
+		} else {
+			\header("HTTP/1.0 404 Not Found");
+			echo '<h1>404</h1>';
+			echo '<p><code>action='.\htmlspecialchars($action).'</code> isn\'t a thing.</p>';
+		}
 	}
 
 	/**
@@ -53,7 +68,12 @@ class WampClient
 	public function actionIndex()
 	{
 		\header('Content-Type: text/html');
-		\readfile(__DIR__.'/views/index.html');
+		echo \preg_replace_callback('/{{\s*([^}]+)\s*}}/', function ($matches) {
+			$token = $matches[1];
+			return isset($this->cfg[$token])
+				? $this->cfg[$token]
+				: '';
+		}, \file_get_contents(__DIR__.'/views/index.html'));
 	}
 
 	/**
