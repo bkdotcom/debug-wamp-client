@@ -107,13 +107,14 @@ var logDumper = (function($, module) {
 		endOutput: function (method, args, meta, info) {
 			var $container = info.$container,
 				i,
-				arg;
+				arg,
+				responseCode = meta.responseCode || args.responseCode;
 			$container.removeClass("working");
 			$container.find(".panel-heading .fa-spinner").remove();
 			$container.find(".panel-body > .fa-spinner").remove();
-			if (args.responseCode && args.responseCode != "200") {
-				$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + args.responseCode + '</span>');
-				if (args.responseCode.toString().match(/^5/)) {
+			if (responseCode && responseCode != "200") {
+				$container.find(".panel-title").append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>');
+				if (responseCode.toString().match(/^5/)) {
 					$container.addClass("panel-danger");
 				}
 			}
@@ -203,21 +204,22 @@ var logDumper = (function($, module) {
 		meta: function (method, args, meta, info) {
 			var i, arg,
 				$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html('')
+				meta = args[0] || args;
 			info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
-			if (args.HTTPS === "on") {
+			if (meta.HTTPS === "on") {
 				$title.append('<i class="fa fa-lock fa-lg"></i> ');
 			}
-			if (args.REQUEST_METHOD) {
-				$title.append(args.REQUEST_METHOD + ' ');
+			if (meta.REQUEST_METHOD) {
+				$title.append(meta.REQUEST_METHOD + ' ');
 			}
-			if (args.HTTP_HOST) {
-				$title.append('<span class="http-host">' + args.HTTP_HOST + '</span>');
+			if (meta.HTTP_HOST) {
+				$title.append('<span class="http-host">' + meta.HTTP_HOST + '</span>');
 			}
-			if (args.REQUEST_URI) {
-				$title.append('<span class="request-uri">' + args.REQUEST_URI + '</span>');
+			if (meta.REQUEST_URI) {
+				$title.append('<span class="request-uri">' + meta.REQUEST_URI + '</span>');
 			}
-			if (args.REQUEST_TIME) {
-				var date = (new Date(args.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
+			if (meta.REQUEST_TIME) {
+				var date = (new Date(meta.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
 				info.$container
 					.find(".panel-heading .panel-heading-body")
 					.prepend('<span class="pull-right">'+date+'</span>');
@@ -701,6 +703,9 @@ var logDumper = (function($, module) {
 		});
 		if (indexes['c'].length) {
 			arg0 += '</span>';
+		}
+		if (hasSubs) {
+			args = [ arg0 ];
 		}
 		return args;
 	}

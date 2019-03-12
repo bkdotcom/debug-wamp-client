@@ -3,7 +3,7 @@ var logDumper = (function($, module){
     module.dumpObject = function(abs) {
         // console.info('dumpObject', abs);
         var html = '',
-            title = (abs.phpDoc.summary + "\n\n" + abs.phpDoc.description).trim(),
+            title = ((abs.phpDoc.summary || "") + "\n\n" + (abs.phpDoc.description || "")).trim(),
             strClassName = module.markupClassname(abs.className, "span", {
                 title : title.length ? title : null
             }),
@@ -11,8 +11,7 @@ var logDumper = (function($, module){
             toStringVal = null,
             toStringLen,
             toStringValAppend,
-            $toStringDump,
-            title;
+            $toStringDump;
         if (abs.isRecursion) {
             html = strClassName +
                 ' <span class="t_recursion">*RECURSION*</span>';
