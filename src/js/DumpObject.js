@@ -291,7 +291,7 @@ var logDumper = (function($, module){
                     '>' + k + '</span>' +
                 '<span class="t_punct">(</span>' + paramStr + '<span class="t_punct">)</span>' +
                 (k == '__toString'
-                    ? '<br /><span class="indent">' + module.dump(info.returnValue, true) + '</span>'
+                    ? '<br />' + module.dump(info.returnValue, true)
                     : ''
                 ) +
                 '</dd>'

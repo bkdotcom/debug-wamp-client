@@ -28,7 +28,7 @@ var logDumper = (function($, module) {
 					+'</button>');
 				$node.addClass("alert-dismissible");
 			}
-			info.$container.find(".debug-header").before($node);
+			info.$container.find(".debug-log-summary").before($node);
 		},
 		clear: function (method, args, meta, info) {
 			var attribs = {
@@ -51,14 +51,14 @@ var logDumper = (function($, module) {
 			args = processSubstitutions(args)
 			for (i = stackLen - 1; i >= 0; i--) {
 				$node = connections[meta.requestId][i];
-				if ($node.closest(".debug-header").length && !$curTreeSummary) {
-					$curTreeSummary = $node.parentsUntil(".debug-header")
+				if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
+					$curTreeSummary = $node.parentsUntil(".debug-log-summary")
 						.addBack()
 						.prev(".group-header")
 						.addBack();
-				} else if ($node.closest(".debug-content").length && !$curTreeLog) {
+				} else if ($node.closest(".debug-log").length && !$curTreeLog) {
 					$curNodeLog = $node;
-					$curTreeLog = $node.parentsUntil(".debug-content")
+					$curTreeLog = $node.parentsUntil(".debug-log")
 						.addBack()
 						.prev(".group-header")
 						.addBack();
@@ -68,7 +68,7 @@ var logDumper = (function($, module) {
 				$container.find('.alert').filter(channelFilter).remove();
 			}
 			if (flags.summary) {
-				$container.find(".debug-header > .m_groupSummary").each(function(){
+				$container.find(".debug-log-summary > .m_groupSummary").each(function(){
 					$remove = $(this)
 						.find('*')
 						.not($curTreeSummary)
@@ -80,11 +80,11 @@ var logDumper = (function($, module) {
 					$remove.remove();
 				});
 			} else if (flags.summaryErrors) {
-				$container.find(".debug-header .m_error, .debug-header .m_warn").filter(channelFilter).remove();
+				$container.find(".debug-log-summary .m_error, .debug-log-summary .m_warn").filter(channelFilter).remove();
 			}
 			if (flags.log) {
 				$remove = $container
-					.find('.debug-content > *, .debug-content .m_group > *')
+					.find('.debug-log > *, .debug-log .m_group > *')
 					.not($curTreeLog)
 					.filter(channelFilter);
 				if (!flags.logErrors) {
@@ -93,15 +93,15 @@ var logDumper = (function($, module) {
 				$remove.filter(".group-header").not(".enhanced").debugEnhance("expand");
 				$remove.remove();
 			} else if (flags.logErrors) {
-				$container.find(".debug-content .m_error, .debug-content .m_warn").filter(channelFilter).remove();
+				$container.find(".debug-log .m_error, .debug-log .m_warn").filter(channelFilter).remove();
 			}
 			if (!flags.silent) {
-				if (info.$currentNode.closest(".debug-header").length) {
+				if (info.$currentNode.closest(".debug-log-summary").length) {
 					// we're in summary.. let's switch to content
-					info.$currentNode = $container.find(".debug-content");
+					info.$currentNode = $container.find(".debug-log");
 				}
 				info.$currentNode = $curNodeLog;
-				return $('<div>', attribs).html(args[0]);
+				return $('<li>', attribs).html(args[0]);
 			}
 		},
 		endOutput: function (method, args, meta, info) {
@@ -164,7 +164,7 @@ var logDumper = (function($, module) {
 				? meta.priority // v2.1
 				: args[0];
 			var $node;
-			info.$container.find(".debug-header .m_groupSummary").each(function(){
+			info.$container.find(".debug-log-summary .m_groupSummary").each(function(){
 				var priorityCur = $(this).data("priority");
 				if (priorityCur == priority) {
 					$node = $(this);
@@ -178,7 +178,7 @@ var logDumper = (function($, module) {
 			if (!$node) {
 				$node = $("<div>").addClass("m_groupSummary").data("priority", priority);
 				info.$container
-					.find(".debug-header")
+					.find(".debug-log-summary")
 					.append( $node );
 			}
 			connections[meta.requestId].push($node);
@@ -190,7 +190,7 @@ var logDumper = (function($, module) {
 			connections[meta.requestId].pop();
 			if (!isSummaryRoot) {
 				$toggle = info.$currentNode.prev();
-				$toggle.debugEnhance('enhanceGroupHeader');
+				$toggle.debugEnhance();
 				if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
 					$toggle.remove();
 					info.$currentNode.remove();
@@ -198,7 +198,7 @@ var logDumper = (function($, module) {
 			}
 		},
 		groupUncollapse: function (method, args, meta, info) {
-			var $toggleNodes = info.$currentNode.parentsUntil(".debug-header, .debug-content").add(info.$currentNode).prev();
+			var $toggleNodes = info.$currentNode.parentsUntil(".debug-log-summary, .debug-log").add(info.$currentNode).prev();
 			$toggleNodes.removeClass("collapsed").addClass("expanded");
 		},
 		meta: function (method, args, meta, info) {
@@ -408,13 +408,13 @@ var logDumper = (function($, module) {
 							+'<ul class="list-unstyled">'
 							+'</ul>'
 						+'</fieldset>'
-						+'<div class="debug-header m_group"></div>'
-						+'<div class="debug-content m_group"></div>'
+						+'<ul class="debug-log-summary"></ul>'
+						+'<ul class="debug-log"></ul>'
 						+'<i class="fa fa-spinner fa-pulse"></i>'
 					+'</div>'
 				+'</div>'
 			);
-			$node = $nodeWrapper.find(".debug-content");
+			$node = $nodeWrapper.find(".debug-log");
 			connections[requestId] = [ $node ];
 			$nodeWrapper.attr("id", requestId);
 			$("#body").append($nodeWrapper);
@@ -481,14 +481,14 @@ var logDumper = (function($, module) {
 			*/
 			if (meta.format == "html") {
 				if (typeof args == "object") {
-					$node = $('<div />', {class:"m_"+method});
+					$node = $('<li />', {class:"m_"+method});
 					for (i = 0; i < args.length; i++) {
 						$node.append(args[i]);
 					}
 				} else {
 					$node = $(args);
 					if ($node.find("> .m_"+method).length == 0) {
-						$node = $('<div />', {class:"m_"+method}).html(args);	// $node.wrap('<div />').addClass("m_"+method);
+						$node = $('<li />', {class:"m_"+method}).html(args);	// $node.wrap('<div />').addClass("m_"+method);
 					}
 				}
 			} else if (methods[method]) {

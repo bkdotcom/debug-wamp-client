@@ -54,8 +54,6 @@ String.prototype.escapeHtml = function() {
 }
 
 var config = (function($, module) {
-
-    // var $currentNode = $('.debug .debug-content');
     var configDefault = {
         url: "ws://127.0.0.1:9090/",
         realm: "debug",
@@ -183,6 +181,9 @@ $(function() {
     updateCssProperty(".debug", "font-size", "inherit");
     updateCssProperty("#body", "font-size", config.get("font-size"));
 
+
+    $("body").debugEnhance("init");
+
     events.subscribe('websocket', function(cmd, data) {
         // console.warn('rcvd websocket', cmd, JSON.stringify(data));
         if (cmd == "msg" && data) {
@@ -243,7 +244,7 @@ $(function() {
     $("body").on("shown.bs.collapse hidden.bs.collapse", ".panel-body", function(e) {
         var $icon = $(this).closest('.panel').find('.panel-heading .'+classCollapsed+', .panel-heading .'+classExpanded);
         $icon.toggleClass(classExpanded+' '+classCollapsed);
-        $(this).find(".m_groupSummary, .debug-content").find("> *").not(".enhanced").debugEnhance();
+        $(this).find(".m_groupSummary, .debug-log").find("> *").not(".enhanced").debugEnhance();
     });
 
     $("body").on("click", ".btn-remove-session", function(e) {
