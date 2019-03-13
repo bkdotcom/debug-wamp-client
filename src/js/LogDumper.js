@@ -145,17 +145,22 @@ var logDumper = (function($, module) {
 			$container.removeClass('panel-default');
 		},
 		group: function (method, args, meta, info) {
-			var $groupHeader = groupHeader(method, args, meta);
-			var $node = $("<div>").addClass("m_group");
+			var $groupHeader = groupHeader(method, args, meta),
+				$nodeWrapper = $("<li>").addClass("m_group"),
+				$node = $("<ul></ul>");
 			if (meta.level) {
 				$groupHeader.addClass("level-"+meta.level);
 				$node.addClass("level-"+meta.level);
 			}
-			info.$currentNode.append( $groupHeader );
-			info.$currentNode.append( $node );
+			if (meta.hideIfEmpty) {
+				$nodeWrapper.addClass('hide-if-empty');
+			}
+			$nodeWrapper.append($groupHeader);
+			$nodeWrapper.append($node);
+			info.$currentNode.append( $nodeWrapper );
 			connections[meta.requestId].push($node)
-			if ($groupHeader.is(":visible")) {
-				$groupHeader.debugEnhance();
+			if ($nodeWrapper.is(":visible")) {
+				$nodeWrapper.debugEnhance();
 			}
 		},
 		groupSummary: function (method, args, meta, info) {
@@ -184,16 +189,18 @@ var logDumper = (function($, module) {
 			connections[meta.requestId].push($node);
 		},
 		groupEnd: function (method, args, meta, info) {
-			var $toggle;
 			var isSummaryRoot = connections[meta.requestId].length > 1
 					&& info.$currentNode.hasClass("m_groupSummary");
+			var $group;
+			var $toggle;
 			connections[meta.requestId].pop();
 			if (!isSummaryRoot) {
 				$toggle = info.$currentNode.prev();
-				$toggle.debugEnhance();
-				if ($toggle.hasClass("empty") && $toggle.hasClass("hide-if-empty")) {
-					$toggle.remove();
-					info.$currentNode.remove();
+				$group = $toggle.parent().debugEnhance();
+				if ($group.hasClass("empty") && $group.hasClass("hide-if-empty")) {
+					// $toggle.remove();
+					// info.$currentNode.remove();
+					$group.remove();
 				}
 			}
 		},
@@ -230,7 +237,7 @@ var logDumper = (function($, module) {
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $('<div class="m_profileEnd"></div>').append($table);
+			return $('<li class="m_profileEnd"></li>').append($table);
 		},
 		table: function (method, args, meta, info) {
 			var $table;
@@ -239,7 +246,7 @@ var logDumper = (function($, module) {
 				if (meta.sortable) {
 					$table.addClass("sortable");
 				}
-				return $('<div class="m_table"></div>').append($table);
+				return $('<li class="m_table"></li>').append($table);
 			} else {
 				if (meta["caption"]) {
 					args.unshift(meta["caption"]);
@@ -252,7 +259,7 @@ var logDumper = (function($, module) {
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $('<div class="m_trace"></div>').append($table);
+			return $('<li class="m_trace"></li>').append($table);
 		},
 		default: function (method, args, meta, info) {
 			var arg,
@@ -402,7 +409,7 @@ var logDumper = (function($, module) {
 							+'<i class="fa fa-spinner fa-pulse fa-lg"></i>'
 						+'</div>'
 					+'</div>'
-					+'<div class="panel-body collapse debug">'
+					+'<div class="panel-body collapsey debug">'
 						+'<fieldset class="channels" style="display:none;">'
 							+'<legend>Channels</legend>'
 							+'<ul class="list-unstyled">'
@@ -508,7 +515,7 @@ var logDumper = (function($, module) {
 				if ($node.is(':visible')) {
 					$node.debugEnhance();
 				}
-				$node.closest(".m_group").prev().removeClass("empty");
+				$node.closest(".m_group").removeClass("empty");
 			}
 		} catch (err) {
 			console.warn(err);
@@ -561,9 +568,9 @@ var logDumper = (function($, module) {
 			}
 		}
 		if (!glueAfterFirst) {
-			return $("<div>").html(args[0] + args.slice(1).join(glue));
+			return $("<li>").html(args[0] + args.slice(1).join(glue));
 		} else {
-			return $("<div>").html(args.join(glue));
+			return $("<li>").html(args.join(glue));
 		}
 	}
 
@@ -610,9 +617,6 @@ var logDumper = (function($, module) {
 				'</span>' +
 			'</div>');
 		$header.attr("data-channel", meta.channel);	// using attr, so can use [data-channel=xxx] selector
-		if (meta['hideIfEmpty']) {
-			$header.addClass('hide-if-empty');
-		}
 		return $header;
 	}
 
