@@ -21,7 +21,7 @@ String.prototype.padLeft = function(pad, len) {
     return str + this;
 };
 
-var StrDump = function() {
+export var StrDump = function() {
     this.str = '';
     this.bytes = null;
     this.special = [
