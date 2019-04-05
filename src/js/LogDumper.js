@@ -158,6 +158,9 @@ var logDumper = (function($, module) {
 				$groupHeader.debugEnhance();
 			}
 		},
+		groupCollapsed: function (method, args, meta, info) {
+			return this.group(method, args, meta, info);
+		},
 		groupSummary: function (method, args, meta, info) {
 			// see if priority already exists
 			var priority = typeof meta.priority !== "undefined"
@@ -226,11 +229,8 @@ var logDumper = (function($, module) {
 			}
 		},
 		profileEnd: function (method, args, meta, info) {
-			var $table = module.methodTable(args[0], meta, "table-bordered");
-			if (meta.sortable) {
-				$table.addClass("sortable");
-			}
-			return $('<div class="m_profileEnd"></div>').append($table);
+			var $node = this.table(method, args, meta, info);
+			return $node.removeClass("m_log").addClass("m_profileEnd");
 		},
 		table: function (method, args, meta, info) {
 			var $table;
@@ -239,7 +239,7 @@ var logDumper = (function($, module) {
 				if (meta.sortable) {
 					$table.addClass("sortable");
 				}
-				return $('<div class="m_table"></div>').append($table);
+				return $('<div>', {class:"m_"+method}).append($table);
 			} else {
 				if (meta["caption"]) {
 					args.unshift(meta["caption"]);
@@ -308,7 +308,6 @@ var logDumper = (function($, module) {
 			return $node;
 		}
 	};
-	methods.groupCollapsed = methods.group;
 
 	module.UNDEFINED = UNDEFINED;
 	module.ABSTRACTION = ABSTRACTION;

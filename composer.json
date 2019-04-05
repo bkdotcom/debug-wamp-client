@@ -16,7 +16,7 @@
 		"psr-4": { "bdk\\Debug\\": "src/" }
 	},
 	"require": {
-		"bdk/debug": "^2.0",
+		"bdk/debug": "~2.3.0",
 		"bdk/wamp-publisher": "*"
 	},
 	"suggest": {
