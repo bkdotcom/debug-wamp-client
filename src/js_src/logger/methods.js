@@ -162,6 +162,9 @@ export var methods = {
 			$nodeWrapper.debugEnhance();
 		}
 	},
+	groupCollapsed: function (method, args, meta, info) {
+		return this.group(method, args, meta, info);
+	},
 	groupSummary: function (method, args, meta, info) {
 		// see if priority already exists
 		var priority = typeof meta.priority !== "undefined"
@@ -244,11 +247,8 @@ export var methods = {
 		}
 	},
 	profileEnd: function (method, args, meta, info) {
-		var $table = table.build(args[0], meta, "table-bordered");
-		if (meta.sortable) {
-			$table.addClass("sortable");
-		}
-		return $('<li class="m_profileEnd"></li>').append($table);
+		var $node = this.table(method, args, meta, info);
+		return $node.removeClass("m_log").addClass("m_profileEnd");
 	},
 	table: function (method, args, meta, info) {
 		var $table;
@@ -257,7 +257,7 @@ export var methods = {
 			if (meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $('<li class="m_table"></li>').append($table);
+			return $('<li>', {class:"m_"+method}).append($table);
 		} else {
 			if (meta["caption"]) {
 				args.unshift(meta["caption"]);
@@ -326,7 +326,6 @@ export var methods = {
 		return $node;
 	}
 };
-methods.groupCollapsed = methods.group;
 
 function buildEntryNode(args, sanitize) {
 	var glue = ', ',
