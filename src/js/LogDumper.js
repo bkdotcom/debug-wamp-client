@@ -402,11 +402,6 @@ var logDumper = (function($, module) {
 						+'</div>'
 					+'</div>'
 					+'<div class="panel-body collapse debug">'
-						+'<fieldset class="channels" style="display:none;">'
-							+'<legend>Channels</legend>'
-							+'<ul class="list-unstyled">'
-							+'</ul>'
-						+'</fieldset>'
 						+'<div class="debug-header m_group"></div>'
 						+'<div class="debug-content m_group"></div>'
 						+'<i class="fa fa-spinner fa-pulse"></i>'
@@ -496,7 +491,7 @@ var logDumper = (function($, module) {
 				$node = methods.default(method, args, meta, info);
 			}
 			if (meta.channel !== undefined && channels.indexOf(meta.channel) < 0) {
-				addChannel(info.$container, meta.channel);
+				addChannel(meta.channel, info);
 			}
 			if ($node) {
 				info.$currentNode.append($node);
@@ -520,18 +515,29 @@ var logDumper = (function($, module) {
 		}
 	};
 
-	function addChannel($container, channel, info) {
-		var channels = $container.data("channels") || [],
-			$li = $('<li><label>'
-				+'<input checked data-is-root="false" data-toggle="channel" type="checkbox" value="" /> '
-				+channel
-				+'</label></li>');
+	function addChannel(channel, info) {
+		var $container = info.$container,
+			$channels = $container.find(".channels"),
+			channels = $container.data("channels") || [],
+			channelRoot = $container.data("channelRoot") || "general",
+			$ul;
+		channel = channel || channelRoot;
+		if (channel == "phpError" || channels.indexOf(channel) > -1) {
+			return;
+		}
 		channels.push(channel);
 		$container.data("channels", channels);
-		$li.find("input").val(channel);
-		$container.find(".channels ul").append($li);
-		if (channels.length > 1) {
-			$container.find(".channels").show();
+		$ul = $().debugEnhance("buildChannelList", channels, channelRoot);
+		if ($channels.length) {
+			$channels.find("> ul").replaceWith($ul);
+			$channels.show();
+		} else {
+			$channels = $("<fieldset />", {
+					class: "channels",
+				})
+				.append('<legend>Channels</legend>')
+				.append($ul);
+			$container.find(".panel-body").prepend($channels);
 		}
 	}
 
