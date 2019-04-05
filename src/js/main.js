@@ -2066,6 +2066,7 @@
 
     function addChannel(channel, info) {
     	var $container = info.$container,
+    		$channels = $container.find(".channels"),
     		channels = $container.data("channels") || [],
     		channelRoot = $container.data("channelRoot") || "general",
     		$ul;
@@ -2076,9 +2077,18 @@
     	channels.push(channel);
     	$container.data("channels", channels);
     	$ul = $().debugEnhance("buildChannelList", channels, channelRoot);
-    	$container.find(".channels > ul").replaceWith($ul);
     	if (channels.length > 1) {
-    		$container.find(".channels").show();
+    		if ($channels.length) {
+    			$channels.find("> ul").replaceWith($ul);
+    			$channels.show();
+    		} else {
+    			$channels = $("<fieldset />", {
+    					class: "channels",
+    				})
+    				.append('<legend>Channels</legend>')
+    				.append($ul);
+    			$container.find(".debug-body").prepend($channels);
+    		}
     	}
     }
 
@@ -2104,11 +2114,6 @@
     				+'</div>'
     				+'<div class="panel-body collapse debug">'
     					+'<div class="debug-body">'
-    						+'<fieldset class="channels" style="display:none;">'
-    							+'<legend>Channels</legend>'
-    							+'<ul class="list-unstyled">'
-    							+'</ul>'
-    						+'</fieldset>'
     						+'<ul class="debug-log-summary group-body"></ul>'
     						+'<ul class="debug-log group-body"></ul>'
     					+'</div>'
