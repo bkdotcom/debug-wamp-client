@@ -462,6 +462,7 @@ var logDumper = (function($, module) {
 				$container: $("#"+meta.requestId)
 			},
 			channels = info.$container.data('channels') || [],
+			channel = meta.channel || info.$container.data("channelRoot"),
 			i,
 			$channelCheckbox,
 			$node;
@@ -490,14 +491,12 @@ var logDumper = (function($, module) {
 			} else {
 				$node = methods.default(method, args, meta, info);
 			}
-			if (meta.channel !== undefined && channels.indexOf(meta.channel) < 0) {
-				addChannel(meta.channel, info);
-			}
+			addChannel(channel, info);
 			if ($node) {
 				info.$currentNode.append($node);
 				$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-				if (channels.length > 1 && !info.$container.find('.channels input[value="'+meta.channel+'"]').prop("checked")) {
-					$node.addClass("hidden-channel");
+				if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
+					$node.addClass("filter-hidden");
 				}
 				if ($node.is(':visible')) {
 					$node.debugEnhance();
@@ -528,16 +527,18 @@ var logDumper = (function($, module) {
 		channels.push(channel);
 		$container.data("channels", channels);
 		$ul = $().debugEnhance("buildChannelList", channels, channelRoot);
-		if ($channels.length) {
-			$channels.find("> ul").replaceWith($ul);
-			$channels.show();
-		} else {
-			$channels = $("<fieldset />", {
-					class: "channels",
-				})
-				.append('<legend>Channels</legend>')
-				.append($ul);
-			$container.find(".panel-body").prepend($channels);
+		if (channels.length > 1) {
+			if ($channels.length) {
+				$channels.find("> ul").replaceWith($ul);
+				$channels.show();
+			} else {
+				$channels = $("<fieldset />", {
+						class: "channels",
+					})
+					.append('<legend>Channels</legend>')
+					.append($ul);
+				$container.find(".panel-body").prepend($channels);
+			}
 		}
 	}
 
