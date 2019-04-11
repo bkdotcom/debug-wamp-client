@@ -1407,7 +1407,7 @@
     	if (val === null) {
     		val = "null";
     	} else if (type == "array") {
-    		val = dumpArray(val);
+    		val = this.dumpArray(val);
     	} else if (type == "bool") {
     		val = val ? "true" : "false";
     		$span.addClass(val);
@@ -1459,6 +1459,35 @@
     	return wrap
     		? $span.addClass("t_"+type).html(val)[0].outerHTML
     		: val;
+    };
+
+    Dump.prototype.dumpArray = function(array) {
+    	var html = '',
+    		keys = array['__debug_key_order__'] || Object.keys(array),
+    		length = keys.length,
+    		key,
+    		i;
+    	if (length == 0) {
+    		html = '<span class="t_keyword">array</span>' +
+    				'<span class="t_punct">(</span>' + "\n" +
+    				'<span class="t_punct">)</span>';
+    	} else {
+    		delete array['__debug_key_order__'];
+    		html = '<span class="t_keyword">array</span>' +
+    			'<span class="t_punct">(</span>' + "\n" +
+    			'<span class="array-inner">' + "\n";
+    		for (i = 0; i < length; i++) {
+    			key = keys[i];
+    			html += "\t" + '<span class="key-value">' +
+    					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span> ' +
+    					'<span class="t_operator">=&gt;</span> ' +
+    					this.dump(array[key], true) +
+    				'</span>' + "\n";
+    		}
+    		html += '</span>' +
+    			'<span class="t_punct">)</span>';
+    	}
+    	return html;
     };
 
     Dump.prototype.getType = function(val) {
@@ -1535,35 +1564,6 @@
     		return (new Date(val*1000)).toString();
     	}
     	return false;
-    }
-
-    function dumpArray(array) {
-    	var html = '',
-    		keys = array['__debug_key_order__'] || Object.keys(array),
-    		length = keys.length,
-    		key,
-    		i;
-    	if (length == 0) {
-    		html = '<span class="t_keyword">array</span>' +
-    				'<span class="t_punct">(</span>' + "\n" +
-    				'<span class="t_punct">)</span>';
-    	} else {
-    		delete array['__debug_key_order__'];
-    		html = '<span class="t_keyword">array</span>' +
-    			'<span class="t_punct">(</span>' + "\n" +
-    			'<span class="array-inner">' + "\n";
-    		for (i = 0; i < length; i++) {
-    			key = keys[i];
-    			html += "\t" + '<span class="key-value">' +
-    					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span> ' +
-    					'<span class="t_operator">=&gt;</span> ' +
-    					Dump.prototype.dump(array[key], true) +
-    				'</span>' + "\n";
-    		}
-    		html += '</span>' +
-    			'<span class="t_punct">)</span>';
-    	}
-    	return html;
     }
 
     /**
