@@ -2,8 +2,8 @@ import $ from 'jquery';				// external global
 import * as configModal from "./configModal.js";
 import {updateCssProperty} from "./Css.js";
 
-var classCollapsed = "glyphicon-chevron-down",
-    classExpanded = "glyphicon-chevron-up",
+var classCollapsed = "glyphicon-chevron-right",
+    classExpanded = "glyphicon-chevron-down",
     timeoutHandler;
 
 export function init(config) {

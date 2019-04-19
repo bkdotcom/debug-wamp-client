@@ -130,8 +130,8 @@
         });
     }
 
-    var classCollapsed = "glyphicon-chevron-down",
-        classExpanded = "glyphicon-chevron-up",
+    var classCollapsed = "glyphicon-chevron-right",
+        classExpanded = "glyphicon-chevron-down",
         timeoutHandler;
 
     function init$1(config) {
@@ -1084,7 +1084,7 @@
             chunklen = parseInt(chunklen, 10) || 76
             separator = separator || '\r\n'
             if (chunklen < 1) {
-                return false
+                return false;
             }
             var regEx = new RegExp('.{0,' + chunklen + '}', 'g');
             return str.match(regEx).join(separator)
@@ -1618,7 +1618,11 @@
     				+'</button>');
     			$node.addClass("alert-dismissible");
     		}
+    		if (meta.icon) {
+    			$node.data("icon", meta.icon);
+    		}
     		info.$container.find(".debug-log-summary").before($node);
+    		$node.debugEnhance();
     	},
     	clear: function (method, args, meta, info) {
     		var attribs = {
@@ -1732,22 +1736,31 @@
     		$container.removeClass('panel-default');
     	},
     	group: function (method, args, meta, info) {
-    		var $groupHeader = groupHeader(method, args, meta),
-    			$nodeWrapper = $("<li>").addClass("m_group"),
-    			$node = $("<ul>", {class:"group-body"});
+    		var $group = $("<li>", {
+    				"class": "m_group",
+    				"data-channel": meta.channel
+    			}),
+    			$groupHeader = groupHeader(method, args, meta),
+    			$groupBody = $("<ul>", {
+    				"class": "group-body",
+    			});
+    		if (meta.hideIfEmpty) {
+    			$group.addClass('hide-if-empty');
+    		}
+    		if (meta.icon) {
+    			$group.attr('data-icon', meta.icon);
+    		}
     		if (meta.level) {
     			$groupHeader.addClass("level-"+meta.level);
-    			$node.addClass("level-"+meta.level);
+    			$groupBody.addClass("level-"+meta.level);
     		}
-    		if (meta.hideIfEmpty) {
-    			$nodeWrapper.addClass('hide-if-empty');
-    		}
-    		$nodeWrapper.append($groupHeader);
-    		$nodeWrapper.append($node);
-    		info.$currentNode.append( $nodeWrapper );
-    		connections[meta.requestId].push($node);
-    		if ($nodeWrapper.is(":visible")) {
-    			$nodeWrapper.debugEnhance();
+    		$group
+    			.append($groupHeader)
+    			.append($groupBody);
+    		info.$currentNode.append( $group );
+    		connections[meta.requestId].push($groupBody);
+    		if ($group.is(":visible")) {
+    			$group.debugEnhance();
     		}
     	},
     	groupCollapsed: function (method, args, meta, info) {
@@ -1806,6 +1819,9 @@
     		$toggleNodes.removeClass("collapsed").addClass("expanded");
     	},
     	meta: function (method, args, meta, info) {
+    		/*
+    			The initial message/method
+    		*/
     		var $title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
     			meta = args[0] || args,
     			opts = args[1] || {};
@@ -1956,26 +1972,33 @@
     	var i = 0,
     		$header,
     		argStr = '',
-    		label = args.shift(),
+    		argsAsParams = typeof meta.argsAsParams != "undefined"
+    			? meta.argsAsParams
+    			: true,
     		collapsedClass = method == 'groupCollapsed'
     			? 'collapsed'
-    			: 'expanded';
-    	if (meta.isMethodName) {
-    		label = dump.markupClassname(label);
-    	}
+    			: 'expanded',
+    		label = args.shift();
     	for (i = 0; i < args.length; i++) {
     		args[i] = dump.dump(args[i]);
     	}
     	argStr = args.join(', ');
+    	if (argsAsParams) {
+    		if (meta.isMethodName) {
+    			label = dump.markupClassname(label);
+    		}
+    		argStr = '<span class="group-label">' + label + '(</span>' +
+    			argStr +
+    			'<span class="group-label">)</span>';
+    		argStr = argStr.replace('(</span><span class="group-label">)', '');
+    	} else {
+    		argStr = '<span class="group-label">'+label+':</span> ' +
+    			argStr;
+    		argStr = argStr.replace(/:<\/span> $/, "</span>");
+    	}
     	$header = $('<div class="group-header ' + collapsedClass + '">' +
-    			'<span class="group-label">' +
-    				label +
-    				( argStr.length
-    					? '(</span>' + argStr + '<span class="group-label">)'
-    					: '' ) +
-    			'</span>' +
+    		argStr +
     		'</div>');
-    	$header.attr("data-channel", meta.channel);	// using attr, so can use [data-channel=xxx] selector
     	return $header;
     }
 
@@ -2072,7 +2095,7 @@
     		$ul;
     	channel = channel || channelRoot;
     	if (channel == "phpError" || channels.indexOf(channel) > -1) {
-    		return;
+    		return false;
     	}
     	channels.push(channel);
     	$container.data("channels", channels);
@@ -2090,6 +2113,7 @@
     			$container.find(".debug-body").prepend($channels);
     		}
     	}
+    	return true;
     }
 
     function getNode(requestId) {
@@ -2105,7 +2129,7 @@
     		$nodeWrapper = $(''
     			+'<div class="panel panel-default working">'
     				+'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">'
-    					+'<i class="glyphicon glyphicon-chevron-down"></i>'
+    					+'<i class="glyphicon glyphicon-chevron-right"></i>'
     					+'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>'
     					+'<div class="panel-heading-body">'
     						+'<h3 class="panel-title">Building Request...</h3>'
@@ -2153,8 +2177,8 @@
     				}
     			} else {
     				$node = $(args);
-    				if ($node.find("> .m_"+method).length == 0) {
-    					$node = $('<li />', {class:"m_"+method}).html(args);	// $node.wrap('<div />').addClass("m_"+method);
+    				if (!$node.is(".m_"+method)) {
+    					$node = $("<li />", {class:"m_"+method}).html(args);
     				}
     			}
     		} else if (methods[method]) {
@@ -2162,10 +2186,26 @@
     		} else {
     			$node = methods.default(method, args, meta, info);
     		}
-    		addChannel(channel, info);
+    		if (['groupSummary','groupEnd'].indexOf(method) < 0) {
+    			// not groupSummary
+    			addChannel(channel, info);
+    			/*
+    			if (added) {
+    				console.log('added channel', {
+    					channel: channel,
+    					method: method,
+    					args: args,
+    					'$node': $node
+    				});
+    			}
+    			*/
+    		}
     		if ($node) {
     			info.$currentNode.append($node);
     			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+    			if (meta.icon) {
+    				$node.data("icon", meta.icon);
+    			}
     			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
     				$node.addClass("filter-hidden");
     			}
@@ -2176,14 +2216,12 @@
     		}
     	} catch (err) {
     		console.warn(err);
-    		/*
     		processEntry('error', [
     			"%cDebugWampClient: %cerror processing %c"+method+"()",
     			"font-weight:bold;",
     			"",
     			"font-family:monospace;"
     		], meta);
-    		*/
     	}
     }
 

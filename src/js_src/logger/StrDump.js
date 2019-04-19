@@ -519,7 +519,7 @@ String.prototype.hexify = (function(){
         chunklen = parseInt(chunklen, 10) || 76
         separator = separator || '\r\n'
         if (chunklen < 1) {
-            return false
+            return false;
         }
         var regEx = new RegExp('.{0,' + chunklen + '}', 'g');
         return str.match(regEx).join(separator)

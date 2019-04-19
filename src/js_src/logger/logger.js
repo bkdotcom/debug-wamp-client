@@ -17,7 +17,7 @@ function addChannel(channel, info) {
 		$ul;
 	channel = channel || channelRoot;
 	if (channel == "phpError" || channels.indexOf(channel) > -1) {
-		return;
+		return false;
 	}
 	channels.push(channel);
 	$container.data("channels", channels);
@@ -35,6 +35,7 @@ function addChannel(channel, info) {
 			$container.find(".debug-body").prepend($channels);
 		}
 	}
+	return true;
 }
 
 function getNode(requestId) {
@@ -50,7 +51,7 @@ function getNode(requestId) {
 		$nodeWrapper = $(''
 			+'<div class="panel panel-default working">'
 				+'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">'
-					+'<i class="glyphicon glyphicon-chevron-down"></i>'
+					+'<i class="glyphicon glyphicon-chevron-right"></i>'
 					+'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>'
 					+'<div class="panel-heading-body">'
 						+'<h3 class="panel-title">Building Request...</h3>'
@@ -100,8 +101,8 @@ export function processEntry(method, args, meta) {
 				}
 			} else {
 				$node = $(args);
-				if ($node.find("> .m_"+method).length == 0) {
-					$node = $('<li />', {class:"m_"+method}).html(args);	// $node.wrap('<div />').addClass("m_"+method);
+				if (!$node.is(".m_"+method)) {
+					$node = $("<li />", {class:"m_"+method}).html(args);
 				}
 			}
 		} else if (methods.methods[method]) {
@@ -109,10 +110,26 @@ export function processEntry(method, args, meta) {
 		} else {
 			$node = methods.methods.default(method, args, meta, info);
 		}
-		addChannel(channel, info);
+		if (['groupSummary','groupEnd'].indexOf(method) < 0) {
+			// not groupSummary
+			addChannel(channel, info);
+			/*
+			if (added) {
+				console.log('added channel', {
+					channel: channel,
+					method: method,
+					args: args,
+					'$node': $node
+				});
+			}
+			*/
+		}
 		if ($node) {
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+			if (meta.icon) {
+				$node.data("icon", meta.icon);
+			}
 			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
 				$node.addClass("filter-hidden");
 			}
@@ -123,13 +140,11 @@ export function processEntry(method, args, meta) {
 		}
 	} catch (err) {
 		console.warn(err);
-		/*
 		processEntry('error', [
 			"%cDebugWampClient: %cerror processing %c"+method+"()",
 			"font-weight:bold;",
 			"",
 			"font-family:monospace;"
 		], meta);
-		*/
 	}
 };

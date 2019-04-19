@@ -27,7 +27,11 @@ export var methods = {
 				+'</button>');
 			$node.addClass("alert-dismissible");
 		}
+		if (meta.icon) {
+			$node.data("icon", meta.icon);
+		}
 		info.$container.find(".debug-log-summary").before($node);
+		$node.debugEnhance();
 	},
 	clear: function (method, args, meta, info) {
 		var attribs = {
@@ -144,22 +148,31 @@ export var methods = {
 		$container.removeClass('panel-default');
 	},
 	group: function (method, args, meta, info) {
-		var $groupHeader = groupHeader(method, args, meta),
-			$nodeWrapper = $("<li>").addClass("m_group"),
-			$node = $("<ul>", {class:"group-body"});
+		var $group = $("<li>", {
+				"class": "m_group",
+				"data-channel": meta.channel
+			}),
+			$groupHeader = groupHeader(method, args, meta),
+			$groupBody = $("<ul>", {
+				"class": "group-body",
+			});
+		if (meta.hideIfEmpty) {
+			$group.addClass('hide-if-empty');
+		}
+		if (meta.icon) {
+			$group.attr('data-icon', meta.icon);
+		}
 		if (meta.level) {
 			$groupHeader.addClass("level-"+meta.level);
-			$node.addClass("level-"+meta.level);
+			$groupBody.addClass("level-"+meta.level);
 		}
-		if (meta.hideIfEmpty) {
-			$nodeWrapper.addClass('hide-if-empty');
-		}
-		$nodeWrapper.append($groupHeader);
-		$nodeWrapper.append($node);
-		info.$currentNode.append( $nodeWrapper );
-		connections[meta.requestId].push($node)
-		if ($nodeWrapper.is(":visible")) {
-			$nodeWrapper.debugEnhance();
+		$group
+			.append($groupHeader)
+			.append($groupBody);
+		info.$currentNode.append( $group );
+		connections[meta.requestId].push($groupBody)
+		if ($group.is(":visible")) {
+			$group.debugEnhance();
 		}
 	},
 	groupCollapsed: function (method, args, meta, info) {
@@ -218,6 +231,9 @@ export var methods = {
 		$toggleNodes.removeClass("collapsed").addClass("expanded");
 	},
 	meta: function (method, args, meta, info) {
+		/*
+			The initial message/method
+		*/
 		var i, arg,
 			$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
 			meta = args[0] || args,
@@ -371,26 +387,33 @@ function groupHeader(method, args, meta) {
 	var i = 0,
 		$header,
 		argStr = '',
-		label = args.shift(),
+		argsAsParams = typeof meta.argsAsParams != "undefined"
+			? meta.argsAsParams
+			: true,
 		collapsedClass = method == 'groupCollapsed'
 			? 'collapsed'
-			: 'expanded';
-	if (meta.isMethodName) {
-		label = dump.markupClassname(label);
-	}
+			: 'expanded',
+		label = args.shift();
 	for (i = 0; i < args.length; i++) {
 		args[i] = dump.dump(args[i]);
 	}
 	argStr = args.join(', ');
+	if (argsAsParams) {
+		if (meta.isMethodName) {
+			label = dump.markupClassname(label);
+		}
+		argStr = '<span class="group-label">' + label + '(</span>' +
+			argStr +
+			'<span class="group-label">)</span>';
+		argStr = argStr.replace('(</span><span class="group-label">)', '');
+	} else {
+		argStr = '<span class="group-label">'+label+':</span> ' +
+			argStr;
+		argStr = argStr.replace(/:<\/span> $/, "</span>");
+	}
 	$header = $('<div class="group-header ' + collapsedClass + '">' +
-			'<span class="group-label">' +
-				label +
-				( argStr.length
-					? '(</span>' + argStr + '<span class="group-label">)'
-					: '' ) +
-			'</span>' +
+		argStr +
 		'</div>');
-	$header.attr("data-channel", meta.channel);	// using attr, so can use [data-channel=xxx] selector
 	return $header;
 }
 
