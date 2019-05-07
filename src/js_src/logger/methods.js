@@ -6,42 +6,42 @@ var connections = {};
 var dump = new Dump();
 var hasSubs = false;	// substitutions
 var table = new Table(dump);
+var detectFiles = false;
+var foundFiles = [];
 
 export function init(_connections) {
 	connections = _connections;
 }
 
 export var methods = {
-	alert: function (method, args, meta, info) {
-		var message = args[0],
-			className = meta.class,
-			dismissible = args.message
-				? args.dismissible
-				: meta.dismissible,
-			$node = $('<div class="m_alert"></div>').addClass("alert-"+className)
+	alert: function (logEntry, info) {
+		var message = logEntry.args[0],
+			level = logEntry.meta.level,
+			dismissible = logEntry.meta.dismissible,
+			$node = $('<div class="m_alert"></div>').addClass("alert-"+level)
 				.html(message)
-				.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+				.attr("data-channel", logEntry.meta.channel);	// using attr so can use [data-channel="xxx"] selector
 		if (dismissible) {
 			$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
 				+'<span aria-hidden="true">&times;</span>'
 				+'</button>');
 			$node.addClass("alert-dismissible");
 		}
-		if (meta.icon) {
-			$node.data("icon", meta.icon);
+		if (logEntry.meta.icon) {
+			$node.data("icon", logEntry.meta.icon);
 		}
 		info.$container.find(".debug-log-summary").before($node);
 		$node.debugEnhance();
 	},
-	clear: function (method, args, meta, info) {
+	clear: function (logEntry, info) {
 		var attribs = {
 				class: 'm_clear',
-				title: meta.file + ': line ' + meta.line
+				title: logEntry.meta.file + ': line ' + logEntry.meta.line
 			},
 			channelFilter = function() {
-				return $(this).data('channel') == meta.channel;
+				return $(this).data('channel') == logEntry.meta.channel;
 			},
-			flags = meta.flags,
+			flags = logEntry.meta.flags,
 			i,
 			$container = info.$container,
 			$curNodeLog,
@@ -50,10 +50,10 @@ export var methods = {
 			$nestedError,
 			$node,
 			$remove,
-			stackLen = connections[meta.requestId].length;
-		args = processSubstitutions(args)
+			stackLen = connections[logEntry.meta.requestId].length;
+		args = processSubstitutions(logEntry.args)
 		for (i = stackLen - 1; i >= 0; i--) {
-			$node = connections[meta.requestId][i];
+			$node = connections[logEntry.meta.requestId][i];
 			if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
 				$curTreeSummary = $node.parentsUntil(".debug-log-summary")
 					.addBack()
@@ -107,11 +107,11 @@ export var methods = {
 			return $('<li>', attribs).html(args[0]);
 		}
 	},
-	endOutput: function (method, args, meta, info) {
+	endOutput: function (logEntry, info) {
 		var $container = info.$container,
 			i,
 			arg,
-			responseCode = meta.responseCode || args.responseCode;
+			responseCode = logEntry.meta.responseCode;
 		$container.removeClass("working");
 		$container.find(".panel-heading .fa-spinner").remove();
 		$container.find(".panel-body > .fa-spinner").remove();
@@ -122,22 +122,25 @@ export var methods = {
 			}
 		}
 		$container.data('lastNode', info.$currentNode);
-		delete connections[meta.requestId];
+		setTimeout(function(){
+			// There's no hurry... keep around.. as more entrys may follow php's onShutdown
+			delete connections[logEntry.meta.requestId];
+		}, 1000 * 30)
 	},
-	errorNotConsoled: function (method, args, meta, info) {
+	errorNotConsoled: function (logEntry, info) {
 		var $container = info.$container,
 			$node = $container.find('.alert.error-summary');
 		if (!$node.length) {
 			$node = $('<div class="alert alert-danger error-summary">' +
 				'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
-				'<ul class="list-unstyled indent">' +
+				'<ul class="list-unstyled">' +
 				'</ul>' +
 				'</div>');
 			$container.find(".panel-body").prepend($node);
 		}
 		$node = $node.find('ul');
-		$node.append($("<li></li>").text(args[0]));
-		if (meta.class == "danger") {
+		$node.append($("<li></li>").text(logEntry.args[0]));
+		if (logEntry.meta.class == "danger") {
 			// console.log('panel-danger');
 			$container.addClass("panel-danger");
 			$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
@@ -147,42 +150,42 @@ export var methods = {
 		}
 		$container.removeClass('panel-default');
 	},
-	group: function (method, args, meta, info) {
+	group: function (logEntry, info) {
 		var $group = $("<li>", {
 				"class": "m_group",
-				"data-channel": meta.channel
+				"data-channel": logEntry.meta.channel
 			}),
-			$groupHeader = groupHeader(method, args, meta),
+			$groupHeader = groupHeader(logEntry),
 			$groupBody = $("<ul>", {
 				"class": "group-body",
 			});
-		if (meta.hideIfEmpty) {
+		if (logEntry.meta.hideIfEmpty) {
 			$group.addClass('hide-if-empty');
 		}
-		if (meta.icon) {
-			$group.attr('data-icon', meta.icon);
+		if (logEntry.meta.icon) {
+			$group.attr('data-icon', logEntry.meta.icon);
 		}
-		if (meta.level) {
-			$groupHeader.addClass("level-"+meta.level);
-			$groupBody.addClass("level-"+meta.level);
+		if (logEntry.meta.level) {
+			$groupHeader.addClass("level-"+logEntry.meta.level);
+			$groupBody.addClass("level-"+logEntry.meta.level);
 		}
 		$group
 			.append($groupHeader)
 			.append($groupBody);
 		info.$currentNode.append( $group );
-		connections[meta.requestId].push($groupBody)
+		connections[logEntry.meta.requestId].push($groupBody)
 		if ($group.is(":visible")) {
 			$group.debugEnhance();
 		}
 	},
-	groupCollapsed: function (method, args, meta, info) {
-		return this.group(method, args, meta, info);
+	groupCollapsed: function (logEntry, info) {
+		return this.group(logEntry, info);
 	},
-	groupSummary: function (method, args, meta, info) {
+	groupSummary: function (logEntry, info) {
 		// see if priority already exists
-		var priority = typeof meta.priority !== "undefined"
-				? meta.priority // v2.1
-				: args[0],
+		var priority = typeof logEntry.meta.priority !== "undefined"
+				? logEntry.meta.priority // v2.1
+				: logEntry.args[0],
 			$node;
 		info.$container.find(".debug-log-summary .m_groupSummary").each(function(){
 			var priorityCur = $(this).data("priority");
@@ -208,36 +211,40 @@ export var methods = {
 				.append( $node );
 		}
 		$node = $node.find("> ul")
-		connections[meta.requestId].push($node);
+		connections[logEntry.meta.requestId].push($node);
 	},
-	groupEnd: function (method, args, meta, info) {
-		var isSummaryRoot = connections[meta.requestId].length > 1
+	groupEnd: function (logEntry, info) {
+		var isSummaryRoot = connections[logEntry.meta.requestId].length > 1
 				&& info.$currentNode.hasClass("m_groupSummary"),
 			$group,
 			$toggle;
-		connections[meta.requestId].pop();
+		connections[logEntry.meta.requestId].pop();
 		if (!isSummaryRoot) {
 			$toggle = info.$currentNode.prev();
-			$group = $toggle.parent().debugEnhance();
+			$group = $toggle.parent();
 			if ($group.hasClass("empty") && $group.hasClass("hide-if-empty")) {
 				// $toggle.remove();
 				// info.$currentNode.remove();
 				$group.remove();
+			} else if (!$group.is(":visible")) {
+				return;
+			} else {
+				$group.debugEnhance();
 			}
 		}
 	},
-	groupUncollapse: function (method, args, meta, info) {
+	groupUncollapse: function (logEntry, info) {
 		var $toggleNodes = info.$currentNode.parentsUntil(".debug-log-summary, .debug-log").add(info.$currentNode).prev();
 		$toggleNodes.removeClass("collapsed").addClass("expanded");
 	},
-	meta: function (method, args, meta, info) {
+	meta: function (logEntry, info) {
 		/*
 			The initial message/method
 		*/
 		var i, arg,
 			$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
-			meta = args[0] || args,
-			opts = args[1] || {};
+			meta = logEntry.args[0],
+			opts = logEntry.args[1];
 		info.$container.data("channelRoot", opts.channelRoot);
 		info.$container.data("options", {
 			drawer: opts.drawer
@@ -262,45 +269,51 @@ export var methods = {
 				.prepend('<span class="pull-right">'+date+'</span>');
 		}
 	},
-	profileEnd: function (method, args, meta, info) {
-		var $node = this.table(method, args, meta, info);
+	profileEnd: function (logEntry, info) {
+		var $node = this.table(logEntry, info);
 		return $node.removeClass("m_log").addClass("m_profileEnd");
 	},
-	table: function (method, args, meta, info) {
+	table: function (logEntry, info) {
 		var $table;
-		if (typeof args[0] == "object" && args[0] !== null && Object.keys(args[0]).length) {
-			$table = table.build(args[0], meta, "table-bordered");
-			if (meta.sortable) {
+		if (typeof logEntry.args[0] == "object" && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
+			$table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
+			if (logEntry.meta.sortable) {
 				$table.addClass("sortable");
 			}
-			return $('<li>', {class:"m_"+method}).append($table);
+			return $('<li>', {class:"m_"+logEntry.method}).append($table);
 		} else {
-			if (meta["caption"]) {
-				args.unshift(meta["caption"]);
+			if (logEntry.meta["caption"]) {
+				logEntry.args.unshift(logEntry.meta["caption"]);
 			}
-			return methods.default("log", args, meta, info);
+			return methods.default({
+				method: "log",
+				args: logEntry.args,
+				meta: logEntry.meta
+			}, info);
 		}
 	},
-	trace: function (method, args, meta, info) {
-		var $table = table.build(args[0], meta, "table-bordered");
-		if (meta.sortable) {
+	trace: function (logEntry, info) {
+		var $table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
+		if (logEntry.meta.sortable) {
 			$table.addClass("sortable");
 		}
 		return $('<li class="m_trace"></li>').append($table);
 	},
-	default: function (method, args, meta, info) {
+	default: function (logEntry, info) {
 		var arg,
 			attribs = {
-				"class" : "m_" + method,
+				"class" : "m_" + logEntry.method,
 				"title" : null
 			},
 			$container = info.$container,
 			i,
 			$node,
+			method = logEntry.method,
+			args = logEntry.args,
+			meta = logEntry.meta,
 			numArgs = args.length;
 		hasSubs = false;
 		if (["error","warn"].indexOf(method) > -1) {
-			// console.log('meta', meta);
 			if (meta.file) {
 				attribs.title = meta.file + ': line ' + meta.line;
 			}
@@ -329,15 +342,20 @@ export var methods = {
 		if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
 			// console.warn("have backtrace");
 			$node.append(
-				table.build(
-					meta.backtrace,
-					{
-						caption: "trace",
-						columns: ["file","line","function"]
-					},
-					"trace table-bordered"
+				$('<ul>', { "class": "list-unstyled" }).append(
+					$("<li>", { "class": "m_trace"}).append(
+						table.build(
+							meta.backtrace,
+							{
+								caption: "trace",
+								columns: ["file","line","function"]
+							},
+							"table-bordered"
+						)
+					)
 				)
 			);
+			$node.find(".m_trace").debugEnhance();
 		}
 		return $node;
 	}
@@ -353,22 +371,23 @@ function buildEntryNode(args, sanitize) {
 	if (sanitize === undefined) {
 		sanitize = true;
 	}
+	if (firstArgIsString) {
+		if (args[0].match(/[=:]\s*$/)) {
+			// first arg ends with "=" or ":"
+			glueAfterFirst = false;
+			args[0] = $.trim(args[0]) + " ";
+		} else if (numArgs == 2) {
+			glue = ' = ';
+		}
+	}
 	for (i = 0; i < numArgs; i++) {
 		arg = args[i];
 		args[i] = i > 0
 			? dump.dump(arg, sanitize)
 			: dump.dump(arg, false);
 	}
-	if (firstArgIsString) {
-		if (args[0].match(/[=:] ?$/)) {
-			// first arg ends with "=" or ":"
-			glueAfterFirst = false;
-		} else if (numArgs == 2) {
-			glue = ' = ';
-		}
-	}
 	if (!glueAfterFirst) {
-		return $("<li>").html(args[0] + args.slice(1).join(glue));
+		return $("<li>").html(args[0] + " " + args.slice(1).join(glue));
 	} else {
 		return $("<li>").html(args.join(glue));
 	}
@@ -383,23 +402,23 @@ function buildEntryNode(args, sanitize) {
  *
  * @return jQuery obj
  */
-function groupHeader(method, args, meta) {
+function groupHeader(logEntry) {
 	var i = 0,
 		$header,
 		argStr = '',
-		argsAsParams = typeof meta.argsAsParams != "undefined"
-			? meta.argsAsParams
+		argsAsParams = typeof logEntry.meta.argsAsParams != "undefined"
+			? logEntry.meta.argsAsParams
 			: true,
-		collapsedClass = method == 'groupCollapsed'
+		collapsedClass = logEntry.method == 'groupCollapsed'
 			? 'collapsed'
 			: 'expanded',
-		label = args.shift();
-	for (i = 0; i < args.length; i++) {
-		args[i] = dump.dump(args[i]);
+		label = logEntry.args.shift();
+	for (i = 0; i < logEntry.args.length; i++) {
+		logEntry.args[i] = dump.dump(logEntry.args[i]);
 	}
-	argStr = args.join(', ');
+	argStr = logEntry.args.join(', ');
 	if (argsAsParams) {
-		if (meta.isMethodName) {
+		if (logEntry.meta.isMethodName) {
 			label = dump.markupClassname(label);
 		}
 		argStr = '<span class="group-label">' + label + '(</span>' +
@@ -414,6 +433,9 @@ function groupHeader(method, args, meta) {
 	$header = $('<div class="group-header ' + collapsedClass + '">' +
 		argStr +
 		'</div>');
+	if (typeof logEntry.meta.boldLabel === "undefined" || logEntry.meta.boldLabel) {
+		$header.find(".group-label").addClass("group-label-bold");
+	}
 	return $header;
 }
 

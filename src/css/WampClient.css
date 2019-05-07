@@ -9,6 +9,12 @@ body { padding-top:50px; }
 }
 */
 
+kbd {
+	background-color: #ccc;
+	color: #000;
+}
+
+
 .navbar {
 	margin-bottom: 10px;
 	min-height: auto;
@@ -71,4 +77,45 @@ body { padding-top:50px; }
 }
 .panel-heading-body .fa-spinner {
 	margin-left: .75em;
+}
+
+#modal-settings .modal-body {
+	padding-bottom: 0;
+}
+
+.debug {
+	transform: none;
+}
+
+/**
+ * Serves as mouseenter trigger area
+ */
+.panel .sidebar-trigger {
+	position: absolute;
+	width: 15px;
+	height: 100%;
+	margin-left: -15px;
+	margin-top: -15px;
+}
+
+.panel .debug-sidebar {
+	margin-top: -15px;
+	margin-left: -15px;
+	z-index: 1;
+	width: 116px;
+	padding-right: 0;
+	overflow: hidden;
+	position: absolute;
+	border-right: #ddd solid 1px;
+}
+.panel .debug-sidebar .sidebar-toggle {
+	display: none;
+}
+
+.debug .debug-sidebar + .debug-body {
+	margin-left: 0;
+	padding-left: 0;
+}
+.debug .debug-sidebar.show + .debug-body  {
+	margin-left: 0;
 }

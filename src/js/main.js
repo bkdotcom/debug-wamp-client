@@ -3,7 +3,7 @@
 
     $ = $ && $.hasOwnProperty('default') ? $['default'] : $;
 
-    var PubSub = (function(){
+    var PubSub$1 = (function(){
         var topics = {};
         var hOP = topics.hasOwnProperty;
         return {
@@ -105,39 +105,66 @@
     }
 
     function init(config) {
+        $("#wsUrl").val(config.get("url"));
+        $("#realm").val(config.get("realm"));
+        $("#font-size").val(config.get("fontSize"));
+        $("#link-files").prop("checked", config.get("linkFiles"));
+        $("#link-files-template").val(config.get("linkFilesTemplate"));
+        /*
         $('#modal-settings').on("show.bs.modal", function (e) {
-            $("#wsUrl").val(config.get("url"));
-            $("#realm").val(config.get("realm"));
-            $("#font-size").val(config.get("font-size"));
         });
+        */
         $("#font-size").on("change", function(){
             updateCssProperty("wampClientCss", "#body", "font-size", $("#font-size").val());
         });
+        $("#link-files").on("change", function(){
+            var isChecked = $(this).prop("checked"),
+                $templateGroup = $("#link-files-template").closest(".form-group");
+            isChecked
+                ? $templateGroup.slideDown()
+                : $templateGroup.slideUp();
+        }).trigger("change");
         $('#modal-settings').on("submit", function(e) {
             e.preventDefault();
+            // var configWas = config.get(),
+                // configNew = {};
             if ($("#wsUrl").val() != config.get("url") || $("#realm").val() != config.get("realm")) {
                 // connection options changed
                 config.set("url", $("#wsUrl").val());
                 config.set("realm", $("#realm").val());
-                PUbSub.publish('onmessage', 'connectionClose');
+                PubSub.publish('onmessage', 'connectionClose');
                 PUbSub.publish('onmessage', 'connectionOpen');
             }
-            config.set("font-size", $("#font-size").val());
+            config.set({
+                fontSize: $("#font-size").val(),
+                linkFiles: $("#link-files").prop("checked"),
+                linkFilesTemplate: $("#link-files-template").val()
+            });
+            // var configNew = config.get();
             $(this).modal("hide");
+            /*
+            console.log('configWas', configWas);
+            console.log('configNew', configNew);
+            if (configNew.linkFiles != configWas.linkFiles || configNew.linkFilesTemplate != configWas.linkFilesTemplate) {
+                console.warn('linkFiles changed');
+            }
+            */
         });
         $('#modal-settings').on("hide.bs.modal", function (e) {
-            updateCssProperty("wampClientCss", "#body", "font-size", config.get("font-size"));
+            updateCssProperty("wampClientCss", "#body", "font-size", config.get("fontSize"));
         });
     }
 
     var classCollapsed = "glyphicon-chevron-right",
         classExpanded = "glyphicon-chevron-down",
-        timeoutHandler;
+        timeoutHandler,
+        navbarHeight = $(".navbar-header").height();
+
 
     function init$1(config) {
 
         updateCssProperty("wampClientCss", ".debug", "font-size", "inherit");
-        updateCssProperty("wampClientCss", "#body", "font-size", config.get("font-size"));
+        updateCssProperty("wampClientCss", "#body", "font-size", config.get("fontSize"));
 
     	init(config);
 
@@ -164,13 +191,125 @@
         $("body").on("shown.bs.collapse hidden.bs.collapse", ".panel-body", function(e) {
             var $icon = $(this).closest('.panel').find('.panel-heading .'+classCollapsed+', .panel-heading .'+classExpanded);
             $icon.toggleClass(classExpanded+' '+classCollapsed);
-            $(this).find(".m_groupSummary, .debug-log").find("> *").not(".enhanced").debugEnhance();
+            if (e.type == "shown") {
+                $(this).find(".m_groupSummary > .group-body, .debug-log").debugEnhance();
+            }
         });
 
         $("body").on("click", ".btn-remove-session", function(e) {
             $(this).closest(".panel").remove();
         });
+
+        /*
+        var $sticker = $("#sticker");
+        var pos = $sticker.position();
+        var stickermax = $(document).outerHeight() - $("#footer").outerHeight() - $sticker.outerHeight() - 40; //40 value is the total of the top and bottom margin
+        $(window).on('scroll', function() {
+            var windowpos = $(window).scrollTop();
+            // $sticker.html("Distance from top:" + pos.top + "<br />Scroll position: " + windowpos);
+            if (windowpos >= pos.top && windowpos < stickermax) {
+                $sticker.attr("style", ""); //kill absolute positioning
+                $sticker.addClass("stick"); //stick it
+            } else if (windowpos >= stickermax) {
+                $sticker.removeClass(); //un-stick
+                $sticker.css({
+                    position: "absolute",
+                    top: stickermax + "px"
+                }); //set sticker right above the footer
+            } else {
+                $sticker.removeClass("stick"); //top of page
+            }
+        });
+        */
+
+        $(window).on("scroll", positionSidebar);
+
+        $("body").on("open.debug.sidebar", function(){
+            positionSidebar();
+        });
+
+        $("body").on("mouseenter", ".sidebar-trigger", function(){
+            $(this).closest(".panel").debugEnhance("sidebar", "open");
+            $(this).closest(".panel").find(".panel-body").css({
+                minHeight: "200px"
+            });
+        });
+
+        $("body").on("mouseleave", ".debug-sidebar", function(){
+            $(this).closest(".panel").debugEnhance("sidebar", "close");
+            $(this).closest(".panel").find(".panel-body").attr("style", "");
+        });
     }
+
+    function positionSidebar() {
+        var scrollTop = $(window).scrollTop(),
+            windowHeight = $(window).height(),
+            $sidebar = $(".debug-sidebar.show"),
+            $panelBody = $sidebar.closest(".panel-body"),
+            panelOffset = $panelBody.length
+                ? $panelBody.offset().top
+                : 0,
+            panelHeight = $panelBody.innerHeight(),
+            heightAvail = panelOffset + panelHeight - scrollTop - navbarHeight,
+            contentHeight = $sidebar.find(".debug-filters").height();
+        // var sidebarTop = $sidebar.offset().top - navbarHeight;
+        /*
+        console.warn('scrollin', {
+            navbarHeight: navbarHeight,
+            scrollTop: scrollTop,
+            panelHeight: panelHeight,
+            panelOffset: panelOffset,
+            panelBottomOffset: panelOffset + panelHeight,
+            // sidebarTop: sidebarTop
+        });
+        */
+        $sidebar.attr("style", "");
+        if ($panelBody.length === 0) {
+            return;
+        }
+        if (panelOffset < scrollTop + navbarHeight) {
+            // console.log('top scrolled above view');
+            $sidebar.css({
+                position: "fixed",
+                marginTop: 0,
+                top: navbarHeight+"px"
+            });
+            if (panelOffset + panelHeight < scrollTop + windowHeight) {
+                // console.log('bottom is vis');
+                if (heightAvail < contentHeight) {
+                    // console.warn('not enough height');
+                    $sidebar.css({
+                        position: "absolute",
+                        top: "unset",
+                        bottom: 0,
+                        height: (contentHeight + 4) + "px"
+                    });
+                } else {
+                    // console.warn('enough height');
+                    $sidebar.css({
+                        height: heightAvail+"px"
+                    });
+                }
+            }
+        }
+    }
+
+    /*
+    function debounce(func, wait, immediate) {
+        var timeout;
+        return function() {
+            var context = this, args = arguments;
+            var later = function() {
+                timeout = null;
+                if (!immediate) func.apply(context, args);
+            };
+            var callNow = immediate && !timeout;
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+            if (callNow) func.apply(context, args);
+        };
+    };
+    */
 
     var colKeys = [];
     var colClasses = {};
@@ -1479,8 +1618,12 @@
     		for (i = 0; i < length; i++) {
     			key = keys[i];
     			html += "\t" + '<span class="key-value">' +
-    					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span> ' +
-    					'<span class="t_operator">=&gt;</span> ' +
+    					// '<span class="text-nowrap">' +
+    					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
+    					// '&#x2060;' +
+    					'<span class="t_operator">=&gt;</span>' +
+    					// '</span>' +
+    					// '&#x2060;' +
     					this.dump(array[key], true) +
     				'</span>' + "\n";
     		}
@@ -1603,36 +1746,34 @@
     }
 
     var methods = {
-    	alert: function (method, args, meta, info) {
-    		var message = args[0],
-    			className = meta.class,
-    			dismissible = args.message
-    				? args.dismissible
-    				: meta.dismissible,
-    			$node = $('<div class="m_alert"></div>').addClass("alert-"+className)
+    	alert: function (logEntry, info) {
+    		var message = logEntry.args[0],
+    			level = logEntry.meta.level,
+    			dismissible = logEntry.meta.dismissible,
+    			$node = $('<div class="m_alert"></div>').addClass("alert-"+level)
     				.html(message)
-    				.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+    				.attr("data-channel", logEntry.meta.channel);	// using attr so can use [data-channel="xxx"] selector
     		if (dismissible) {
     			$node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
     				+'<span aria-hidden="true">&times;</span>'
     				+'</button>');
     			$node.addClass("alert-dismissible");
     		}
-    		if (meta.icon) {
-    			$node.data("icon", meta.icon);
+    		if (logEntry.meta.icon) {
+    			$node.data("icon", logEntry.meta.icon);
     		}
     		info.$container.find(".debug-log-summary").before($node);
     		$node.debugEnhance();
     	},
-    	clear: function (method, args, meta, info) {
+    	clear: function (logEntry, info) {
     		var attribs = {
     				class: 'm_clear',
-    				title: meta.file + ': line ' + meta.line
+    				title: logEntry.meta.file + ': line ' + logEntry.meta.line
     			},
     			channelFilter = function() {
-    				return $(this).data('channel') == meta.channel;
+    				return $(this).data('channel') == logEntry.meta.channel;
     			},
-    			flags = meta.flags,
+    			flags = logEntry.meta.flags,
     			i,
     			$container = info.$container,
     			$curNodeLog,
@@ -1640,10 +1781,10 @@
     			$curTreeLog,
     			$node,
     			$remove,
-    			stackLen = connections[meta.requestId].length;
-    		args = processSubstitutions(args);
+    			stackLen = connections[logEntry.meta.requestId].length;
+    		args = processSubstitutions(logEntry.args);
     		for (i = stackLen - 1; i >= 0; i--) {
-    			$node = connections[meta.requestId][i];
+    			$node = connections[logEntry.meta.requestId][i];
     			if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
     				$curTreeSummary = $node.parentsUntil(".debug-log-summary")
     					.addBack()
@@ -1697,9 +1838,9 @@
     			return $('<li>', attribs).html(args[0]);
     		}
     	},
-    	endOutput: function (method, args, meta, info) {
+    	endOutput: function (logEntry, info) {
     		var $container = info.$container,
-    			responseCode = meta.responseCode || args.responseCode;
+    			responseCode = logEntry.meta.responseCode;
     		$container.removeClass("working");
     		$container.find(".panel-heading .fa-spinner").remove();
     		$container.find(".panel-body > .fa-spinner").remove();
@@ -1710,22 +1851,25 @@
     			}
     		}
     		$container.data('lastNode', info.$currentNode);
-    		delete connections[meta.requestId];
+    		setTimeout(function(){
+    			// There's no hurry... keep around.. as more entrys may follow php's onShutdown
+    			delete connections[logEntry.meta.requestId];
+    		}, 1000 * 30);
     	},
-    	errorNotConsoled: function (method, args, meta, info) {
+    	errorNotConsoled: function (logEntry, info) {
     		var $container = info.$container,
     			$node = $container.find('.alert.error-summary');
     		if (!$node.length) {
     			$node = $('<div class="alert alert-danger error-summary">' +
     				'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
-    				'<ul class="list-unstyled indent">' +
+    				'<ul class="list-unstyled">' +
     				'</ul>' +
     				'</div>');
     			$container.find(".panel-body").prepend($node);
     		}
     		$node = $node.find('ul');
-    		$node.append($("<li></li>").text(args[0]));
-    		if (meta.class == "danger") {
+    		$node.append($("<li></li>").text(logEntry.args[0]));
+    		if (logEntry.meta.class == "danger") {
     			// console.log('panel-danger');
     			$container.addClass("panel-danger");
     			$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
@@ -1735,42 +1879,42 @@
     		}
     		$container.removeClass('panel-default');
     	},
-    	group: function (method, args, meta, info) {
+    	group: function (logEntry, info) {
     		var $group = $("<li>", {
     				"class": "m_group",
-    				"data-channel": meta.channel
+    				"data-channel": logEntry.meta.channel
     			}),
-    			$groupHeader = groupHeader(method, args, meta),
+    			$groupHeader = groupHeader(logEntry),
     			$groupBody = $("<ul>", {
     				"class": "group-body",
     			});
-    		if (meta.hideIfEmpty) {
+    		if (logEntry.meta.hideIfEmpty) {
     			$group.addClass('hide-if-empty');
     		}
-    		if (meta.icon) {
-    			$group.attr('data-icon', meta.icon);
+    		if (logEntry.meta.icon) {
+    			$group.attr('data-icon', logEntry.meta.icon);
     		}
-    		if (meta.level) {
-    			$groupHeader.addClass("level-"+meta.level);
-    			$groupBody.addClass("level-"+meta.level);
+    		if (logEntry.meta.level) {
+    			$groupHeader.addClass("level-"+logEntry.meta.level);
+    			$groupBody.addClass("level-"+logEntry.meta.level);
     		}
     		$group
     			.append($groupHeader)
     			.append($groupBody);
     		info.$currentNode.append( $group );
-    		connections[meta.requestId].push($groupBody);
+    		connections[logEntry.meta.requestId].push($groupBody);
     		if ($group.is(":visible")) {
     			$group.debugEnhance();
     		}
     	},
-    	groupCollapsed: function (method, args, meta, info) {
-    		return this.group(method, args, meta, info);
+    	groupCollapsed: function (logEntry, info) {
+    		return this.group(logEntry, info);
     	},
-    	groupSummary: function (method, args, meta, info) {
+    	groupSummary: function (logEntry, info) {
     		// see if priority already exists
-    		var priority = typeof meta.priority !== "undefined"
-    				? meta.priority // v2.1
-    				: args[0],
+    		var priority = typeof logEntry.meta.priority !== "undefined"
+    				? logEntry.meta.priority // v2.1
+    				: logEntry.args[0],
     			$node;
     		info.$container.find(".debug-log-summary .m_groupSummary").each(function(){
     			var priorityCur = $(this).data("priority");
@@ -1796,35 +1940,39 @@
     				.append( $node );
     		}
     		$node = $node.find("> ul");
-    		connections[meta.requestId].push($node);
+    		connections[logEntry.meta.requestId].push($node);
     	},
-    	groupEnd: function (method, args, meta, info) {
-    		var isSummaryRoot = connections[meta.requestId].length > 1
+    	groupEnd: function (logEntry, info) {
+    		var isSummaryRoot = connections[logEntry.meta.requestId].length > 1
     				&& info.$currentNode.hasClass("m_groupSummary"),
     			$group,
     			$toggle;
-    		connections[meta.requestId].pop();
+    		connections[logEntry.meta.requestId].pop();
     		if (!isSummaryRoot) {
     			$toggle = info.$currentNode.prev();
-    			$group = $toggle.parent().debugEnhance();
+    			$group = $toggle.parent();
     			if ($group.hasClass("empty") && $group.hasClass("hide-if-empty")) {
     				// $toggle.remove();
     				// info.$currentNode.remove();
     				$group.remove();
+    			} else if (!$group.is(":visible")) {
+    				return;
+    			} else {
+    				$group.debugEnhance();
     			}
     		}
     	},
-    	groupUncollapse: function (method, args, meta, info) {
+    	groupUncollapse: function (logEntry, info) {
     		var $toggleNodes = info.$currentNode.parentsUntil(".debug-log-summary, .debug-log").add(info.$currentNode).prev();
     		$toggleNodes.removeClass("collapsed").addClass("expanded");
     	},
-    	meta: function (method, args, meta, info) {
+    	meta: function (logEntry, info) {
     		/*
     			The initial message/method
     		*/
     		var $title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
-    			meta = args[0] || args,
-    			opts = args[1] || {};
+    			meta = logEntry.args[0],
+    			opts = logEntry.args[1];
     		info.$container.data("channelRoot", opts.channelRoot);
     		info.$container.data("options", {
     			drawer: opts.drawer
@@ -1849,43 +1997,49 @@
     				.prepend('<span class="pull-right">'+date+'</span>');
     		}
     	},
-    	profileEnd: function (method, args, meta, info) {
-    		var $node = this.table(method, args, meta, info);
+    	profileEnd: function (logEntry, info) {
+    		var $node = this.table(logEntry, info);
     		return $node.removeClass("m_log").addClass("m_profileEnd");
     	},
-    	table: function (method, args, meta, info) {
+    	table: function (logEntry, info) {
     		var $table;
-    		if (typeof args[0] == "object" && args[0] !== null && Object.keys(args[0]).length) {
-    			$table = table.build(args[0], meta, "table-bordered");
-    			if (meta.sortable) {
+    		if (typeof logEntry.args[0] == "object" && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
+    			$table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
+    			if (logEntry.meta.sortable) {
     				$table.addClass("sortable");
     			}
-    			return $('<li>', {class:"m_"+method}).append($table);
+    			return $('<li>', {class:"m_"+logEntry.method}).append($table);
     		} else {
-    			if (meta["caption"]) {
-    				args.unshift(meta["caption"]);
+    			if (logEntry.meta["caption"]) {
+    				logEntry.args.unshift(logEntry.meta["caption"]);
     			}
-    			return methods.default("log", args, meta, info);
+    			return methods.default({
+    				method: "log",
+    				args: logEntry.args,
+    				meta: logEntry.meta
+    			}, info);
     		}
     	},
-    	trace: function (method, args, meta, info) {
-    		var $table = table.build(args[0], meta, "table-bordered");
-    		if (meta.sortable) {
+    	trace: function (logEntry, info) {
+    		var $table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
+    		if (logEntry.meta.sortable) {
     			$table.addClass("sortable");
     		}
     		return $('<li class="m_trace"></li>').append($table);
     	},
-    	default: function (method, args, meta, info) {
+    	default: function (logEntry, info) {
     		var attribs = {
-    				"class" : "m_" + method,
+    				"class" : "m_" + logEntry.method,
     				"title" : null
     			},
     			$container = info.$container,
     			$node,
+    			method = logEntry.method,
+    			args = logEntry.args,
+    			meta = logEntry.meta,
     			numArgs = args.length;
     		hasSubs = false;
     		if (["error","warn"].indexOf(method) > -1) {
-    			// console.log('meta', meta);
     			if (meta.file) {
     				attribs.title = meta.file + ': line ' + meta.line;
     			}
@@ -1914,15 +2068,20 @@
     		if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
     			// console.warn("have backtrace");
     			$node.append(
-    				table.build(
-    					meta.backtrace,
-    					{
-    						caption: "trace",
-    						columns: ["file","line","function"]
-    					},
-    					"trace table-bordered"
+    				$('<ul>', { "class": "list-unstyled" }).append(
+    					$("<li>", { "class": "m_trace"}).append(
+    						table.build(
+    							meta.backtrace,
+    							{
+    								caption: "trace",
+    								columns: ["file","line","function"]
+    							},
+    							"table-bordered"
+    						)
+    					)
     				)
     			);
+    			$node.find(".m_trace").debugEnhance();
     		}
     		return $node;
     	}
@@ -1938,22 +2097,23 @@
     	if (sanitize === undefined) {
     		sanitize = true;
     	}
+    	if (firstArgIsString) {
+    		if (args[0].match(/[=:]\s*$/)) {
+    			// first arg ends with "=" or ":"
+    			glueAfterFirst = false;
+    			args[0] = $.trim(args[0]) + " ";
+    		} else if (numArgs == 2) {
+    			glue = ' = ';
+    		}
+    	}
     	for (i = 0; i < numArgs; i++) {
     		arg = args[i];
     		args[i] = i > 0
     			? dump.dump(arg, sanitize)
     			: dump.dump(arg, false);
     	}
-    	if (firstArgIsString) {
-    		if (args[0].match(/[=:] ?$/)) {
-    			// first arg ends with "=" or ":"
-    			glueAfterFirst = false;
-    		} else if (numArgs == 2) {
-    			glue = ' = ';
-    		}
-    	}
     	if (!glueAfterFirst) {
-    		return $("<li>").html(args[0] + args.slice(1).join(glue));
+    		return $("<li>").html(args[0] + " " + args.slice(1).join(glue));
     	} else {
     		return $("<li>").html(args.join(glue));
     	}
@@ -1968,23 +2128,23 @@
      *
      * @return jQuery obj
      */
-    function groupHeader(method, args, meta) {
+    function groupHeader(logEntry) {
     	var i = 0,
     		$header,
     		argStr = '',
-    		argsAsParams = typeof meta.argsAsParams != "undefined"
-    			? meta.argsAsParams
+    		argsAsParams = typeof logEntry.meta.argsAsParams != "undefined"
+    			? logEntry.meta.argsAsParams
     			: true,
-    		collapsedClass = method == 'groupCollapsed'
+    		collapsedClass = logEntry.method == 'groupCollapsed'
     			? 'collapsed'
     			: 'expanded',
-    		label = args.shift();
-    	for (i = 0; i < args.length; i++) {
-    		args[i] = dump.dump(args[i]);
+    		label = logEntry.args.shift();
+    	for (i = 0; i < logEntry.args.length; i++) {
+    		logEntry.args[i] = dump.dump(logEntry.args[i]);
     	}
-    	argStr = args.join(', ');
+    	argStr = logEntry.args.join(', ');
     	if (argsAsParams) {
-    		if (meta.isMethodName) {
+    		if (logEntry.meta.isMethodName) {
     			label = dump.markupClassname(label);
     		}
     		argStr = '<span class="group-label">' + label + '(</span>' +
@@ -1999,6 +2159,9 @@
     	$header = $('<div class="group-header ' + collapsedClass + '">' +
     		argStr +
     		'</div>');
+    	if (typeof logEntry.meta.boldLabel === "undefined" || logEntry.meta.boldLabel) {
+    		$header.find(".group-label").addClass("group-label-bold");
+    	}
     	return $header;
     }
 
@@ -2087,35 +2250,6 @@
 
     init$2(connections$1);
 
-    function addChannel(channel, info) {
-    	var $container = info.$container,
-    		$channels = $container.find(".channels"),
-    		channels = $container.data("channels") || [],
-    		channelRoot = $container.data("channelRoot") || "general",
-    		$ul;
-    	channel = channel || channelRoot;
-    	if (channel == "phpError" || channels.indexOf(channel) > -1) {
-    		return false;
-    	}
-    	channels.push(channel);
-    	$container.data("channels", channels);
-    	$ul = $().debugEnhance("buildChannelList", channels, channelRoot);
-    	if (channels.length > 1) {
-    		if ($channels.length) {
-    			$channels.find("> ul").replaceWith($ul);
-    			$channels.show();
-    		} else {
-    			$channels = $("<fieldset />", {
-    					class: "channels",
-    				})
-    				.append('<legend>Channels</legend>')
-    				.append($ul);
-    			$container.find(".debug-body").prepend($channels);
-    		}
-    	}
-    	return true;
-    }
-
     function getNode(requestId) {
     	var $nodeWrapper,
     		$node;
@@ -2137,6 +2271,7 @@
     					+'</div>'
     				+'</div>'
     				+'<div class="panel-body collapse debug">'
+    					+'<div class="sidebar-trigger"></div>'
     					+'<div class="debug-body">'
     						+'<ul class="debug-log-summary group-body"></ul>'
     						+'<ul class="debug-log group-body"></ul>'
@@ -2145,6 +2280,8 @@
     				+'</div>'
     			+'</div>'
     		);
+    		$nodeWrapper.debugEnhance("sidebar", "add");
+    		$nodeWrapper.debugEnhance("sidebar", "close");
     		$node = $nodeWrapper.find(".debug-log");
     		connections$1[requestId] = [ $node ];
     		$nodeWrapper.attr("id", requestId);
@@ -2152,77 +2289,172 @@
     	}
     	return $node;
     }
-    function processEntry(method, args, meta) {
+    function processEntry(logEntry) {
     	var info = {
-    			$currentNode: getNode(meta.requestId),
-    			$container: $("#"+meta.requestId)
+    			$currentNode: getNode(logEntry.meta.requestId),
+    			$container: $("#"+logEntry.meta.requestId)
     		},
     		channels = info.$container.data('channels') || [],
+    		method = logEntry.method,
+    		meta = logEntry.meta,
     		channel = meta.channel || info.$container.data("channelRoot"),
     		i,
     		$node;
+    	// console.log('processEntry', logEntry);
     	try {
-    		/*
-    		console.log({
-    			method: method,
-    			args: args,
-    			meta: meta
-    		});
-    		*/
     		if (meta.format == "html") {
-    			if (typeof args == "object") {
+    			if (typeof logEntry.args == "object") {
     				$node = $('<li />', {class:"m_"+method});
-    				for (i = 0; i < args.length; i++) {
-    					$node.append(args[i]);
+    				for (i = 0; i < logEntry.args.length; i++) {
+    					$node.append(logEntry.args[i]);
     				}
     			} else {
-    				$node = $(args);
+    				$node = $(logEntry.args);
     				if (!$node.is(".m_"+method)) {
-    					$node = $("<li />", {class:"m_"+method}).html(args);
+    					$node = $("<li />", {class:"m_"+method}).html(logEntry.args);
     				}
     			}
     		} else if (methods[method]) {
-    			$node = methods[method](method, args, meta, info);
+    			$node = methods[method](logEntry, info);
     		} else {
-    			$node = methods.default(method, args, meta, info);
-    		}
-    		if (['groupSummary','groupEnd'].indexOf(method) < 0) {
-    			// not groupSummary
-    			addChannel(channel, info);
-    			/*
-    			if (added) {
-    				console.log('added channel', {
-    					channel: channel,
-    					method: method,
-    					args: args,
-    					'$node': $node
-    				});
-    			}
-    			*/
+    			$node = methods.default(logEntry, info);
     		}
     		if ($node) {
     			info.$currentNode.append($node);
     			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+    			if (meta.class) {
+    				$node.addClass(meta.class);
+    			}
     			if (meta.icon) {
     				$node.data("icon", meta.icon);
     			}
+    			if (meta.style) {
+    				$node.attr("style", meta.style);
+    			}
     			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
     				$node.addClass("filter-hidden");
+    			}
+    			if (meta.detectFiles) {
+    				// using attr so can find via css selector
+    				$node.attr('data-detect-files', meta.detectFiles);
+    				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
     			}
     			if ($node.is(':visible')) {
     				$node.debugEnhance();
     			}
     			$node.closest(".m_group").removeClass("empty");
     		}
+    		updateSidebar(logEntry, info, $node != false);
     	} catch (err) {
     		console.warn(err);
-    		processEntry('error', [
-    			"%cDebugWampClient: %cerror processing %c"+method+"()",
-    			"font-weight:bold;",
-    			"",
-    			"font-family:monospace;"
-    		], meta);
+    		/*
+    		processEntry({
+    			method: 'error',
+    			args: [
+    				"%cDebugWampClient: %cerror processing %c"+method+"()",
+    				"font-weight:bold;",
+    				"",
+    				"font-family:monospace;"
+    			],
+    			meta: meta
+    		});
+    		*/
     	}
+    }
+    function updateSidebar(logEntry, info, haveNode) {
+    	var filterVal = null,
+    		channel = logEntry.meta.channel || info.$container.data("channelRoot"),
+    		method = logEntry.method,
+    		$filters = info.$container.find(".debug-sidebar .debug-filters");
+    	if (['groupSummary','groupEnd'].indexOf(method) > -1) {
+    		return;
+    	}
+    	/*
+    		Update error filters
+    	*/
+    	if (["error","warn"].indexOf(method) > -1 && logEntry.meta.channel == "phpError") {
+    		console.log('updateSidebar phpError', logEntry);
+    		var $ul = $filters.find(".php-errors").show().find("> ul");
+    		var $input = $ul.find("input[value=error-"+logEntry.meta.errorCat+"]");
+    		var $label = $input.closest("label");
+    		var $badge = $label.find(".badge");
+    		var count = 1;
+    		if ($input.length) {
+    			count = $input.data("count") + 1;
+    			$input.data("count", count);
+    			$badge.text(count);
+    		} else {
+    			$ul.append(
+    				$("<li>"
+    				).append(
+    					$("<label>", {
+    						"class": "toggle active"
+    					}).append(
+    						$("<input>", {
+    							type: "checkbox",
+    							checked: true,
+    							"data-toggle": "error",
+    							"data-count": 1,
+    							value: "error-"+logEntry.meta.errorCat
+    						})
+    					).append(
+    						logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
+    					)
+    				)
+    			);
+    		}
+    	}
+    	/*
+    		Update channel filter
+    	*/
+    	addChannel(channel, info);
+    	/*
+    		Update method filter
+    	*/
+    	if (["alert","error","warn","info"].indexOf(method) > -1) {
+    		filterVal = method;
+    	} else if (haveNode) {
+    		filterVal = "other";
+    	}
+    	if (filterVal) {
+    		$filters.find("input[data-toggle=method][value="+filterVal+"]")
+    			.closest("label")
+    			.removeClass("disabled");
+    		}
+
+    }
+
+    function addChannel(channel, info) {
+    	var $container = info.$container,
+    		$channels = $container.find(".channels"),
+    		channels = $container.data("channels") || [],
+    		checkedChannels = [],
+    		channelRoot = $container.data("channelRoot") || "general",
+    		$ul;
+    	channel = channel || channelRoot;
+    	if (channel == "phpError" || channels.indexOf(channel) > -1) {
+    		return false;
+    	}
+    	channels.push(channel);
+    	$container.data("channels", channels);
+    	$channels.find("input:checked").each(function(){
+    		checkedChannels.push($(this).val());
+    	});
+    	$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
+    	if (channels.length > 1) {
+    		if ($channels.length) {
+    			$channels.find("> ul").replaceWith($ul);
+    			$channels.show();
+    		} else {
+    			$channels = $("<fieldset />", {
+    					class: "channels",
+    				})
+    				.append('<legend>Channels</legend>')
+    				.append($ul);
+    			$container.find(".debug-body").prepend($channels);
+    		}
+    	}
+    	return true;
     }
 
     /**
@@ -2248,26 +2480,69 @@
         return extended;
     }
 
+    var phpDebugConsoleKeys = ["linkFiles","linkFilesTemplate"];
+
     function Config(defaults, localStorageKey) {
         var storedConfig = getLocalStorageItem(localStorageKey);
+        // this.pubSub = pubSub;
         this.config = extend(defaults, storedConfig || {});
         this.localStorageKey = localStorageKey;
-        this.haveStoredConfig = typeof storedConfig === "object";
+        this.haveSavedConfig = typeof storedConfig === "object";
     }
 
     Config.prototype.get = function(key) {
         if (typeof key == "undefined") {
-            return this.config;
+            return JSON.parse(JSON.stringify(this.config));
         }
         return typeof(this.config[key]) !== "undefined"
             ? this.config[key]
             : null;
     };
 
-    Config.prototype.set = function(key,val) {
-        this.config[key] = val;
-        setLocalStorageItem(this.localStorageKey, config);
+    Config.prototype.set = function(key, val) {
+        var setVals = {};
+        if (typeof key == "object") {
+            setVals = key;
+        } else {
+            setVals[key] = val;
+        }
+        for (var k in setVals) {
+            this.config[k] = setVals[k];
+        }
+        setLocalStorageItem(this.localStorageKey, this.config);
+        this.checkPhpDebugConsole(setVals);
         this.haveSavedConfig = true;
+    };
+
+    /**
+     * publish phpDebugConsoleConfig if obj contains phpDebugConsole settings
+     *
+     * @param object vals config values
+     *
+     * @return void
+     */
+    Config.prototype.checkPhpDebugConsole = function(vals) {
+        // console.log('checkPhpDebugConsole', vals);
+        var count, i, key,
+            dbVals = {},
+            haveDbVal = false;
+        if (vals === undefined) {
+            vals = this.config;
+        }
+        for (i = 0, count = phpDebugConsoleKeys.length; i < count; i++) {
+            key = phpDebugConsoleKeys[i];
+            // console.log('key', key);
+            if (typeof vals[key] !== "undefined") {
+                dbVals[key] = vals[key];
+                haveDbVal = true;
+            }
+        }
+        if (haveDbVal) {
+            PubSub$1.publish("phpDebugConsoleConfig", {
+                linkFiles: this.config.linkFiles,
+                linkFilesTemplate: this.config.linkFilesTemplate
+            });
+        }
     };
 
     function setLocalStorageItem(key, val) {
@@ -3015,25 +3290,34 @@
     	return connection;
     };
 
-    var config$1 = new Config({
+    var config = new Config({
         url: "ws://127.0.0.1:9090/",
         realm: "debug",
-        "font-size": "1em"
-    }, "debugConsoleConfig");
-    var socketWorker = new SocketWorker(PubSub, config$1);
+        "fontSize": "1em",
+        "linkFiles": false,
+        "linkFilesTemplate": "subl://open?url=file://%file&line=%line"
+    }, "debugWampClient");
+    var socketWorker = new SocketWorker(PubSub$1, config);
 
     $(function() {
         var hasConnected = false;
 
-        init$1(config$1);
-        $("body").debugEnhance("init");
+        init$1(config);
+        $("body").debugEnhance("init", {
+            sidebar: true,
+            useLocalStorage: false
+        });
 
-        PubSub.subscribe("websocket", function(cmd, data) {
+        PubSub$1.subscribe("websocket", function(cmd, data) {
             // console.warn('rcvd websocket', cmd, JSON.stringify(data));
             if (cmd == "msg" && data) {
-                processEntry(data[0], data[1], data[2]);
+                processEntry({
+                    method: data[0],
+                    args: data[1],
+                    meta: data[2]
+                });
                 // myWorker.postMessage("getMsg"); // request next msg
-                PubSub.publish("onmessage", "getMsg");
+                PubSub$1.publish("onmessage", "getMsg");
             } else if (cmd == "connectionClosed") {
                 $("#alert.connecting").remove();
                 if ($("#alert.closed").length) {
@@ -3045,7 +3329,7 @@
                         'Not connected to debug server' +
                     '</div>'
                 );
-                if (!config$1.haveSavedConfig && !hasConnected) {
+                if (!config.haveSavedConfig && !hasConnected) {
                     $('#modal-settings').modal("show");
                 }
             } else if (cmd == "connectionOpened") {
@@ -3063,7 +3347,14 @@
         // myWorker.postMessage("connectionOpen");
         // console.log('config', config);
         // events.publish('onmessage', 'setCfg', config.get());
-        PubSub.publish("onmessage", "connectionOpen");
+        PubSub$1.publish("onmessage", "connectionOpen");
+
+        PubSub$1.subscribe("phpDebugConsoleConfig", function(vals){
+            $("body").debugEnhance("setConfig", vals);
+        });
+
+        config.checkPhpDebugConsole();
+
     });
 
 }(window.jQuery));

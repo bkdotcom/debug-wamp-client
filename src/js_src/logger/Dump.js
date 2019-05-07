@@ -104,8 +104,8 @@ Dump.prototype.dumpArray = function(array) {
 		for (i = 0; i < length; i++) {
 			key = keys[i];
 			html += "\t" + '<span class="key-value">' +
-					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span> ' +
-					'<span class="t_operator">=&gt;</span> ' +
+					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
+					'<span class="t_operator">=&gt;</span>' +
 					this.dump(array[key], true) +
 				'</span>' + "\n";
 		}

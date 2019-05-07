@@ -9,36 +9,7 @@ var connections = {
 
 methods.init(connections);
 
-function addChannel(channel, info) {
-	var $container = info.$container,
-		$channels = $container.find(".channels"),
-		channels = $container.data("channels") || [],
-		channelRoot = $container.data("channelRoot") || "general",
-		$ul;
-	channel = channel || channelRoot;
-	if (channel == "phpError" || channels.indexOf(channel) > -1) {
-		return false;
-	}
-	channels.push(channel);
-	$container.data("channels", channels);
-	$ul = $().debugEnhance("buildChannelList", channels, channelRoot);
-	if (channels.length > 1) {
-		if ($channels.length) {
-			$channels.find("> ul").replaceWith($ul);
-			$channels.show();
-		} else {
-			$channels = $("<fieldset />", {
-					class: "channels",
-				})
-				.append('<legend>Channels</legend>')
-				.append($ul);
-			$container.find(".debug-body").prepend($channels);
-		}
-	}
-	return true;
-}
-
-function getNode(requestId) {
+export function getNode(requestId) {
 	var $nodeWrapper,
 		$node;
 	if (typeof connections[requestId] !== "undefined") {
@@ -59,6 +30,7 @@ function getNode(requestId) {
 					+'</div>'
 				+'</div>'
 				+'<div class="panel-body collapse debug">'
+					+'<div class="sidebar-trigger"></div>'
 					+'<div class="debug-body">'
 						+'<ul class="debug-log-summary group-body"></ul>'
 						+'<ul class="debug-log group-body"></ul>'
@@ -67,6 +39,8 @@ function getNode(requestId) {
 				+'</div>'
 			+'</div>'
 		);
+		$nodeWrapper.debugEnhance("sidebar", "add");
+		$nodeWrapper.debugEnhance("sidebar", "close");
 		$node = $nodeWrapper.find(".debug-log");
 		connections[requestId] = [ $node ];
 		$nodeWrapper.attr("id", requestId);
@@ -75,76 +49,172 @@ function getNode(requestId) {
 	return $node;
 };
 
-export function processEntry(method, args, meta) {
+export function processEntry(logEntry) {
 	var info = {
-			$currentNode: getNode(meta.requestId),
-			$container: $("#"+meta.requestId)
+			$currentNode: getNode(logEntry.meta.requestId),
+			$container: $("#"+logEntry.meta.requestId)
 		},
 		channels = info.$container.data('channels') || [],
+		method = logEntry.method,
+		meta = logEntry.meta,
 		channel = meta.channel || info.$container.data("channelRoot"),
 		i,
 		$channelCheckbox,
 		$node;
+	// console.log('processEntry', logEntry);
 	try {
-		/*
-		console.log({
-			method: method,
-			args: args,
-			meta: meta
-		});
-		*/
 		if (meta.format == "html") {
-			if (typeof args == "object") {
+			if (typeof logEntry.args == "object") {
 				$node = $('<li />', {class:"m_"+method});
-				for (i = 0; i < args.length; i++) {
-					$node.append(args[i]);
+				for (i = 0; i < logEntry.args.length; i++) {
+					$node.append(logEntry.args[i]);
 				}
 			} else {
-				$node = $(args);
+				$node = $(logEntry.args);
 				if (!$node.is(".m_"+method)) {
-					$node = $("<li />", {class:"m_"+method}).html(args);
+					$node = $("<li />", {class:"m_"+method}).html(logEntry.args);
 				}
 			}
 		} else if (methods.methods[method]) {
-			$node = methods.methods[method](method, args, meta, info);
+			$node = methods.methods[method](logEntry, info);
 		} else {
-			$node = methods.methods.default(method, args, meta, info);
-		}
-		if (['groupSummary','groupEnd'].indexOf(method) < 0) {
-			// not groupSummary
-			addChannel(channel, info);
-			/*
-			if (added) {
-				console.log('added channel', {
-					channel: channel,
-					method: method,
-					args: args,
-					'$node': $node
-				});
-			}
-			*/
+			$node = methods.methods.default(logEntry, info);
 		}
 		if ($node) {
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
+			if (meta.class) {
+				$node.addClass(meta.class);
+			}
 			if (meta.icon) {
 				$node.data("icon", meta.icon);
 			}
+			if (meta.style) {
+				$node.attr("style", meta.style);
+			}
 			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
 				$node.addClass("filter-hidden");
+			}
+			if (meta.detectFiles) {
+				// using attr so can find via css selector
+				$node.attr('data-detect-files', meta.detectFiles);
+				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
 			}
 			if ($node.is(':visible')) {
 				$node.debugEnhance();
 			}
 			$node.closest(".m_group").removeClass("empty");
 		}
+		updateSidebar(logEntry, info, $node != false);
 	} catch (err) {
 		console.warn(err);
-		processEntry('error', [
-			"%cDebugWampClient: %cerror processing %c"+method+"()",
-			"font-weight:bold;",
-			"",
-			"font-family:monospace;"
-		], meta);
+		/*
+		processEntry({
+			method: 'error',
+			args: [
+				"%cDebugWampClient: %cerror processing %c"+method+"()",
+				"font-weight:bold;",
+				"",
+				"font-family:monospace;"
+			],
+			meta: meta
+		});
+		*/
 	}
 };
+
+function updateSidebar(logEntry, info, haveNode) {
+	var filterVal = null,
+		channel = logEntry.meta.channel || info.$container.data("channelRoot"),
+		method = logEntry.method,
+		$filters = info.$container.find(".debug-sidebar .debug-filters");
+	if (['groupSummary','groupEnd'].indexOf(method) > -1) {
+		return;
+	}
+	/*
+		Update error filters
+	*/
+	if (["error","warn"].indexOf(method) > -1 && logEntry.meta.channel == "phpError") {
+		console.log('updateSidebar phpError', logEntry);
+		var $ul = $filters.find(".php-errors").show().find("> ul");
+		var $input = $ul.find("input[value=error-"+logEntry.meta.errorCat+"]");
+		var $label = $input.closest("label");
+		var $badge = $label.find(".badge");
+		var count = 1;
+		if ($input.length) {
+			count = $input.data("count") + 1;
+			$input.data("count", count);
+			$badge.text(count);
+		} else {
+			$ul.append(
+				$("<li>"
+				).append(
+					$("<label>", {
+						"class": "toggle active"
+					}).append(
+						$("<input>", {
+							type: "checkbox",
+							checked: true,
+							"data-toggle": "error",
+							"data-count": 1,
+							value: "error-"+logEntry.meta.errorCat
+						})
+					).append(
+						logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
+					)
+				)
+			);
+		}
+	}
+	/*
+		Update channel filter
+	*/
+	addChannel(channel, info);
+	/*
+		Update method filter
+	*/
+	if (["alert","error","warn","info"].indexOf(method) > -1) {
+		filterVal = method
+	} else if (haveNode) {
+		filterVal = "other";
+	}
+	if (filterVal) {
+		$filters.find("input[data-toggle=method][value="+filterVal+"]")
+			.closest("label")
+			.removeClass("disabled");
+		}
+
+}
+
+function addChannel(channel, info) {
+	var $container = info.$container,
+		$channels = $container.find(".channels"),
+		channels = $container.data("channels") || [],
+		checkedChannels = [],
+		channelRoot = $container.data("channelRoot") || "general",
+		$ul;
+	channel = channel || channelRoot;
+	if (channel == "phpError" || channels.indexOf(channel) > -1) {
+		return false;
+	}
+	channels.push(channel);
+	$container.data("channels", channels);
+	$channels.find("input:checked").each(function(){
+		checkedChannels.push($(this).val());
+	});
+	$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
+	if (channels.length > 1) {
+		if ($channels.length) {
+			$channels.find("> ul").replaceWith($ul);
+			$channels.show();
+		} else {
+			$channels = $("<fieldset />", {
+					class: "channels",
+				})
+				.append('<legend>Channels</legend>')
+				.append($ul);
+			$container.find(".debug-body").prepend($channels);
+		}
+	}
+	return true;
+}

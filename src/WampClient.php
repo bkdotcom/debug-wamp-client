@@ -38,6 +38,7 @@ class WampClient
             'bootstrapCss' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css',
             'filepathScript' => __DIR__.'/js/main.min.js',
         ), $cfg);
+        $this->debug->addPlugin(new \bdk\Debug\Plugin\Prism());
         $this->handleRequest();
     }
 
@@ -116,7 +117,7 @@ class WampClient
     public function actionScript()
     {
         \header('Content-Type: application/javascript');
-        \readfile($this->debug->getCfg('filepathScript'));
+        echo $this->debug->output->getScript();
         \readfile($this->cfg['filepathScript']);
     }
 }

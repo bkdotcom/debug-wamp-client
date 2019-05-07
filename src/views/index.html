@@ -51,14 +51,14 @@
 				<div class="modal-body">
 
 					<div class="form-group">
-						<label for="wsUrl" class="col-sm-3 control-label">Websocket Url</label>
-						<div class="col-sm-9">
+						<label for="wsUrl" class="col-xs-3 control-label">Websocket Url</label>
+						<div class="col-xs-9">
 							<input type="url" name="wsUrl" id="wsUrl" class="form-control" placeholder="ws://" />
 						</div>
 					</div>
 					<div class="form-group">
-						<label for="realm" class="col-sm-3 control-label">Realm</label>
-						<div class="col-sm-9">
+						<label for="realm" class="col-xs-3 control-label">Realm</label>
+						<div class="col-xs-9">
 							<input type="text" name="realm" id="realm" class="form-control" />
 						</div>
 					</div>
@@ -66,9 +66,36 @@
 					<hr />
 
 					<div class="form-group">
-						<label for="font-size" class="col-sm-3 control-label">Font-Size</label>
-						<div class="col-sm-3">
+						<label for="font-size" class="col-xs-3 control-label">Font Size</label>
+						<div class="col-xs-3">
 							<input type="text" name="realm" id="font-size" class="form-control" />
+						</div>
+					</div>
+
+					<div class="form-group">
+						<div class="checkbox col-xs-offset-3 col-xs-9">
+							<label>
+								<input type="checkbox" id="link-files" /> Create file links
+							</label>
+							<span class="help-block">
+								Filepaths become clickable.  Open directly in your IDE / text editor.
+								<span class="text-muted">(PhpStorm, Sublime / Atom / TextMate / etc)</span>
+							</span>
+						</div>
+					</div>
+
+					<div class="form-group">
+						<label for="link-files-template" class="col-xs-3 control-label">Link Template</label>
+						<div class="col-xs-9">
+							<input type="text" name="link-files-template" id="link-files-template" class="form-control" />
+							<span class="help-block">
+								<kbd>%file</kbd> &amp; <kbd>%line</kbd>
+								<br />examples:
+								<A href="https://atom.io/packages/open" target="_blank">Atom</A>,
+								<a href="https://www.google.com/search?q=phpstorm+url+handler" target="_blank">PhpStorm</a>,
+								<a href="https://www.google.com/search?q=sublime+url+protocol" target="_blank">Sublime</a>,
+								<a href="https://macromates.com/textmate/manual/opening-files#url-scheme" target="_blank">TextMate</a>
+							</span>
 						</div>
 					</div>
 

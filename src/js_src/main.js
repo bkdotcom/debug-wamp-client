@@ -9,20 +9,29 @@ import {SocketWorker} from "./wamp/SocketWorker.js";
 var config = new Config({
     url: "ws://127.0.0.1:9090/",
     realm: "debug",
-    "font-size": "1em"
-}, "debugConsoleConfig");
+    "fontSize": "1em",
+    "linkFiles": false,
+    "linkFilesTemplate": "subl://open?url=file://%file&line=%line"
+}, "debugWampClient");
 var socketWorker = new SocketWorker(PubSub, config);
 
 $(function() {
     var hasConnected = false;
 
     ui.init(config);
-    $("body").debugEnhance("init");
+    $("body").debugEnhance("init", {
+        sidebar: true,
+        useLocalStorage: false
+    });
 
     PubSub.subscribe("websocket", function(cmd, data) {
         // console.warn('rcvd websocket', cmd, JSON.stringify(data));
         if (cmd == "msg" && data) {
-            logger.processEntry(data[0], data[1], data[2]);
+            logger.processEntry({
+                method: data[0],
+                args: data[1],
+                meta: data[2]
+            });
             // myWorker.postMessage("getMsg"); // request next msg
             PubSub.publish("onmessage", "getMsg");
         } else if (cmd == "connectionClosed") {
@@ -55,4 +64,11 @@ $(function() {
     // console.log('config', config);
     // events.publish('onmessage', 'setCfg', config.get());
     PubSub.publish("onmessage", "connectionOpen");
+
+    PubSub.subscribe("phpDebugConsoleConfig", function(vals){
+        $("body").debugEnhance("setConfig", vals);
+    });
+
+    config.checkPhpDebugConsole();
+
 });
