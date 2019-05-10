@@ -5,8 +5,8 @@ var phpDebugConsoleKeys = ["linkFiles","linkFilesTemplate"];
 
 export function Config(defaults, localStorageKey) {
     var storedConfig = getLocalStorageItem(localStorageKey);
-    // this.pubSub = pubSub;
-    this.config = extend(defaults, storedConfig || {});
+    this.defaults = defaults;
+    this.config = extend({}, defaults, storedConfig || {});
     this.localStorageKey = localStorageKey;
     this.haveSavedConfig = typeof storedConfig === "object";
 }
@@ -20,19 +20,58 @@ Config.prototype.get = function(key) {
         : null;
 }
 
+/*
+Config.prototype.isDefault = function(key)
+{
+    return this.config[key] === this.defaults[key];
+}
+*/
+
 Config.prototype.set = function(key, val) {
-    var setVals = {};
+    var configWas = JSON.parse(JSON.stringify(this.config)),
+        k,
+        setVals = {};
     if (typeof key == "object") {
         setVals = key;
     } else {
         setVals[key] = val;
     }
-    for (var k in setVals) {
+
+    for (k in setVals) {
         this.config[k] = setVals[k];
     }
-    setLocalStorageItem(this.localStorageKey, this.config);
+
+    if (this.config.url !== configWas.url || this.config.realm != configWas.realm) {
+        // connection options changed
+        PubSub.publish('onmessage', 'connectionClose');
+        PubSub.publish('onmessage', 'connectionOpen');
+    }
+
     this.checkPhpDebugConsole(setVals);
+    setVals = {};
+    for (k in this.config) {
+        if (this.config[k] !== this.defaults[k]) {
+            setVals[k] = this.config[k];
+        }
+    }
+    setLocalStorageItem(this.localStorageKey, setVals);
     this.haveSavedConfig = true;
+}
+
+Config.prototype.setDefault = function(key, val) {
+    var setVals = {},
+        storedConfig = getLocalStorageItem(this.localStorageKey) || {},
+        k;
+    if (typeof key == "object") {
+        setVals = key;
+    } else {
+        setVals[key] = val;
+    }
+    for (k in setVals) {
+        this.defaults[k] = setVals[k];
+    }
+    this.config = extend({}, this.defaults, storedConfig || {});
+    this.checkPhpDebugConsole(this.config);
 }
 
 /**

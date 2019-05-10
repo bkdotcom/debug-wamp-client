@@ -15,8 +15,9 @@ export function init(_connections) {
 
 export var methods = {
 	alert: function (logEntry, info) {
+		// console.log('logEntry', logEntry);
 		var message = logEntry.args[0],
-			level = logEntry.meta.level,
+			level = logEntry.meta.level || logEntry.meta.class,
 			dismissible = logEntry.meta.dismissible,
 			$node = $('<div class="m_alert"></div>').addClass("alert-"+level)
 				.html(message)
@@ -241,10 +242,11 @@ export var methods = {
 		/*
 			The initial message/method
 		*/
+		// console.log('logEntry', logEntry);
 		var i, arg,
 			$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
 			meta = logEntry.args[0],
-			opts = logEntry.args[1];
+			opts = logEntry.args[1] || {};
 		info.$container.data("channelRoot", opts.channelRoot);
 		info.$container.data("options", {
 			drawer: opts.drawer

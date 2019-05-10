@@ -92,7 +92,7 @@ kbd {
  */
 .panel .sidebar-trigger {
 	position: absolute;
-	width: 15px;
+	width: 12px;
 	height: 100%;
 	margin-left: -15px;
 	margin-top: -15px;
@@ -102,14 +102,32 @@ kbd {
 	margin-top: -15px;
 	margin-left: -15px;
 	z-index: 1;
-	width: 116px;
-	padding-right: 0;
-	overflow: hidden;
+	width: 120px;
 	position: absolute;
 	border-right: #ddd solid 1px;
+	font-size: 13px;
+	transform: translateX(-120px);
+}
+.panel .debug-sidebar .sidebar-content {
+	padding-right: 4px;
 }
 .panel .debug-sidebar .sidebar-toggle {
-	display: none;
+	display: block;
+	position: absolute;
+	left: 100%;
+	/*
+	top: 0;
+	margin-left: -1px;
+	text-align: center;
+	*/
+	width: 2em;
+	height: 1.5em;
+	padding-top: 2px;
+	border-left: 0;
+	border-right: #ddd solid 1px;
+	border-bottom: #ddd solid 1px;
+	border-bottom-right-radius: .5em;
+	color: #333;
 }
 
 .debug .debug-sidebar + .debug-body {

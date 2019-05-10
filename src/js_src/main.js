@@ -32,6 +32,12 @@ $(function() {
                 args: data[1],
                 meta: data[2]
             });
+            if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
+                config.setDefault({
+                    linkFiles: true,
+                    linkFilesTemplate: data[1][1].linkFilesTemplateDefault
+                });
+            }
             // myWorker.postMessage("getMsg"); // request next msg
             PubSub.publish("onmessage", "getMsg");
         } else if (cmd == "connectionClosed") {

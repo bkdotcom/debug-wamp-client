@@ -10,7 +10,7 @@ var connections = {
 methods.init(connections);
 
 export function getNode(requestId) {
-	var $nodeWrapper,
+	var $panel,
 		$node;
 	if (typeof connections[requestId] !== "undefined") {
 		$node = connections[requestId].slice(-1)[0];
@@ -19,32 +19,34 @@ export function getNode(requestId) {
 		$node = $("#"+requestId).data("lastNode");
 	} else {
 		// create
-		$nodeWrapper = $(''
-			+'<div class="panel panel-default working">'
-				+'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">'
-					+'<i class="glyphicon glyphicon-chevron-right"></i>'
-					+'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>'
-					+'<div class="panel-heading-body">'
-						+'<h3 class="panel-title">Building Request...</h3>'
-						+'<i class="fa fa-spinner fa-pulse fa-lg"></i>'
-					+'</div>'
-				+'</div>'
-				+'<div class="panel-body collapse debug">'
-					+'<div class="sidebar-trigger"></div>'
-					+'<div class="debug-body">'
-						+'<ul class="debug-log-summary group-body"></ul>'
-						+'<ul class="debug-log group-body"></ul>'
-					+'</div>'
-					+'<i class="fa fa-spinner fa-pulse"></i>'
-				+'</div>'
-			+'</div>'
+		$panel = $('' +
+			'<div class="panel panel-default working">' +
+				'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">' +
+					'<i class="glyphicon glyphicon-chevron-right"></i>' +
+					'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
+					'<div class="panel-heading-body">' +
+						'<h3 class="panel-title">Building Request&hellip;</h3>' +
+						'<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
+					'</div>' +
+				'</div>' +
+				'<div class="panel-body collapse debug">' +
+					'<div class="sidebar-trigger"></div>' +
+					// '<div class="sidebar-tab"><i class="fa fa-lg fa-filter"></i></div>' +
+					'<div class="debug-body">' +
+						'<ul class="debug-log-summary group-body"></ul>' +
+						'<ul class="debug-log group-body"></ul>' +
+					'</div>' +
+					'<i class="fa fa-spinner fa-pulse"></i>' +
+				'</div>' +
+			'</div>'
 		);
-		$nodeWrapper.debugEnhance("sidebar", "add");
-		$nodeWrapper.debugEnhance("sidebar", "close");
-		$node = $nodeWrapper.find(".debug-log");
+		$panel.debugEnhance("sidebar", "add");
+		$panel.debugEnhance("sidebar", "close");
+		$panel.find(".debug-sidebar .sidebar-toggle").html('<i class="fa fa-lg fa-filter"></i>');
+		$node = $panel.find(".debug-log");
 		connections[requestId] = [ $node ];
-		$nodeWrapper.attr("id", requestId);
-		$("#body").append($nodeWrapper);
+		$panel.attr("id", requestId);
+		$("#body").append($panel);
 	}
 	return $node;
 };
@@ -135,36 +137,7 @@ function updateSidebar(logEntry, info, haveNode) {
 		Update error filters
 	*/
 	if (["error","warn"].indexOf(method) > -1 && logEntry.meta.channel == "phpError") {
-		console.log('updateSidebar phpError', logEntry);
-		var $ul = $filters.find(".php-errors").show().find("> ul");
-		var $input = $ul.find("input[value=error-"+logEntry.meta.errorCat+"]");
-		var $label = $input.closest("label");
-		var $badge = $label.find(".badge");
-		var count = 1;
-		if ($input.length) {
-			count = $input.data("count") + 1;
-			$input.data("count", count);
-			$badge.text(count);
-		} else {
-			$ul.append(
-				$("<li>"
-				).append(
-					$("<label>", {
-						"class": "toggle active"
-					}).append(
-						$("<input>", {
-							type: "checkbox",
-							checked: true,
-							"data-toggle": "error",
-							"data-count": 1,
-							value: "error-"+logEntry.meta.errorCat
-						})
-					).append(
-						logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
-					)
-				)
-			);
-		}
+		addError(logEntry, info);
 	}
 	/*
 		Update channel filter
@@ -175,6 +148,8 @@ function updateSidebar(logEntry, info, haveNode) {
 	*/
 	if (["alert","error","warn","info"].indexOf(method) > -1) {
 		filterVal = method
+	} else if (method == "group" && logEntry.meta.level) {
+		filterVal = logEntry.meta.level;
 	} else if (haveNode) {
 		filterVal = "other";
 	}
@@ -182,8 +157,13 @@ function updateSidebar(logEntry, info, haveNode) {
 		$filters.find("input[data-toggle=method][value="+filterVal+"]")
 			.closest("label")
 			.removeClass("disabled");
-		}
-
+	}
+	/*
+		Expand all groups
+	*/
+	if (method == "group" && info.$container.find(".debug-body .m_group").length > 2) {
+		info.$container.find(".debug-sidebar .expand-all").show();
+	}
 }
 
 function addChannel(channel, info) {
@@ -199,11 +179,16 @@ function addChannel(channel, info) {
 	}
 	channels.push(channel);
 	$container.data("channels", channels);
-	$channels.find("input:checked").each(function(){
-		checkedChannels.push($(this).val());
-	});
-	$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
 	if (channels.length > 1) {
+		if (channels.length === 2) {
+			// checkboxes weren't added when there was only one...
+			checkedChannels.push(channels[0]);
+		}
+		checkedChannels.push(channel);
+		$channels.find("input:checked").each(function(){
+			checkedChannels.push($(this).val());
+		});
+		$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
 		if ($channels.length) {
 			$channels.find("> ul").replaceWith($ul);
 			$channels.show();
@@ -217,4 +202,51 @@ function addChannel(channel, info) {
 		}
 	}
 	return true;
+}
+
+function addError(logEntry, info) {
+	// console.log('updateSidebar phpError', logEntry);
+	var $filters = info.$container.find(".debug-sidebar .debug-filters"),
+		$ul = $filters.find(".php-errors").show().find("> ul"),
+		$input = $ul.find("input[value="+logEntry.meta.errorCat+"]"),
+		$label = $input.closest("label"),
+		$badge = $label.find(".badge"),
+		order = ["fatal", "warning", "deprecated", "notice", "strict"],
+		count = 1,
+		i = 0,
+		rows = [];
+	if ($input.length) {
+		count = $input.data("count") + 1;
+		$input.data("count", count);
+		$badge.text(count);
+	} else {
+		$ul.append(
+			$("<li>"
+			).append(
+				$("<label>", {
+					"class": "toggle active"
+				}).append(
+					$("<input>", {
+						type: "checkbox",
+						checked: true,
+						"data-toggle": "error",
+						"data-count": 1,
+						value: logEntry.meta.errorCat
+					})
+				).append(
+					logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
+				)
+			)
+		);
+		rows = $ul.find("> li");
+		rows.sort(function(liA, liB){
+			var liAindex = order.indexOf($(liA).find("input").val()),
+				liBindex = order.indexOf($(liB).find("input").val());
+			return liAindex > liBindex ? 1 : -1;
+		});
+		for (i = 0; i < rows.length; ++i) {
+			$ul.append(rows[i]); // append each row in order (which moves)
+		}
+	}
+
 }

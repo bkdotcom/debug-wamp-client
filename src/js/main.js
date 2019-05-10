@@ -3,7 +3,7 @@
 
     $ = $ && $.hasOwnProperty('default') ? $['default'] : $;
 
-    var PubSub$1 = (function(){
+    var PubSub = (function(){
         var topics = {};
         var hOP = topics.hasOwnProperty;
         return {
@@ -105,18 +105,8 @@
     }
 
     function init(config) {
-        $("#wsUrl").val(config.get("url"));
-        $("#realm").val(config.get("realm"));
-        $("#font-size").val(config.get("fontSize"));
-        $("#link-files").prop("checked", config.get("linkFiles"));
-        $("#link-files-template").val(config.get("linkFilesTemplate"));
-        /*
-        $('#modal-settings').on("show.bs.modal", function (e) {
-        });
-        */
-        $("#font-size").on("change", function(){
-            updateCssProperty("wampClientCss", "#body", "font-size", $("#font-size").val());
-        });
+
+
         $("#link-files").on("change", function(){
             var isChecked = $(this).prop("checked"),
                 $templateGroup = $("#link-files-template").closest(".form-group");
@@ -124,42 +114,36 @@
                 ? $templateGroup.slideDown()
                 : $templateGroup.slideUp();
         }).trigger("change");
+
         $('#modal-settings').on("submit", function(e) {
             e.preventDefault();
-            // var configWas = config.get(),
-                // configNew = {};
-            if ($("#wsUrl").val() != config.get("url") || $("#realm").val() != config.get("realm")) {
-                // connection options changed
-                config.set("url", $("#wsUrl").val());
-                config.set("realm", $("#realm").val());
-                PubSub.publish('onmessage', 'connectionClose');
-                PUbSub.publish('onmessage', 'connectionOpen');
-            }
             config.set({
+                url: $("#wsUrl").val(),
+                realm: $("#realm").val(),
                 fontSize: $("#font-size").val(),
                 linkFiles: $("#link-files").prop("checked"),
                 linkFilesTemplate: $("#link-files-template").val()
             });
-            // var configNew = config.get();
             $(this).modal("hide");
-            /*
-            console.log('configWas', configWas);
-            console.log('configNew', configNew);
-            if (configNew.linkFiles != configWas.linkFiles || configNew.linkFilesTemplate != configWas.linkFilesTemplate) {
-                console.warn('linkFiles changed');
-            }
-            */
         });
+
         $('#modal-settings').on("hide.bs.modal", function (e) {
             updateCssProperty("wampClientCss", "#body", "font-size", config.get("fontSize"));
+        });
+
+        $("#modal-settings").on("show.bs.modal", function (e) {
+            $("#wsUrl").val(config.get("url"));
+            $("#realm").val(config.get("realm"));
+            $("#font-size").val(config.get("fontSize"));
+            $("#link-files").prop("checked", config.get("linkFiles")).trigger("change");
+            $("#link-files-template").val(config.get("linkFilesTemplate"));
         });
     }
 
     var classCollapsed = "glyphicon-chevron-right",
         classExpanded = "glyphicon-chevron-down",
         timeoutHandler,
-        navbarHeight = $(".navbar-header").height();
-
+        navbarHeight = $(".navbar-collapse").outerHeight();
 
     function init$1(config) {
 
@@ -200,80 +184,97 @@
             $(this).closest(".panel").remove();
         });
 
+        $(window).on("scroll", positionSidebar);
+
+        $("body").on("open.debug.sidebar", function(e){
+            // console.warn('open.debug.sidebar');
+            positionSidebar(true);
+            var sidebarContentHeight = $(e.target).find(".sidebar-content").height();
+            var $panel = $(e.target).closest(".panel");
+            $panel.find(".panel-body").css({
+                minHeight: sidebarContentHeight + 8 + "px"
+            });
+            $("body").on("click", onBodyClick);
+        });
+
+        $("body").on("close.debug.sidebar", function(e){
+            // remove minHeight
+            positionSidebar(true);
+            var $panel = $(e.target).closest(".panel");
+            $panel.find(".panel-body").attr("style", "");
+            $("body").off("click", onBodyClick);
+        });
+
         /*
-        var $sticker = $("#sticker");
-        var pos = $sticker.position();
-        var stickermax = $(document).outerHeight() - $("#footer").outerHeight() - $sticker.outerHeight() - 40; //40 value is the total of the top and bottom margin
-        $(window).on('scroll', function() {
-            var windowpos = $(window).scrollTop();
-            // $sticker.html("Distance from top:" + pos.top + "<br />Scroll position: " + windowpos);
-            if (windowpos >= pos.top && windowpos < stickermax) {
-                $sticker.attr("style", ""); //kill absolute positioning
-                $sticker.addClass("stick"); //stick it
-            } else if (windowpos >= stickermax) {
-                $sticker.removeClass(); //un-stick
-                $sticker.css({
-                    position: "absolute",
-                    top: stickermax + "px"
-                }); //set sticker right above the footer
-            } else {
-                $sticker.removeClass("stick"); //top of page
-            }
+        $("body").on("click", ".sidebar-tab", function(e){
+            var $panel = $(e.target).closest(".panel"),
+                sidebarIsOpen = $panel.find(".debug-sidebar.show").length > 0;
+            $panel.debugEnhance("sidebar", sidebarIsOpen ? "close" : "open");
         });
         */
 
-        $(window).on("scroll", positionSidebar);
-
-        $("body").on("open.debug.sidebar", function(){
-            positionSidebar();
-        });
-
         $("body").on("mouseenter", ".sidebar-trigger", function(){
             $(this).closest(".panel").debugEnhance("sidebar", "open");
-            $(this).closest(".panel").find(".panel-body").css({
-                minHeight: "200px"
-            });
         });
 
         $("body").on("mouseleave", ".debug-sidebar", function(){
             $(this).closest(".panel").debugEnhance("sidebar", "close");
-            $(this).closest(".panel").find(".panel-body").attr("style", "");
         });
     }
 
-    function positionSidebar() {
-        var scrollTop = $(window).scrollTop(),
+    function onBodyClick(e) {
+        if ($(e.target).closest(".debug-sidebar").length === 0) {
+            $(".debug-sidebar.show").closest(".panel").debugEnhance("sidebar", "close");
+        }
+    }
+
+    function positionSidebar(transition) {
+        var scrollTop = $(window).scrollTop() + navbarHeight,
             windowHeight = $(window).height(),
             $sidebar = $(".debug-sidebar.show"),
-            $panelBody = $sidebar.closest(".panel-body"),
-            panelOffset = $panelBody.length
-                ? $panelBody.offset().top
-                : 0,
-            panelHeight = $panelBody.innerHeight(),
-            heightAvail = panelOffset + panelHeight - scrollTop - navbarHeight,
-            contentHeight = $sidebar.find(".debug-filters").height();
-        // var sidebarTop = $sidebar.offset().top - navbarHeight;
-        /*
-        console.warn('scrollin', {
-            navbarHeight: navbarHeight,
-            scrollTop: scrollTop,
-            panelHeight: panelHeight,
-            panelOffset: panelOffset,
-            panelBottomOffset: panelOffset + panelHeight,
-            // sidebarTop: sidebarTop
-        });
-        */
-        $sidebar.attr("style", "");
-        if ($panelBody.length === 0) {
-            return;
-        }
-        if (panelOffset < scrollTop + navbarHeight) {
-            // console.log('top scrolled above view');
-            $sidebar.css({
-                position: "fixed",
-                marginTop: 0,
-                top: navbarHeight+"px"
+            $panelBody,
+            panelOffset = 0,
+            panelHeight = 0,
+            heightAvail = 0,
+            contentHeight = 0;
+        transition = typeof transition == "boolean" ? transition : false;
+        if ($sidebar.length === 0) {
+            // no sidebar open... find first visible open panel
+            $("body").find(".panel-body.in").each(function(){
+                // var rect = this.getBoundingClientRect();
+                $panelBody = $(this);
+                panelOffset = $panelBody.offset().top;
+                panelHeight = $panelBody.innerHeight();
+                if (panelOffset < scrollTop || panelOffset + panelHeight > scrollTop) {
+                    $sidebar = $panelBody.find(".debug-sidebar");
+                    panelOffset = $panelBody.offset().top;
+                    return false; // break;
+                }
             });
+            if ($sidebar.length === 0) {
+                return;
+            }
+        } else {
+            $panelBody = $sidebar.closest(".panel-body");
+            panelOffset = $panelBody.offset().top;
+            panelHeight = $panelBody.innerHeight();
+            heightAvail = panelOffset + panelHeight - scrollTop;
+            contentHeight = $sidebar.find(".sidebar-content").height();
+        }
+        // $sidebarTab = $panelBody.find(".sidebar-tab");
+        // sidebarTabStyleWas = $sidebarTab.attr("style");
+        // console.log('sidebarTabStyleWas', sidebarTabStyleWas);
+        $sidebar.attr("style", "");
+        // $sidebarTab.attr("style", "");
+        if (panelOffset < scrollTop) {
+            // console.log('top scrolled above view', $sidebar.is(".show"));
+            // if ($sidebar.is(".show")) {
+                $sidebar.css({
+                    position: "fixed",
+                    marginTop: 0,
+                    top: navbarHeight+"px"
+                });
+            // }
             if (panelOffset + panelHeight < scrollTop + windowHeight) {
                 // console.log('bottom is vis');
                 if (heightAvail < contentHeight) {
@@ -291,25 +292,29 @@
                     });
                 }
             }
+            /*
+            $sidebarTab.css({
+                position: "fixed",
+                top: navbarHeight+"px"
+            });
+            sidebarX = $sidebar.is(".show")
+                ? "134px"
+                : "16px";
+            */
         }
+        /*
+        else if ($sidebar.is(".show")) {
+            sidebarX = "119px";
+        }
+        if (sidebarX) {
+            if (transition || sidebarTabStyleWas.match("translateX("+sidebarX+")")) {
+                $sidebarTab.css({ transform: "translateX("+sidebarX+")" });
+            } else {
+                $sidebarTab.css({ left: sidebarX });
+            }
+        }
+        */
     }
-
-    /*
-    function debounce(func, wait, immediate) {
-        var timeout;
-        return function() {
-            var context = this, args = arguments;
-            var later = function() {
-                timeout = null;
-                if (!immediate) func.apply(context, args);
-            };
-            var callNow = immediate && !timeout;
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-            if (callNow) func.apply(context, args);
-        };
-    };
-    */
 
     var colKeys = [];
     var colClasses = {};
@@ -1618,12 +1623,8 @@
     		for (i = 0; i < length; i++) {
     			key = keys[i];
     			html += "\t" + '<span class="key-value">' +
-    					// '<span class="text-nowrap">' +
     					'<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
-    					// '&#x2060;' +
     					'<span class="t_operator">=&gt;</span>' +
-    					// '</span>' +
-    					// '&#x2060;' +
     					this.dump(array[key], true) +
     				'</span>' + "\n";
     		}
@@ -1747,8 +1748,9 @@
 
     var methods = {
     	alert: function (logEntry, info) {
+    		// console.log('logEntry', logEntry);
     		var message = logEntry.args[0],
-    			level = logEntry.meta.level,
+    			level = logEntry.meta.level || logEntry.meta.class,
     			dismissible = logEntry.meta.dismissible,
     			$node = $('<div class="m_alert"></div>').addClass("alert-"+level)
     				.html(message)
@@ -1970,9 +1972,10 @@
     		/*
     			The initial message/method
     		*/
+    		// console.log('logEntry', logEntry);
     		var $title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
     			meta = logEntry.args[0],
-    			opts = logEntry.args[1];
+    			opts = logEntry.args[1] || {};
     		info.$container.data("channelRoot", opts.channelRoot);
     		info.$container.data("options", {
     			drawer: opts.drawer
@@ -2251,7 +2254,7 @@
     init$2(connections$1);
 
     function getNode(requestId) {
-    	var $nodeWrapper,
+    	var $panel,
     		$node;
     	if (typeof connections$1[requestId] !== "undefined") {
     		$node = connections$1[requestId].slice(-1)[0];
@@ -2260,32 +2263,34 @@
     		$node = $("#"+requestId).data("lastNode");
     	} else {
     		// create
-    		$nodeWrapper = $(''
-    			+'<div class="panel panel-default working">'
-    				+'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">'
-    					+'<i class="glyphicon glyphicon-chevron-right"></i>'
-    					+'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>'
-    					+'<div class="panel-heading-body">'
-    						+'<h3 class="panel-title">Building Request...</h3>'
-    						+'<i class="fa fa-spinner fa-pulse fa-lg"></i>'
-    					+'</div>'
-    				+'</div>'
-    				+'<div class="panel-body collapse debug">'
-    					+'<div class="sidebar-trigger"></div>'
-    					+'<div class="debug-body">'
-    						+'<ul class="debug-log-summary group-body"></ul>'
-    						+'<ul class="debug-log group-body"></ul>'
-    					+'</div>'
-    					+'<i class="fa fa-spinner fa-pulse"></i>'
-    				+'</div>'
-    			+'</div>'
+    		$panel = $('' +
+    			'<div class="panel panel-default working">' +
+    				'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">' +
+    					'<i class="glyphicon glyphicon-chevron-right"></i>' +
+    					'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
+    					'<div class="panel-heading-body">' +
+    						'<h3 class="panel-title">Building Request&hellip;</h3>' +
+    						'<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
+    					'</div>' +
+    				'</div>' +
+    				'<div class="panel-body collapse debug">' +
+    					'<div class="sidebar-trigger"></div>' +
+    					// '<div class="sidebar-tab"><i class="fa fa-lg fa-filter"></i></div>' +
+    					'<div class="debug-body">' +
+    						'<ul class="debug-log-summary group-body"></ul>' +
+    						'<ul class="debug-log group-body"></ul>' +
+    					'</div>' +
+    					'<i class="fa fa-spinner fa-pulse"></i>' +
+    				'</div>' +
+    			'</div>'
     		);
-    		$nodeWrapper.debugEnhance("sidebar", "add");
-    		$nodeWrapper.debugEnhance("sidebar", "close");
-    		$node = $nodeWrapper.find(".debug-log");
+    		$panel.debugEnhance("sidebar", "add");
+    		$panel.debugEnhance("sidebar", "close");
+    		$panel.find(".debug-sidebar .sidebar-toggle").html('<i class="fa fa-lg fa-filter"></i>');
+    		$node = $panel.find(".debug-log");
     		connections$1[requestId] = [ $node ];
-    		$nodeWrapper.attr("id", requestId);
-    		$("#body").append($nodeWrapper);
+    		$panel.attr("id", requestId);
+    		$("#body").append($panel);
     	}
     	return $node;
     }
@@ -2373,36 +2378,7 @@
     		Update error filters
     	*/
     	if (["error","warn"].indexOf(method) > -1 && logEntry.meta.channel == "phpError") {
-    		console.log('updateSidebar phpError', logEntry);
-    		var $ul = $filters.find(".php-errors").show().find("> ul");
-    		var $input = $ul.find("input[value=error-"+logEntry.meta.errorCat+"]");
-    		var $label = $input.closest("label");
-    		var $badge = $label.find(".badge");
-    		var count = 1;
-    		if ($input.length) {
-    			count = $input.data("count") + 1;
-    			$input.data("count", count);
-    			$badge.text(count);
-    		} else {
-    			$ul.append(
-    				$("<li>"
-    				).append(
-    					$("<label>", {
-    						"class": "toggle active"
-    					}).append(
-    						$("<input>", {
-    							type: "checkbox",
-    							checked: true,
-    							"data-toggle": "error",
-    							"data-count": 1,
-    							value: "error-"+logEntry.meta.errorCat
-    						})
-    					).append(
-    						logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
-    					)
-    				)
-    			);
-    		}
+    		addError(logEntry, info);
     	}
     	/*
     		Update channel filter
@@ -2413,6 +2389,8 @@
     	*/
     	if (["alert","error","warn","info"].indexOf(method) > -1) {
     		filterVal = method;
+    	} else if (method == "group" && logEntry.meta.level) {
+    		filterVal = logEntry.meta.level;
     	} else if (haveNode) {
     		filterVal = "other";
     	}
@@ -2420,8 +2398,13 @@
     		$filters.find("input[data-toggle=method][value="+filterVal+"]")
     			.closest("label")
     			.removeClass("disabled");
-    		}
-
+    	}
+    	/*
+    		Expand all groups
+    	*/
+    	if (method == "group" && info.$container.find(".debug-body .m_group").length > 2) {
+    		info.$container.find(".debug-sidebar .expand-all").show();
+    	}
     }
 
     function addChannel(channel, info) {
@@ -2437,11 +2420,16 @@
     	}
     	channels.push(channel);
     	$container.data("channels", channels);
-    	$channels.find("input:checked").each(function(){
-    		checkedChannels.push($(this).val());
-    	});
-    	$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
     	if (channels.length > 1) {
+    		if (channels.length === 2) {
+    			// checkboxes weren't added when there was only one...
+    			checkedChannels.push(channels[0]);
+    		}
+    		checkedChannels.push(channel);
+    		$channels.find("input:checked").each(function(){
+    			checkedChannels.push($(this).val());
+    		});
+    		$ul = $().debugEnhance("buildChannelList", channels, channelRoot, checkedChannels);
     		if ($channels.length) {
     			$channels.find("> ul").replaceWith($ul);
     			$channels.show();
@@ -2455,6 +2443,53 @@
     		}
     	}
     	return true;
+    }
+
+    function addError(logEntry, info) {
+    	// console.log('updateSidebar phpError', logEntry);
+    	var $filters = info.$container.find(".debug-sidebar .debug-filters"),
+    		$ul = $filters.find(".php-errors").show().find("> ul"),
+    		$input = $ul.find("input[value="+logEntry.meta.errorCat+"]"),
+    		$label = $input.closest("label"),
+    		$badge = $label.find(".badge"),
+    		order = ["fatal", "warning", "deprecated", "notice", "strict"],
+    		count = 1,
+    		i = 0,
+    		rows = [];
+    	if ($input.length) {
+    		count = $input.data("count") + 1;
+    		$input.data("count", count);
+    		$badge.text(count);
+    	} else {
+    		$ul.append(
+    			$("<li>"
+    			).append(
+    				$("<label>", {
+    					"class": "toggle active"
+    				}).append(
+    					$("<input>", {
+    						type: "checkbox",
+    						checked: true,
+    						"data-toggle": "error",
+    						"data-count": 1,
+    						value: logEntry.meta.errorCat
+    					})
+    				).append(
+    					logEntry.meta.errorCat + ' <span class="badge">'+1+'</span>'
+    				)
+    			)
+    		);
+    		rows = $ul.find("> li");
+    		rows.sort(function(liA, liB){
+    			var liAindex = order.indexOf($(liA).find("input").val()),
+    				liBindex = order.indexOf($(liB).find("input").val());
+    			return liAindex > liBindex ? 1 : -1;
+    		});
+    		for (i = 0; i < rows.length; ++i) {
+    			$ul.append(rows[i]); // append each row in order (which moves)
+    		}
+    	}
+
     }
 
     /**
@@ -2484,8 +2519,8 @@
 
     function Config(defaults, localStorageKey) {
         var storedConfig = getLocalStorageItem(localStorageKey);
-        // this.pubSub = pubSub;
-        this.config = extend(defaults, storedConfig || {});
+        this.defaults = defaults;
+        this.config = extend({}, defaults, storedConfig || {});
         this.localStorageKey = localStorageKey;
         this.haveSavedConfig = typeof storedConfig === "object";
     }
@@ -2499,19 +2534,58 @@
             : null;
     };
 
+    /*
+    Config.prototype.isDefault = function(key)
+    {
+        return this.config[key] === this.defaults[key];
+    }
+    */
+
     Config.prototype.set = function(key, val) {
-        var setVals = {};
+        var configWas = JSON.parse(JSON.stringify(this.config)),
+            k,
+            setVals = {};
         if (typeof key == "object") {
             setVals = key;
         } else {
             setVals[key] = val;
         }
-        for (var k in setVals) {
+
+        for (k in setVals) {
             this.config[k] = setVals[k];
         }
-        setLocalStorageItem(this.localStorageKey, this.config);
+
+        if (this.config.url !== configWas.url || this.config.realm != configWas.realm) {
+            // connection options changed
+            PubSub.publish('onmessage', 'connectionClose');
+            PubSub.publish('onmessage', 'connectionOpen');
+        }
+
         this.checkPhpDebugConsole(setVals);
+        setVals = {};
+        for (k in this.config) {
+            if (this.config[k] !== this.defaults[k]) {
+                setVals[k] = this.config[k];
+            }
+        }
+        setLocalStorageItem(this.localStorageKey, setVals);
         this.haveSavedConfig = true;
+    };
+
+    Config.prototype.setDefault = function(key, val) {
+        var setVals = {},
+            storedConfig = getLocalStorageItem(this.localStorageKey) || {},
+            k;
+        if (typeof key == "object") {
+            setVals = key;
+        } else {
+            setVals[key] = val;
+        }
+        for (k in setVals) {
+            this.defaults[k] = setVals[k];
+        }
+        this.config = extend({}, this.defaults, storedConfig || {});
+        this.checkPhpDebugConsole(this.config);
     };
 
     /**
@@ -2538,7 +2612,7 @@
             }
         }
         if (haveDbVal) {
-            PubSub$1.publish("phpDebugConsoleConfig", {
+            PubSub.publish("phpDebugConsoleConfig", {
                 linkFiles: this.config.linkFiles,
                 linkFilesTemplate: this.config.linkFilesTemplate
             });
@@ -3297,7 +3371,7 @@
         "linkFiles": false,
         "linkFilesTemplate": "subl://open?url=file://%file&line=%line"
     }, "debugWampClient");
-    var socketWorker = new SocketWorker(PubSub$1, config);
+    var socketWorker = new SocketWorker(PubSub, config);
 
     $(function() {
         var hasConnected = false;
@@ -3308,7 +3382,7 @@
             useLocalStorage: false
         });
 
-        PubSub$1.subscribe("websocket", function(cmd, data) {
+        PubSub.subscribe("websocket", function(cmd, data) {
             // console.warn('rcvd websocket', cmd, JSON.stringify(data));
             if (cmd == "msg" && data) {
                 processEntry({
@@ -3316,8 +3390,14 @@
                     args: data[1],
                     meta: data[2]
                 });
+                if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
+                    config.setDefault({
+                        linkFiles: true,
+                        linkFilesTemplate: data[1][1].linkFilesTemplateDefault
+                    });
+                }
                 // myWorker.postMessage("getMsg"); // request next msg
-                PubSub$1.publish("onmessage", "getMsg");
+                PubSub.publish("onmessage", "getMsg");
             } else if (cmd == "connectionClosed") {
                 $("#alert.connecting").remove();
                 if ($("#alert.closed").length) {
@@ -3347,9 +3427,9 @@
         // myWorker.postMessage("connectionOpen");
         // console.log('config', config);
         // events.publish('onmessage', 'setCfg', config.get());
-        PubSub$1.publish("onmessage", "connectionOpen");
+        PubSub.publish("onmessage", "connectionOpen");
 
-        PubSub$1.subscribe("phpDebugConsoleConfig", function(vals){
+        PubSub.subscribe("phpDebugConsoleConfig", function(vals){
             $("body").debugEnhance("setConfig", vals);
         });
 
