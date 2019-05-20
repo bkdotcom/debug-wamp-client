@@ -316,7 +316,7 @@ export var methods = {
 			numArgs = args.length;
 		hasSubs = false;
 		if (["error","warn"].indexOf(method) > -1) {
-			if (meta.file) {
+			if (meta.file && meta.channel !== "phpError") {
 				attribs.title = meta.file + ': line ' + meta.line;
 			}
 			/*
@@ -358,6 +358,9 @@ export var methods = {
 				)
 			);
 			$node.find(".m_trace").debugEnhance();
+			if ($node.is(".error-fatal")) {
+				this.endOutput(logEntry, info);
+			}
 		}
 		return $node;
 	}

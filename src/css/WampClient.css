@@ -129,6 +129,9 @@ kbd {
 	border-bottom-right-radius: .5em;
 	color: #333;
 }
+.panel .filter-active .debug-sidebar .sidebar-toggle {
+	background-color: #CCC;
+}
 
 .debug .debug-sidebar + .debug-body {
 	margin-left: 0;

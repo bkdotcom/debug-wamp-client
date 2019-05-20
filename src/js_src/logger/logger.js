@@ -82,6 +82,7 @@ export function processEntry(logEntry) {
 		} else {
 			$node = methods.methods.default(logEntry, info);
 		}
+		updateSidebar(logEntry, info, $node != false);
 		if ($node) {
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
@@ -107,7 +108,6 @@ export function processEntry(logEntry) {
 			}
 			$node.closest(".m_group").removeClass("empty");
 		}
-		updateSidebar(logEntry, info, $node != false);
 	} catch (err) {
 		console.warn(err);
 		/*
@@ -205,7 +205,7 @@ function addChannel(channel, info) {
 }
 
 function addError(logEntry, info) {
-	// console.log('updateSidebar phpError', logEntry);
+	// console.log('addError', logEntry);
 	var $filters = info.$container.find(".debug-sidebar .debug-filters"),
 		$ul = $filters.find(".php-errors").show().find("> ul"),
 		$input = $ul.find("input[value="+logEntry.meta.errorCat+"]"),
@@ -248,5 +248,4 @@ function addError(logEntry, info) {
 			$ul.append(rows[i]); // append each row in order (which moves)
 		}
 	}
-
 }

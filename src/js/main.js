@@ -2043,7 +2043,7 @@
     			numArgs = args.length;
     		hasSubs = false;
     		if (["error","warn"].indexOf(method) > -1) {
-    			if (meta.file) {
+    			if (meta.file && meta.channel !== "phpError") {
     				attribs.title = meta.file + ': line ' + meta.line;
     			}
     			/*
@@ -2085,6 +2085,9 @@
     				)
     			);
     			$node.find(".m_trace").debugEnhance();
+    			if ($node.is(".error-fatal")) {
+    				this.endOutput(logEntry, info);
+    			}
     		}
     		return $node;
     	}
@@ -2324,6 +2327,7 @@
     		} else {
     			$node = methods.default(logEntry, info);
     		}
+    		updateSidebar(logEntry, info, $node != false);
     		if ($node) {
     			info.$currentNode.append($node);
     			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
@@ -2349,7 +2353,6 @@
     			}
     			$node.closest(".m_group").removeClass("empty");
     		}
-    		updateSidebar(logEntry, info, $node != false);
     	} catch (err) {
     		console.warn(err);
     		/*
@@ -2446,7 +2449,7 @@
     }
 
     function addError(logEntry, info) {
-    	// console.log('updateSidebar phpError', logEntry);
+    	// console.log('addError', logEntry);
     	var $filters = info.$container.find(".debug-sidebar .debug-filters"),
     		$ul = $filters.find(".php-errors").show().find("> ul"),
     		$input = $ul.find("input[value="+logEntry.meta.errorCat+"]"),
@@ -2489,7 +2492,6 @@
     			$ul.append(rows[i]); // append each row in order (which moves)
     		}
     	}
-
     }
 
     /**
