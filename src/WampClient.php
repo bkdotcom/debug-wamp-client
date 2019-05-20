@@ -39,7 +39,6 @@ class WampClient
             'filepathScript' => __DIR__.'/js/main.min.js',
         ), $cfg);
         $this->debug->addPlugin(new \bdk\Debug\Plugin\Prism());
-        $this->handleRequest();
     }
 
     /**

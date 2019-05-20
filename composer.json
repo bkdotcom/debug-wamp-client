@@ -16,10 +16,13 @@
 		"psr-4": { "bdk\\Debug\\": "src/" }
 	},
 	"require": {
-		"bdk/debug": "^3.0",
-		"bdk/wamp-publisher": "*"
+		"bdk/debug": "^3.0"
+	},
+	"scripts": {
+		"post-create-project-cmd": "php -r \"copy('src/index.php', 'index.php');\""
 	},
 	"suggest": {
-		"voryx/thruway": "A PHP based WAMP router"
+		"bdk/wamp-publisher": "WAMP message publisher",
+		"voryx/thruway": "PHP-based WAMP router"
 	}
 }
