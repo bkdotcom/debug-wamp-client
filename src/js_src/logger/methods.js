@@ -153,8 +153,7 @@ export var methods = {
 	},
 	group: function (logEntry, info) {
 		var $group = $("<li>", {
-				"class": "m_group",
-				"data-channel": logEntry.meta.channel
+				"class": "m_group empty"
 			}),
 			$groupHeader = groupHeader(logEntry),
 			$groupBody = $("<ul>", {
@@ -163,9 +162,6 @@ export var methods = {
 		if (logEntry.meta.hideIfEmpty) {
 			$group.addClass('hide-if-empty');
 		}
-		if (logEntry.meta.icon) {
-			$group.attr('data-icon', logEntry.meta.icon);
-		}
 		if (logEntry.meta.level) {
 			$groupHeader.addClass("level-"+logEntry.meta.level);
 			$groupBody.addClass("level-"+logEntry.meta.level);
@@ -173,11 +169,12 @@ export var methods = {
 		$group
 			.append($groupHeader)
 			.append($groupBody);
-		info.$currentNode.append( $group );
+		// info.$currentNode.append( $group );
 		connections[logEntry.meta.requestId].push($groupBody)
 		if ($group.is(":visible")) {
 			$group.debugEnhance();
 		}
+		return $group;
 	},
 	groupCollapsed: function (logEntry, info) {
 		return this.group(logEntry, info);
@@ -224,12 +221,15 @@ export var methods = {
 			$toggle = info.$currentNode.prev();
 			$group = $toggle.parent();
 			if ($group.hasClass("empty") && $group.hasClass("hide-if-empty")) {
+				// console.log('remove', $group);
 				// $toggle.remove();
 				// info.$currentNode.remove();
 				$group.remove();
 			} else if (!$group.is(":visible")) {
+				// console.log('not vis');
 				return;
 			} else {
+				// console.log('enhance');
 				$group.debugEnhance();
 			}
 		}

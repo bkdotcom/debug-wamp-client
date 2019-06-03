@@ -106,7 +106,10 @@ export function processEntry(logEntry) {
 			if ($node.is(':visible')) {
 				$node.debugEnhance();
 			}
-			$node.closest(".m_group").removeClass("empty");
+			if (!$node.is(".m_group")) {
+				// don't remove from ourself
+				$node.closest(".m_group").removeClass("empty");
+			}
 		}
 	} catch (err) {
 		console.warn(err);
@@ -127,7 +130,7 @@ export function processEntry(logEntry) {
 
 function updateSidebar(logEntry, info, haveNode) {
 	var filterVal = null,
-		channel = logEntry.meta.channel || info.$container.data("channelRoot"),
+		// channel = logEntry.meta.channel || info.$container.data("channelRoot"),
 		method = logEntry.method,
 		$filters = info.$container.find(".debug-sidebar .debug-filters");
 	if (['groupSummary','groupEnd'].indexOf(method) > -1) {
@@ -142,7 +145,7 @@ function updateSidebar(logEntry, info, haveNode) {
 	/*
 		Update channel filter
 	*/
-	addChannel(channel, info);
+	addChannel(logEntry, info);
 	/*
 		Update method filter
 	*/
@@ -166,25 +169,38 @@ function updateSidebar(logEntry, info, haveNode) {
 	}
 }
 
-function addChannel(channel, info) {
+function addChannel(logEntry, info) {
 	var $container = info.$container,
 		$channels = $container.find(".channels"),
+		channelName = logEntry.meta.channel || info.$container.data("channelRoot"),
+		channelRoot = $container.data("channelRoot") || "general",
 		channels = $container.data("channels") || [],
 		checkedChannels = [],
-		channelRoot = $container.data("channelRoot") || "general",
 		$ul;
-	channel = channel || channelRoot;
-	if (channel == "phpError" || channels.indexOf(channel) > -1) {
+	if (channelName == "phpError" || haveChannel(channelName, channels)) {
 		return false;
 	}
-	channels.push(channel);
+	channels.push({
+		name: channelName,
+		icon: logEntry.meta.channelIcon,
+		show: logEntry.meta.channelShow
+	});
+	/*
+	console.log({
+		name: channelName,
+		icon: logEntry.meta.channelIcon,
+		show: logEntry.meta.channelShow
+	});
+	*/
 	$container.data("channels", channels);
 	if (channels.length > 1) {
 		if (channels.length === 2) {
 			// checkboxes weren't added when there was only one...
-			checkedChannels.push(channels[0]);
+			checkedChannels.push(channels[0].name);
 		}
-		checkedChannels.push(channel);
+		if (logEntry.meta.channelShow) {
+			checkedChannels.push(channelName);
+		}
 		$channels.find("input:checked").each(function(){
 			checkedChannels.push($(this).val());
 		});
@@ -200,8 +216,24 @@ function addChannel(channel, info) {
 				.append($ul);
 			$container.find(".debug-body").prepend($channels);
 		}
+		$container.find(".debug").trigger("channelAdded.debug");
 	}
 	return true;
+}
+
+function haveChannel(channelName, channels)
+{
+	// channels.indexOf(channelName) > -1
+	var i,
+		len = channels.length,
+		channel;
+	for (i = 0; i < len; i++) {
+		channel = channels[i];
+		if (channel.name === channelName) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function addError(logEntry, info) {
