@@ -4,86 +4,68 @@ import {StrDump} from "./StrDump.js";
 import {DumpObject} from "./dumpObject.js";
 
 var strDump = new StrDump();
+var typeMore = null;
+var $span;
+var argStringOpts = {};
 
 export var Dump = function() {
-	// this.RECURSION = "\x00recursion\x00".parseHex();
-	// this.ABSTRACTION = "\x00debug\x00".parseHex();
-	// this.UNDEFINED = "\x00undefined\x00".parseHex();
-	this.dumpObject = new DumpObject(this);
+	this.objectDumper = new DumpObject(this);
 }
 
-Dump.prototype.RECURSION = "\x00recursion\x00".parseHex();
 Dump.prototype.ABSTRACTION = "\x00debug\x00".parseHex();
+Dump.prototype.NOT_INSPECTED = "\x00notInspected\x00".parseHex();
+Dump.prototype.RECURSION = "\x00recursion\x00".parseHex();
 Dump.prototype.UNDEFINED = "\x00undefined\x00".parseHex();
 
-Dump.prototype.dump = function(val, sanitize, wrap, decodeString) {
+Dump.prototype.dump = function(val, opts, wrap, decodeString) {
 	// console.log('dump', JSON.stringify(val));
-	var $span = $('<span></span>'),
-		bytes,
-		date,
-		type;
-	if (typeof sanitize == "undefined") {
-		sanitize = true;
+	var type = this.getType(val),
+		method = "dump"+type.ucfirst(),
+		k,
+		absAttribs = {},
+		optsDefault = {
+            addQuotes : true,
+            sanitize : true,
+            visualWhiteSpace : true
+        };
+	if (opts === undefined || opts === true) {
+		opts = [];
 	}
-	if (typeof wrap == "undefined") {
+	if (wrap == undefined) {
 		wrap = true;
 	}
-	type = this.getType(val);
-	if (val === null) {
-		val = "null";
-	} else if (type == "array") {
-		val = this.dumpArray(val);
-	} else if (type == "bool") {
-		val = val ? "true" : "false";
-		$span.addClass(val);
-	} else if (type == "float" || type == "int") {
-		date = checkTimestamp(val);
-		if (date) {
-			$span.addClass("timestamp").attr("title", date);
-		}
-	} else if (type == "string") {
-		if ($.isNumeric(val)) {
-			$span.addClass("numeric");
-			date = checkTimestamp(val);
-			if (date) {
-				$span.addClass("timestamp").attr("title", date);
+	argStringOpts = $.extend(optsDefault, opts);
+	$span = $("<span />");
+	if (typeMore === "abstraction") {
+		for (k in argStringOpts) {
+			if (val[k] !== undefined) {
+				argStringOpts[k] = val[k];
 			}
+		}
+		absAttribs = val.attribs || {};
+		if (["string","bool","float","int","null"].indexOf(type) >= 0) {
+			val = this[method](val.value);
 		} else {
-			bytes = val.indexOf("_b64_:") == 0
-				? new Uint8Array(base64.decode(val.substr(6)))
-				: strDump.encodeUTF16toUTF8(val);
-			// console.log('bytes', bytes);
-			if (!sanitize) {
-				$span.addClass("no-pseudo");
-				val = strDump.dump(bytes, false);
-			} else {
-				val = strDump.dump(bytes, true);
-			}
-			if (sanitize) {
-				val = visualWhiteSpace(val);
-			}
+			val = this[method](val);
 		}
-	} else if (type == "recursion") {
-		val = '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
-		wrap = false;
-	} else if (type == "undefined") {
-		val = '';
-	} else if (type === "object") {	// already checked for null
-		// not using data() as we're using outerhtml
-		$span.attr("data-accessible", val.scopeClass == val.className
-			? 'private'
-			: 'public'
-		);
-		val = this.dumpObject.dumpObject(val);
-	} else if (type === "resource") {
-		val = val.value;
-	} else if (type === "callable") {
-		val = '<span class="t_type">callable</span> ' +
-				this.markupClassname(val.values[0] + '::' + val.values[1]);
+	} else {
+		val = this[method](val);
 	}
-	return wrap
-		? $span.addClass("t_"+type).html(val)[0].outerHTML
-		: val;
+	if (wrap) {
+		if (absAttribs.class) {
+			$span.addClass(absAttribs.class);
+			delete absAttribs.class;
+		}
+		$span.attr(absAttribs);
+		val = $span.addClass("t_"+type).html(val)[0].outerHTML;
+	}
+	$span = $("<span />");
+	return val;
+}
+
+Dump.prototype.dumpBool = function(val) {
+	$span.addClass(typeMore);
+	return val ? "true" : "false";
 }
 
 Dump.prototype.dumpArray = function(array) {
@@ -115,20 +97,108 @@ Dump.prototype.dumpArray = function(array) {
 	return html;
 }
 
+Dump.prototype.dumpCallable = function(abs) {
+	return '<span class="t_type">callable</span> ' +
+		this.markupIdentifier(abs.values[0] + '::' + abs.values[1]);
+}
+
+Dump.prototype.dumpConst = function(abs) {
+    $span.attr("title", abs.value
+        ? 'value: ' + this.dump(abs.value)
+        : null);
+    return this.markupIdentifier(abs.name);
+}
+
+Dump.prototype.dumpFloat = function(val) {
+	var date = checkTimestamp(val);
+	if (date) {
+		$span.addClass("timestamp").attr("title", date);
+	}
+	return val;
+}
+
+Dump.prototype.dumpInt = function(val) {
+	return this.dumpFloat(val);
+}
+
+Dump.prototype.dumpNotInspected = function() {
+	return "NOT INSPECTED";
+}
+
+Dump.prototype.dumpNull = function() {
+	return "null";
+}
+
+Dump.prototype.dumpObject = function(abs) {
+	var val = this.objectDumper.dumpObject(abs);
+	$span.attr("data-accessible", abs.scopeClass == abs.className
+		? 'private'
+		: 'public'
+	);
+	return val;
+}
+
+Dump.prototype.dumpRecursion = function() {
+	return '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
+}
+
+Dump.prototype.dumpResource = function(abs) {
+	return abs.value;
+}
+
+Dump.prototype.dumpString = function(val) {
+	var bytes,
+		date,
+		sanitize = true;
+	if ($.isNumeric(val)) {
+		$span.addClass("numeric");
+		date = checkTimestamp(val);
+		if (date) {
+			$span.addClass("timestamp").attr("title", date);
+		}
+	} else {
+		bytes = val.indexOf("_b64_:") == 0
+			? new Uint8Array(base64.decode(val.substr(6)))
+			: strDump.encodeUTF16toUTF8(val);
+		// console.log('bytes', bytes);
+		if (argStringOpts.sanitize) {
+			val = strDump.dump(bytes, true);
+		} else {
+			val = strDump.dump(bytes, false);
+		}
+		if (argStringOpts.visualWhiteSpace) {
+			val = visualWhiteSpace(val);
+		}
+	}
+    if (!argStringOpts.addQuotes) {
+        $span.addClass("no-quotes");
+    }
+	return val;
+}
+
+Dump.prototype.dumpUndefined = function() {
+	return '';
+}
+
 Dump.prototype.getType = function(val) {
 	var type;
+	typeMore = null;
 	if (val === null) {
 		return "null";
 	}
 	if (typeof val == "boolean") {
+		typeMore = val ? "true" : "false";
 		return "bool";
 	}
 	if (typeof val == "string") {
-		if (val === this.UNDEFINED) {
-			return "undefined";
+		if (val === this.NOT_INSPECTED) {
+			return "notInspected";
 		}
 		if (val === this.RECURSION) {
 			return "recursion";
+		}
+		if (val === this.UNDEFINED) {
+			return "undefined";
 		}
 		return "string";
 	}
@@ -139,17 +209,10 @@ Dump.prototype.getType = function(val) {
 		return "float";
 	}
 	if (typeof val == "object") { // already checked for null
-		// console.log('val', val);
 		type = "array";
-		if (typeof val.debug == "string") {
-			if (val.debug === this.ABSTRACTION) {
-				type = val.type;
-			}
-			/*
-			else if (val.debug == this.ABSTRACTION) {
-				type = val.type;
-			}
-			*/
+		if (val.debug === this.ABSTRACTION) {
+			type = val.type;
+			typeMore = 'abstraction';
 		}
 		return type;
 	}
@@ -158,17 +221,17 @@ Dump.prototype.getType = function(val) {
 	}
 };
 
-Dump.prototype.markupClassname = function(str, tag, attribs) {
+Dump.prototype.markupIdentifier = function(str, attribs, tag) {
     var classname = str,
     	matches = str.match(/^(.+)(::|->)(.+)$/),
         opMethod = '',
         split = [];
-    tag = tag || 'span';
     attribs = attribs || {};
+    tag = tag || 'span';
     if (matches) {
         classname = matches[1];
         opMethod = '<span class="t_operator">' + matches[2] + '</span>'
-                + '<span class="method-name">' + matches[3] + '</span>';
+                + '<span class="t_identifier">' + matches[3] + '</span>';
     }
     split = classname.split('\\');
     if (split.length > 1) {
@@ -176,7 +239,7 @@ Dump.prototype.markupClassname = function(str, tag, attribs) {
         classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
             + classname;
     }
-    attribs.class = 't_classname';
+    attribs.class = 'classname';
     return  $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
         + opMethod;
 }

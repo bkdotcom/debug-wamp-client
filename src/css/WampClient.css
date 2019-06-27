@@ -68,6 +68,7 @@ kbd {
 }
 .panel-body {
 	overflow: auto;
+	padding: 15px;
 }
 .panel-title {
 	display: inline;

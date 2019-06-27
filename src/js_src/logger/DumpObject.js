@@ -8,7 +8,7 @@ DumpObject.prototype.dumpObject = function(abs) {
     // console.info('dumpObject', abs);
     var html = '',
         title = ((abs.phpDoc.summary || "") + "\n\n" + (abs.phpDoc.description || "")).trim(),
-        strClassName = this.dump.markupClassname(abs.className, "span", {
+        strClassName = this.dump.markupIdentifier(abs.className, {
             title : title.length ? title : null
         }),
         objToString = '',
@@ -19,7 +19,6 @@ DumpObject.prototype.dumpObject = function(abs) {
     if (abs.isRecursion) {
         html = strClassName +
             ' <span class="t_recursion">*RECURSION*</span>';
-
     } else if (abs.isExcluded) {
         html = strClassName +
             ' <span class="excluded">(not inspected)</span>';
@@ -71,6 +70,7 @@ DumpObject.prototype.dumpObject = function(abs) {
                         ? this.dumpMethods(abs)
                         : ''
                     ) +
+                    this.dumpPhpDoc(abs) +
                 '</dl>';
         } catch (e) {
             console.warn('e', e);
@@ -86,11 +86,57 @@ DumpObject.prototype.dumpConstants = function(constants) {
         self = this;
     $.each(constants, function(key, value) {
         html += '<dd class="constant">' +
-            '<span class="constant-name">' + key + '</span>' +
+            '<span class="t_identifier">' + key + '</span>' +
             ' <span class="t_operator">=</span> ' +
             self.dump.dump(value, true)
             '</dd>';
     })
+    return html;
+}
+
+DumpObject.prototype.dumpPhpDoc = function(abs) {
+    var count, html = "", i, i2, info, key, tagEntries, value;
+    for (key in abs.phpDoc) {
+        tagEntries = abs.phpDoc[key];
+        if (!Array.isArray(tagEntries)) {
+            continue;
+        }
+        for (i = 0, count = tagEntries.length; i < count; i++) {
+            info = tagEntries[i];
+            if (key == 'author') {
+                value = info.name;
+                if (info.email) {
+                    value += ' &lt;<a href="mailto:' + info.email + '">' + info.email + '</a>&gt;';
+                }
+                if (info.desc) {
+                    value += ' ' + info.desc.escapeHtml();
+                }
+            } else if (key == 'link') {
+                value = '<a href="' + info.uri + '" target="_blank">'
+                    + (info.desc || info.uri).escapeHtml()
+                    + '</a>';
+            } else if (key == 'see' && info.uri) {
+                value = '<a href="' + info.uri + '" target="_blank">'
+                    + (info.desc || info.uri).escapeHtml()
+                    + '</a>';
+            } else {
+                value = ''
+                for (i2 in info) {
+                    value += info[i2] === null
+                        ? ""
+                        : info[i2].escapeHtml() + " ";
+                }
+            }
+            html += '<dd class="phpDoc phpdoc-' + key + '">'
+                + '<span class="phpdoc-tag">' + key + '</span>'
+                + '<span class="t_operator">:</span> '
+                + value
+                + '</dd>';
+        }
+    }
+    if (html.length) {
+        html = '<dt>phpDoc</dt>' + html;
+    }
     return html;
 }
 
@@ -138,7 +184,7 @@ DumpObject.prototype.dumpProperties = function(abs, meta) {
                 ? ' <span class="t_type">' + info.type + '</span>'
                 : ''
             ) +
-            ' <span class="property-name"' +
+            ' <span class="t_identifier"' +
                 (info.desc
                     ? ' title="' + info.desc.escapeHtml() + '"'
                     : ''
@@ -192,7 +238,7 @@ DumpObject.prototype.dumpMethods = function(abs) {
         $dd = $('<dd class="method">' +
             modifiers.join(' ') +
             returnType +
-            ' <span class="method-name"' +
+            ' <span class="t_identifier"' +
                 (info.phpDoc.summary != null
                     ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
                     : ''
@@ -238,15 +284,8 @@ DumpObject.prototype.dumpMethodParams = function(params) {
                 defaultValue = defaultValue.replace("\n", " ");
             }
             html += ' <span class="t_operator">=</span> ';
-            if (info.constantName) {
-                title = JSON.stringify(info.defaultValue).escapeHtml();
-                html += '<span class="t_parameter-default t_const" title="value: '+title+'">'
-                    +info.constantName
-                    +'</span>';
-            } else {
-                html += $(self.dump.dump(defaultValue, true, true, false))
-                    .addClass('t_parameter-default')[0].outerHTML;
-            }
+            html += $(self.dump.dump(defaultValue, true, true, false))
+                .addClass('t_parameter-default')[0].outerHTML;
         }
         html += '</span>, '; // end .parameter
     });

@@ -33,7 +33,7 @@ Table.prototype.build = function(rows, meta, classname) {
 		.addClass(classname);
 	if (this.isAbstraction(rows)) {
 		if (rows.type == "object") {
-			$table.find('caption').append(' ' + this.dump.markupClassname(rows.className));
+			$table.find('caption').append(' ' + this.dump.markupIdentifier(rows.className));
 		}
 		if (Object.keys(rows.traverseValues).length) {
 			rows = rows.traverseValues;
@@ -107,7 +107,7 @@ Table.prototype.addColObjInfo = function() {
 		$table.find('thead tr th').each(function(){
 			if ($(this).text() === colKey) {
 				classname = colClasses[colKey];
-				$(this).append(' ' + self.dump.markupClassname(classname));
+				$(this).append(' ' + self.dump.markupIdentifier(classname));
 				return false;
 			}
 		});
@@ -239,9 +239,9 @@ Table.prototype.getValues = function(row) {
 			isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
 			if (!isStringified && row.className != 'Closure') {
 				// haveObj = true;
-				objInfo = this.dump.markupClassname(row.className, 'td', {
+				objInfo = this.dump.markupIdentifier(row.className, {
 					title: row.phpDoc.summary ? row.phpDoc.summary : null
-				});
+				}, 'td');
 			}
 			if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
 				row = row.traverseValues;

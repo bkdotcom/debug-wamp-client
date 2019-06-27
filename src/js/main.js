@@ -42,6 +42,12 @@
             Math.floor(nVal) === nVal;
     };
 
+    if (!Array.isArray) {
+        Array.isArray = function(arg) {
+            return Object.prototype.toString.call(arg) === '[object Array]';
+        };
+    }
+
     if (!String.prototype.trim) {
         String.prototype.trim = function () {
             return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
@@ -59,12 +65,6 @@
         };
     }
 
-    String.prototype.parseHex = function(){
-        return this.replace(/\\x([A-F0-9]{2})/gi, function(a,b){
-            return String.fromCharCode(parseInt(b,16));
-        });
-    };
-
     String.prototype.escapeHtml = function() {
         var map = {
             '&': '&amp;',
@@ -74,6 +74,16 @@
             "'": '&#039;'
         };
         return this.replace(/[&<>"']/g, function(m) { return map[m]; });
+    };
+
+    String.prototype.parseHex = function(){
+        return this.replace(/\\x([A-F0-9]{2})/gi, function(a,b){
+            return String.fromCharCode(parseInt(b,16));
+        });
+    };
+
+    String.prototype.ucfirst = function(){
+        return this.charAt(0).toUpperCase() + this.slice(1);
     };
 
     function findCssRule(stylesheet, selector) {
@@ -349,7 +359,7 @@
     		.addClass(classname);
     	if (this.isAbstraction(rows)) {
     		if (rows.type == "object") {
-    			$table.find('caption').append(' ' + this.dump.markupClassname(rows.className));
+    			$table.find('caption').append(' ' + this.dump.markupIdentifier(rows.className));
     		}
     		if (Object.keys(rows.traverseValues).length) {
     			rows = rows.traverseValues;
@@ -423,7 +433,7 @@
     		$table.find('thead tr th').each(function(){
     			if ($(this).text() === colKey) {
     				classname = colClasses[colKey];
-    				$(this).append(' ' + self.dump.markupClassname(classname));
+    				$(this).append(' ' + self.dump.markupIdentifier(classname));
     				return false;
     			}
     		});
@@ -555,9 +565,9 @@
     			isStringified = row.stringified && row.stringified.length || typeof row.methods.__toString !== "undefined";
     			if (!isStringified && row.className != 'Closure') {
     				// haveObj = true;
-    				objInfo = this.dump.markupClassname(row.className, 'td', {
+    				objInfo = this.dump.markupIdentifier(row.className, {
     					title: row.phpDoc.summary ? row.phpDoc.summary : null
-    				});
+    				}, 'td');
     			}
     			if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
     				row = row.traverseValues;
@@ -1257,7 +1267,7 @@
         // console.info('dumpObject', abs);
         var html = '',
             title = ((abs.phpDoc.summary || "") + "\n\n" + (abs.phpDoc.description || "")).trim(),
-            strClassName = this.dump.markupClassname(abs.className, "span", {
+            strClassName = this.dump.markupIdentifier(abs.className, {
                 title : title.length ? title : null
             }),
             objToString = '',
@@ -1268,7 +1278,6 @@
         if (abs.isRecursion) {
             html = strClassName +
                 ' <span class="t_recursion">*RECURSION*</span>';
-
         } else if (abs.isExcluded) {
             html = strClassName +
                 ' <span class="excluded">(not inspected)</span>';
@@ -1318,6 +1327,7 @@
                             ? this.dumpMethods(abs)
                             : ''
                         ) +
+                        this.dumpPhpDoc(abs) +
                     '</dl>';
             } catch (e) {
                 console.warn('e', e);
@@ -1333,10 +1343,56 @@
             self = this;
         $.each(constants, function(key, value) {
             html += '<dd class="constant">' +
-                '<span class="constant-name">' + key + '</span>' +
+                '<span class="t_identifier">' + key + '</span>' +
                 ' <span class="t_operator">=</span> ' +
                 self.dump.dump(value, true);
         });
+        return html;
+    };
+
+    DumpObject.prototype.dumpPhpDoc = function(abs) {
+        var count, html = "", i, i2, info, key, tagEntries, value;
+        for (key in abs.phpDoc) {
+            tagEntries = abs.phpDoc[key];
+            if (!Array.isArray(tagEntries)) {
+                continue;
+            }
+            for (i = 0, count = tagEntries.length; i < count; i++) {
+                info = tagEntries[i];
+                if (key == 'author') {
+                    value = info.name;
+                    if (info.email) {
+                        value += ' &lt;<a href="mailto:' + info.email + '">' + info.email + '</a>&gt;';
+                    }
+                    if (info.desc) {
+                        value += ' ' + info.desc.escapeHtml();
+                    }
+                } else if (key == 'link') {
+                    value = '<a href="' + info.uri + '" target="_blank">'
+                        + (info.desc || info.uri).escapeHtml()
+                        + '</a>';
+                } else if (key == 'see' && info.uri) {
+                    value = '<a href="' + info.uri + '" target="_blank">'
+                        + (info.desc || info.uri).escapeHtml()
+                        + '</a>';
+                } else {
+                    value = '';
+                    for (i2 in info) {
+                        value += info[i2] === null
+                            ? ""
+                            : info[i2].escapeHtml() + " ";
+                    }
+                }
+                html += '<dd class="phpDoc phpdoc-' + key + '">'
+                    + '<span class="phpdoc-tag">' + key + '</span>'
+                    + '<span class="t_operator">:</span> '
+                    + value
+                    + '</dd>';
+            }
+        }
+        if (html.length) {
+            html = '<dt>phpDoc</dt>' + html;
+        }
         return html;
     };
 
@@ -1384,7 +1440,7 @@
                     ? ' <span class="t_type">' + info.type + '</span>'
                     : ''
                 ) +
-                ' <span class="property-name"' +
+                ' <span class="t_identifier"' +
                     (info.desc
                         ? ' title="' + info.desc.escapeHtml() + '"'
                         : ''
@@ -1438,7 +1494,7 @@
             $dd = $('<dd class="method">' +
                 modifiers.join(' ') +
                 returnType +
-                ' <span class="method-name"' +
+                ' <span class="t_identifier"' +
                     (info.phpDoc.summary != null
                         ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
                         : ''
@@ -1466,7 +1522,6 @@
     DumpObject.prototype.dumpMethodParams = function(params) {
         var html = '',
             defaultValue,
-            title,
             self = this;
         $.each(params, function(i,info) {
             html += '<span class="parameter">';
@@ -1484,15 +1539,8 @@
                     defaultValue = defaultValue.replace("\n", " ");
                 }
                 html += ' <span class="t_operator">=</span> ';
-                if (info.constantName) {
-                    title = JSON.stringify(info.defaultValue).escapeHtml();
-                    html += '<span class="t_parameter-default t_const" title="value: '+title+'">'
-                        +info.constantName
-                        +'</span>';
-                } else {
-                    html += $(self.dump.dump(defaultValue, true, true, false))
-                        .addClass('t_parameter-default')[0].outerHTML;
-                }
+                html += $(self.dump.dump(defaultValue, true, true, false))
+                    .addClass('t_parameter-default')[0].outerHTML;
             }
             html += '</span>, '; // end .parameter
         });
@@ -1523,86 +1571,68 @@
     }
 
     var strDump = new StrDump();
+    var typeMore = null;
+    var $span;
+    var argStringOpts = {};
 
     var Dump = function() {
-    	// this.RECURSION = "\x00recursion\x00".parseHex();
-    	// this.ABSTRACTION = "\x00debug\x00".parseHex();
-    	// this.UNDEFINED = "\x00undefined\x00".parseHex();
-    	this.dumpObject = new DumpObject(this);
+    	this.objectDumper = new DumpObject(this);
     };
 
-    Dump.prototype.RECURSION = "\x00recursion\x00".parseHex();
     Dump.prototype.ABSTRACTION = "\x00debug\x00".parseHex();
+    Dump.prototype.NOT_INSPECTED = "\x00notInspected\x00".parseHex();
+    Dump.prototype.RECURSION = "\x00recursion\x00".parseHex();
     Dump.prototype.UNDEFINED = "\x00undefined\x00".parseHex();
 
-    Dump.prototype.dump = function(val, sanitize, wrap, decodeString) {
+    Dump.prototype.dump = function(val, opts, wrap, decodeString) {
     	// console.log('dump', JSON.stringify(val));
-    	var $span = $('<span></span>'),
-    		bytes,
-    		date,
-    		type;
-    	if (typeof sanitize == "undefined") {
-    		sanitize = true;
+    	var type = this.getType(val),
+    		method = "dump"+type.ucfirst(),
+    		k,
+    		absAttribs = {},
+    		optsDefault = {
+                addQuotes : true,
+                sanitize : true,
+                visualWhiteSpace : true
+            };
+    	if (opts === undefined || opts === true) {
+    		opts = [];
     	}
-    	if (typeof wrap == "undefined") {
+    	if (wrap == undefined) {
     		wrap = true;
     	}
-    	type = this.getType(val);
-    	if (val === null) {
-    		val = "null";
-    	} else if (type == "array") {
-    		val = this.dumpArray(val);
-    	} else if (type == "bool") {
-    		val = val ? "true" : "false";
-    		$span.addClass(val);
-    	} else if (type == "float" || type == "int") {
-    		date = checkTimestamp(val);
-    		if (date) {
-    			$span.addClass("timestamp").attr("title", date);
-    		}
-    	} else if (type == "string") {
-    		if ($.isNumeric(val)) {
-    			$span.addClass("numeric");
-    			date = checkTimestamp(val);
-    			if (date) {
-    				$span.addClass("timestamp").attr("title", date);
+    	argStringOpts = $.extend(optsDefault, opts);
+    	$span = $("<span />");
+    	if (typeMore === "abstraction") {
+    		for (k in argStringOpts) {
+    			if (val[k] !== undefined) {
+    				argStringOpts[k] = val[k];
     			}
+    		}
+    		absAttribs = val.attribs || {};
+    		if (["string","bool","float","int","null"].indexOf(type) >= 0) {
+    			val = this[method](val.value);
     		} else {
-    			bytes = val.indexOf("_b64_:") == 0
-    				? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
-    				: strDump.encodeUTF16toUTF8(val);
-    			// console.log('bytes', bytes);
-    			if (!sanitize) {
-    				$span.addClass("no-pseudo");
-    				val = strDump.dump(bytes, false);
-    			} else {
-    				val = strDump.dump(bytes, true);
-    			}
-    			if (sanitize) {
-    				val = visualWhiteSpace(val);
-    			}
+    			val = this[method](val);
     		}
-    	} else if (type == "recursion") {
-    		val = '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
-    		wrap = false;
-    	} else if (type == "undefined") {
-    		val = '';
-    	} else if (type === "object") {	// already checked for null
-    		// not using data() as we're using outerhtml
-    		$span.attr("data-accessible", val.scopeClass == val.className
-    			? 'private'
-    			: 'public'
-    		);
-    		val = this.dumpObject.dumpObject(val);
-    	} else if (type === "resource") {
-    		val = val.value;
-    	} else if (type === "callable") {
-    		val = '<span class="t_type">callable</span> ' +
-    				this.markupClassname(val.values[0] + '::' + val.values[1]);
+    	} else {
+    		val = this[method](val);
     	}
-    	return wrap
-    		? $span.addClass("t_"+type).html(val)[0].outerHTML
-    		: val;
+    	if (wrap) {
+    		if (absAttribs.class) {
+    			$span.addClass(absAttribs.class);
+    			delete absAttribs.class;
+    		}
+    		$span.attr(absAttribs);
+    		val = $span.addClass("t_"+type).html(val)[0].outerHTML;
+    	}
+    	$span = $("<span />");
+    	return val;
+    };
+
+    Dump.prototype.dumpBool = function(val) {
+    	$span.addClass(typeMore);
+    	return val ? "true" : "false";
     };
 
     Dump.prototype.dumpArray = function(array) {
@@ -1634,20 +1664,107 @@
     	return html;
     };
 
+    Dump.prototype.dumpCallable = function(abs) {
+    	return '<span class="t_type">callable</span> ' +
+    		this.markupIdentifier(abs.values[0] + '::' + abs.values[1]);
+    };
+
+    Dump.prototype.dumpConst = function(abs) {
+        $span.attr("title", abs.value
+            ? 'value: ' + this.dump(abs.value)
+            : null);
+        return this.markupIdentifier(abs.name);
+    };
+
+    Dump.prototype.dumpFloat = function(val) {
+    	var date = checkTimestamp(val);
+    	if (date) {
+    		$span.addClass("timestamp").attr("title", date);
+    	}
+    	return val;
+    };
+
+    Dump.prototype.dumpInt = function(val) {
+    	return this.dumpFloat(val);
+    };
+
+    Dump.prototype.dumpNotInspected = function() {
+    	return "NOT INSPECTED";
+    };
+
+    Dump.prototype.dumpNull = function() {
+    	return "null";
+    };
+
+    Dump.prototype.dumpObject = function(abs) {
+    	var val = this.objectDumper.dumpObject(abs);
+    	$span.attr("data-accessible", abs.scopeClass == abs.className
+    		? 'private'
+    		: 'public'
+    	);
+    	return val;
+    };
+
+    Dump.prototype.dumpRecursion = function() {
+    	return '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
+    };
+
+    Dump.prototype.dumpResource = function(abs) {
+    	return abs.value;
+    };
+
+    Dump.prototype.dumpString = function(val) {
+    	var bytes,
+    		date;
+    	if ($.isNumeric(val)) {
+    		$span.addClass("numeric");
+    		date = checkTimestamp(val);
+    		if (date) {
+    			$span.addClass("timestamp").attr("title", date);
+    		}
+    	} else {
+    		bytes = val.indexOf("_b64_:") == 0
+    			? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
+    			: strDump.encodeUTF16toUTF8(val);
+    		// console.log('bytes', bytes);
+    		if (argStringOpts.sanitize) {
+    			val = strDump.dump(bytes, true);
+    		} else {
+    			val = strDump.dump(bytes, false);
+    		}
+    		if (argStringOpts.visualWhiteSpace) {
+    			val = visualWhiteSpace(val);
+    		}
+    	}
+        if (!argStringOpts.addQuotes) {
+            $span.addClass("no-quotes");
+        }
+    	return val;
+    };
+
+    Dump.prototype.dumpUndefined = function() {
+    	return '';
+    };
+
     Dump.prototype.getType = function(val) {
     	var type;
+    	typeMore = null;
     	if (val === null) {
     		return "null";
     	}
     	if (typeof val == "boolean") {
+    		typeMore = val ? "true" : "false";
     		return "bool";
     	}
     	if (typeof val == "string") {
-    		if (val === this.UNDEFINED) {
-    			return "undefined";
+    		if (val === this.NOT_INSPECTED) {
+    			return "notInspected";
     		}
     		if (val === this.RECURSION) {
     			return "recursion";
+    		}
+    		if (val === this.UNDEFINED) {
+    			return "undefined";
     		}
     		return "string";
     	}
@@ -1658,17 +1775,10 @@
     		return "float";
     	}
     	if (typeof val == "object") { // already checked for null
-    		// console.log('val', val);
     		type = "array";
-    		if (typeof val.debug == "string") {
-    			if (val.debug === this.ABSTRACTION) {
-    				type = val.type;
-    			}
-    			/*
-    			else if (val.debug == this.ABSTRACTION) {
-    				type = val.type;
-    			}
-    			*/
+    		if (val.debug === this.ABSTRACTION) {
+    			type = val.type;
+    			typeMore = 'abstraction';
     		}
     		return type;
     	}
@@ -1677,17 +1787,17 @@
     	}
     };
 
-    Dump.prototype.markupClassname = function(str, tag, attribs) {
+    Dump.prototype.markupIdentifier = function(str, attribs, tag) {
         var classname = str,
         	matches = str.match(/^(.+)(::|->)(.+)$/),
             opMethod = '',
             split = [];
-        tag = tag || 'span';
         attribs = attribs || {};
+        tag = tag || 'span';
         if (matches) {
             classname = matches[1];
             opMethod = '<span class="t_operator">' + matches[2] + '</span>'
-                    + '<span class="method-name">' + matches[3] + '</span>';
+                    + '<span class="t_identifier">' + matches[3] + '</span>';
         }
         split = classname.split('\\');
         if (split.length > 1) {
@@ -1695,7 +1805,7 @@
             classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
                 + classname;
         }
-        attribs.class = 't_classname';
+        attribs.class = 'classname';
         return  $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
             + opMethod;
     };
@@ -1784,7 +1894,7 @@
     			$node,
     			$remove,
     			stackLen = connections[logEntry.meta.requestId].length;
-    		args = processSubstitutions(logEntry.args);
+    		processSubstitutions(logEntry);
     		for (i = stackLen - 1; i >= 0; i--) {
     			$node = connections[logEntry.meta.requestId][i];
     			if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
@@ -1837,7 +1947,7 @@
     				info.$currentNode = $container.find(".debug-log");
     			}
     			info.$currentNode = $curNodeLog;
-    			return $('<li>', attribs).html(args[0]);
+    			return $('<li>', attribs).html(logEntry.args[0]);
     		}
     	},
     	endOutput: function (logEntry, info) {
@@ -2038,9 +2148,9 @@
     			$container = info.$container,
     			$node,
     			method = logEntry.method,
-    			args = logEntry.args,
-    			meta = logEntry.meta,
-    			numArgs = args.length;
+    			// args = logEntry.args,
+    			meta = logEntry.meta;
+    			// numArgs = args.length;
     		hasSubs = false;
     		if (["error","warn"].indexOf(method) > -1) {
     			if (meta.file && meta.channel !== "phpError") {
@@ -2063,10 +2173,10 @@
     				$container.removeClass('panel-default');
     			}
     		}
-    		if (['assert','error','info','log','warn'].indexOf(method) > -1 && numArgs > 1) {
-    			args = processSubstitutions(args);
+    		if (['assert','error','info','log','warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
+    			processSubstitutions(logEntry);
     		}
-    		$node = buildEntryNode(args, meta.sanitize);
+    		$node = buildEntryNode(logEntry);
     		$node.attr(attribs);
     		if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
     			// console.warn("have backtrace");
@@ -2093,17 +2203,20 @@
     	}
     };
 
-    function buildEntryNode(args, sanitize) {
-    	var glue = ', ',
+    function buildEntryNode(logEntry) {
+    	var i,
+    		glue = ', ',
     		glueAfterFirst = true,
-    		firstArgIsString = typeof args[0] == "string",
-    		i,
-    		arg,
-    		numArgs = args.length;
-    	if (sanitize === undefined) {
-    		sanitize = true;
+    		args = logEntry.args,
+    		numArgs = args.length,
+    		meta = $.extend({
+    			sanitize: true,
+    			sanitizeFirst: null,
+    		}, logEntry.meta);
+    	if (meta.sanitizeFirst === null) {
+    		meta.sanitizeFirst = meta.sanitize;
     	}
-    	if (firstArgIsString) {
+    	if (typeof args[0] == "string") {
     		if (args[0].match(/[=:]\s*$/)) {
     			// first arg ends with "=" or ":"
     			glueAfterFirst = false;
@@ -2113,10 +2226,13 @@
     		}
     	}
     	for (i = 0; i < numArgs; i++) {
-    		arg = args[i];
-    		args[i] = i > 0
-    			? dump.dump(arg, sanitize)
-    			: dump.dump(arg, false);
+    		args[i] = dump.dump(args[i], {
+                sanitize : i === 0
+                    ? meta.sanitizeFirst
+                    : meta.sanitize,
+                addQuotes : i !== 0,
+                visualWhiteSpace : i !== 0
+            });
     	}
     	if (!glueAfterFirst) {
     		return $("<li>").html(args[0] + " " + args.slice(1).join(glue));
@@ -2150,8 +2266,8 @@
     	}
     	argStr = logEntry.args.join(', ');
     	if (argsAsParams) {
-    		if (logEntry.meta.isMethodName) {
-    			label = dump.markupClassname(label);
+    		if (logEntry.meta.isFuncName) {
+    			label = dump.markupIdentifier(label);
     		}
     		argStr = '<span class="group-label">' + label + '(</span>' +
     			argStr +
@@ -2171,29 +2287,34 @@
     	return $header;
     }
 
-    function processSubstitutions(args) {
+    /**
+     * @param logEntry
+     *
+     * @return void
+     */
+    function processSubstitutions(logEntry) {
     	var subRegex = '%' +
-    		'(?:' +
-    		'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
-    		'[+-]?' +			// sign specifier
-    		'(?:[ 0]|\'.)?' +	// padding specifier
-    		'-?' +				// alignment specifier
-    		'\\d*' +			// width specifier
-    		'(?:\\.\\d+)?' +	// precision specifier
-    		'[difs]' +
-    		')';
-    	var index = 0;
-    	var indexes = {
-    		c: []
-    		// o: []
-    	};
+    			'(?:' +
+    			'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
+    			'[+-]?' +			// sign specifier
+    			'(?:[ 0]|\'.)?' +	// padding specifier
+    			'-?' +				// alignment specifier
+    			'\\d*' +			// width specifier
+    			'(?:\\.\\d+)?' +	// precision specifier
+    			'[difs]' +
+    			')',
+    		args = logEntry.args,
+    		index = 0,
+    		indexes = {
+    			c: []
+    		};
     	if (typeof args[0] != "string" || args.length < 2) {
-    		return args;
+    		return;
     	}
     	subRegex = new RegExp(subRegex, 'g');
     	var arg0 = args[0].replace(subRegex, function (match) {
-    		var replacement = match;
-    		var type = match.substr(-1);
+    		var replacement = match,
+    			type = match.substr(-1);
     		hasSubs = true;
     		index++;
     		if ("di".indexOf(type) > -1) {
@@ -2220,9 +2341,10 @@
     		arg0 += '</span>';
     	}
     	if (hasSubs) {
-    		args = [ arg0 ];
+    		logEntry.args = [ arg0 ];
+    		logEntry.meta.sanitizeFirst = false;
     	}
-    	return args;
+    	// return args;
     }
 
     /**
@@ -2241,7 +2363,7 @@
     		val = '<span class="t_keyword">array</span>' +
     			'<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
     	} else if (type == 'object') {
-    		val = dump.markupClassname(val['className']);
+    		val = dump.markupIdentifier(val['className']);
     	} else {
     		val = dump.dump(val);
     	}
@@ -2278,7 +2400,6 @@
     				'</div>' +
     				'<div class="panel-body collapse debug">' +
     					'<div class="sidebar-trigger"></div>' +
-    					// '<div class="sidebar-tab"><i class="fa fa-lg fa-filter"></i></div>' +
     					'<div class="debug-body">' +
     						'<ul class="debug-log-summary group-body"></ul>' +
     						'<ul class="debug-log group-body"></ul>' +
@@ -2331,14 +2452,15 @@
     		if ($node) {
     			info.$currentNode.append($node);
     			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-    			if (meta.class) {
-    				$node.addClass(meta.class);
+    			if (meta.attribs) {
+    				if (meta.attribs.class) {
+    					$node.addClass(meta.attribs.class);
+    					delete meta.attribs.class;
+    				}
+    				$node.attr(meta.attribs);
     			}
     			if (meta.icon) {
     				$node.data("icon", meta.icon);
-    			}
-    			if (meta.style) {
-    				$node.attr("style", meta.style);
     			}
     			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
     				$node.addClass("filter-hidden");
@@ -2348,17 +2470,17 @@
     				$node.attr('data-detect-files', meta.detectFiles);
     				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
     			}
-    			if ($node.is(':visible')) {
+    			if ($node.is(':visible:not(.filter-hidden)')) {
     				$node.debugEnhance();
     			}
     			if (!$node.is(".m_group")) {
     				// don't remove from ourself
-    				$node.closest(".m_group").removeClass("empty");
+    				// console.warn('remove empty?');
+    				$node.parents(".m_group").removeClass("empty");
     			}
     		}
     	} catch (err) {
     		console.warn(err);
-    		/*
     		processEntry({
     			method: 'error',
     			args: [
@@ -2369,7 +2491,6 @@
     			],
     			meta: meta
     		});
-    		*/
     	}
     }
     function updateSidebar(logEntry, info, haveNode) {
@@ -3399,75 +3520,75 @@
     };
 
     var config = new Config({
-        url: "ws://127.0.0.1:9090/",
-        realm: "debug",
-        "fontSize": "1em",
-        "linkFiles": false,
-        "linkFilesTemplate": "subl://open?url=file://%file&line=%line"
+    	url: "ws://127.0.0.1:9090/",
+    	realm: "debug",
+    	fontSize: "1em",
+    	linkFiles: false,
+    	linkFilesTemplate: "subl://open?url=file://%file&line=%line"
     }, "debugWampClient");
     var socketWorker = new SocketWorker(PubSub, config);
 
     $(function() {
-        var hasConnected = false;
+    	var hasConnected = false;
 
-        init$1(config);
-        $("body").debugEnhance("init", {
-            sidebar: true,
-            useLocalStorage: false
-        });
+    	init$1(config);
+    	$("body").debugEnhance("init", {
+    		sidebar: true,
+    		useLocalStorage: false
+    	});
 
-        PubSub.subscribe("websocket", function(cmd, data) {
-            // console.warn('rcvd websocket', cmd, JSON.stringify(data));
-            if (cmd == "msg" && data) {
-                processEntry({
-                    method: data[0],
-                    args: data[1],
-                    meta: data[2]
-                });
-                if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
-                    config.setDefault({
-                        linkFiles: true,
-                        linkFilesTemplate: data[1][1].linkFilesTemplateDefault
-                    });
-                }
-                // myWorker.postMessage("getMsg"); // request next msg
-                PubSub.publish("onmessage", "getMsg");
-            } else if (cmd == "connectionClosed") {
-                $("#alert.connecting").remove();
-                if ($("#alert.closed").length) {
-                    return;
-                }
-                $("#body").prepend(
-                    '<div id="alert" class="alert alert-warning alert-dismissible closed">' +
-                        '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
-                        'Not connected to debug server' +
-                    '</div>'
-                );
-                if (!config.haveSavedConfig && !hasConnected) {
-                    $('#modal-settings').modal("show");
-                }
-            } else if (cmd == "connectionOpened") {
-                hasConnected = true;
-                $("#alert").remove();
-            }
-        });
-        /*
-        myWorker.onerror = function(error) {
-            console.log('error', error);
-        }
-        */
+    	PubSub.subscribe("websocket", function(cmd, data) {
+    		// console.warn('rcvd websocket', cmd, JSON.stringify(data));
+    		if (cmd == "msg" && data) {
+    			processEntry({
+    				method: data[0],
+    				args: data[1],
+    				meta: data[2]
+    			});
+    			if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
+    				config.setDefault({
+    					linkFiles: true,
+    					linkFilesTemplate: data[1][1].linkFilesTemplateDefault
+    				});
+    			}
+    			// myWorker.postMessage("getMsg"); // request next msg
+    			PubSub.publish("onmessage", "getMsg");
+    		} else if (cmd == "connectionClosed") {
+    			$("#alert.connecting").remove();
+    			if ($("#alert.closed").length) {
+    				return;
+    			}
+    			$("#body").prepend(
+    				'<div id="alert" class="alert alert-warning alert-dismissible closed">' +
+    					'<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+    					'Not connected to debug server' +
+    				'</div>'
+    			);
+    			if (!config.haveSavedConfig && !hasConnected) {
+    				$('#modal-settings').modal("show");
+    			}
+    		} else if (cmd == "connectionOpened") {
+    			hasConnected = true;
+    			$("#alert").remove();
+    		}
+    	});
+    	/*
+    	myWorker.onerror = function(error) {
+    		console.log('error', error);
+    	}
+    	*/
 
-        // myWorker.postMessage(["setCfg", config.get()]);
-        // myWorker.postMessage("connectionOpen");
-        // console.log('config', config);
-        // events.publish('onmessage', 'setCfg', config.get());
-        PubSub.publish("onmessage", "connectionOpen");
+    	// myWorker.postMessage(["setCfg", config.get()]);
+    	// myWorker.postMessage("connectionOpen");
+    	// console.log('config', config);
+    	// events.publish('onmessage', 'setCfg', config.get());
+    	PubSub.publish("onmessage", "connectionOpen");
 
-        PubSub.subscribe("phpDebugConsoleConfig", function(vals){
-            $("body").debugEnhance("setConfig", vals);
-        });
+    	PubSub.subscribe("phpDebugConsoleConfig", function(vals){
+    		$("body").debugEnhance("setConfig", vals);
+    	});
 
-        config.checkPhpDebugConsole();
+    	config.checkPhpDebugConsole();
 
     });
 

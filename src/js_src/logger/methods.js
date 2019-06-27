@@ -52,7 +52,7 @@ export var methods = {
 			$node,
 			$remove,
 			stackLen = connections[logEntry.meta.requestId].length;
-		args = processSubstitutions(logEntry.args)
+		processSubstitutions(logEntry)
 		for (i = stackLen - 1; i >= 0; i--) {
 			$node = connections[logEntry.meta.requestId][i];
 			if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
@@ -105,7 +105,7 @@ export var methods = {
 				info.$currentNode = $container.find(".debug-log");
 			}
 			info.$currentNode = $curNodeLog;
-			return $('<li>', attribs).html(args[0]);
+			return $('<li>', attribs).html(logEntry.args[0]);
 		}
 	},
 	endOutput: function (logEntry, info) {
@@ -311,9 +311,9 @@ export var methods = {
 			i,
 			$node,
 			method = logEntry.method,
-			args = logEntry.args,
-			meta = logEntry.meta,
-			numArgs = args.length;
+			// args = logEntry.args,
+			meta = logEntry.meta;
+			// numArgs = args.length;
 		hasSubs = false;
 		if (["error","warn"].indexOf(method) > -1) {
 			if (meta.file && meta.channel !== "phpError") {
@@ -336,10 +336,10 @@ export var methods = {
 				$container.removeClass('panel-default');
 			}
 		}
-		if (['assert','error','info','log','warn'].indexOf(method) > -1 && numArgs > 1) {
-			args = processSubstitutions(args);
+		if (['assert','error','info','log','warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
+			processSubstitutions(logEntry);
 		}
-		$node = buildEntryNode(args, meta.sanitize);
+		$node = buildEntryNode(logEntry);
 		$node.attr(attribs);
 		if (method == "error" && meta.backtrace && meta.backtrace.length > 1) {
 			// console.warn("have backtrace");
@@ -366,17 +366,20 @@ export var methods = {
 	}
 };
 
-function buildEntryNode(args, sanitize) {
-	var glue = ', ',
+function buildEntryNode(logEntry) {
+	var i,
+		glue = ', ',
 		glueAfterFirst = true,
-		firstArgIsString = typeof args[0] == "string",
-		i,
-		arg,
-		numArgs = args.length;
-	if (sanitize === undefined) {
-		sanitize = true;
+		args = logEntry.args,
+		numArgs = args.length,
+		meta = $.extend({
+			sanitize: true,
+			sanitizeFirst: null,
+		}, logEntry.meta);
+	if (meta.sanitizeFirst === null) {
+		meta.sanitizeFirst = meta.sanitize;
 	}
-	if (firstArgIsString) {
+	if (typeof args[0] == "string") {
 		if (args[0].match(/[=:]\s*$/)) {
 			// first arg ends with "=" or ":"
 			glueAfterFirst = false;
@@ -386,10 +389,13 @@ function buildEntryNode(args, sanitize) {
 		}
 	}
 	for (i = 0; i < numArgs; i++) {
-		arg = args[i];
-		args[i] = i > 0
-			? dump.dump(arg, sanitize)
-			: dump.dump(arg, false);
+		args[i] = dump.dump(args[i], {
+            sanitize : i === 0
+                ? meta.sanitizeFirst
+                : meta.sanitize,
+            addQuotes : i !== 0,
+            visualWhiteSpace : i !== 0
+        });
 	}
 	if (!glueAfterFirst) {
 		return $("<li>").html(args[0] + " " + args.slice(1).join(glue));
@@ -423,8 +429,8 @@ function groupHeader(logEntry) {
 	}
 	argStr = logEntry.args.join(', ');
 	if (argsAsParams) {
-		if (logEntry.meta.isMethodName) {
-			label = dump.markupClassname(label);
+		if (logEntry.meta.isFuncName) {
+			label = dump.markupIdentifier(label);
 		}
 		argStr = '<span class="group-label">' + label + '(</span>' +
 			argStr +
@@ -444,33 +450,37 @@ function groupHeader(logEntry) {
 	return $header;
 }
 
-function processSubstitutions(args) {
+/**
+ * @param logEntry
+ *
+ * @return void
+ */
+function processSubstitutions(logEntry) {
 	var subRegex = '%' +
-		'(?:' +
-		'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
-		'[+-]?' +			// sign specifier
-		'(?:[ 0]|\'.)?' +	// padding specifier
-		'-?' +				// alignment specifier
-		'\\d*' +			// width specifier
-		'(?:\\.\\d+)?' +	// precision specifier
-		'[difs]' +
-		')';
-	var i;
-	var index = 0;
-	var indexes = {
-		c: []
-		// o: []
-	};
-	var segments = [];
-	var segment = '';
-	var argsNew = [];
+			'(?:' +
+			'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
+			'[+-]?' +			// sign specifier
+			'(?:[ 0]|\'.)?' +	// padding specifier
+			'-?' +				// alignment specifier
+			'\\d*' +			// width specifier
+			'(?:\\.\\d+)?' +	// precision specifier
+			'[difs]' +
+			')',
+		args = logEntry.args,
+		index = 0,
+		indexes = {
+			c: []
+		},
+		segments = [],
+		segment = '',
+		argsNew = [];
 	if (typeof args[0] != "string" || args.length < 2) {
-		return args;
+		return;
 	}
 	subRegex = new RegExp(subRegex, 'g');
 	var arg0 = args[0].replace(subRegex, function (match) {
-		var replacement = match;
-		var type = match.substr(-1);
+		var replacement = match,
+			type = match.substr(-1);
 		hasSubs = true;
 		index++;
 		if ("di".indexOf(type) > -1) {
@@ -497,9 +507,10 @@ function processSubstitutions(args) {
 		arg0 += '</span>';
 	}
 	if (hasSubs) {
-		args = [ arg0 ];
+		logEntry.args = [ arg0 ];
+		logEntry.meta.sanitizeFirst = false;
 	}
-	return args;
+	// return args;
 }
 
 /**
@@ -518,7 +529,7 @@ function substitutionAsString(val) {
 		val = '<span class="t_keyword">array</span>' +
 			'<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
 	} else if (type == 'object') {
-		val = dump.markupClassname(val['className']);
+		val = dump.markupIdentifier(val['className']);
 	} else {
 		val = dump.dump(val);
 	}

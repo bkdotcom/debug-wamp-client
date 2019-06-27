@@ -1,13 +1,19 @@
 Number.isSafeInteger = Number.isSafeInteger || function (value) {
    return Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
-};
+}
 
 Number.isInteger = Number.isInteger || function (nVal) {
     return typeof nVal === "number" &&
         isFinite(nVal) &&
         nVal > -9007199254740992 && nVal < 9007199254740992 &&
         Math.floor(nVal) === nVal;
-};
+}
+
+if (!Array.isArray) {
+    Array.isArray = function(arg) {
+        return Object.prototype.toString.call(arg) === '[object Array]';
+    };
+}
 
 if (!String.prototype.trim) {
     String.prototype.trim = function () {
@@ -26,12 +32,6 @@ if (!Object.keys) {
     }
 }
 
-String.prototype.parseHex = function(){
-    return this.replace(/\\x([A-F0-9]{2})/gi, function(a,b){
-        return String.fromCharCode(parseInt(b,16));
-    });
-};
-
 String.prototype.escapeHtml = function() {
     var map = {
         '&': '&amp;',
@@ -41,4 +41,14 @@ String.prototype.escapeHtml = function() {
         "'": '&#039;'
     };
     return this.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+String.prototype.parseHex = function(){
+    return this.replace(/\\x([A-F0-9]{2})/gi, function(a,b){
+        return String.fromCharCode(parseInt(b,16));
+    });
+}
+
+String.prototype.ucfirst = function(){
+    return this.charAt(0).toUpperCase() + this.slice(1);
 }

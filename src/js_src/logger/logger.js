@@ -31,7 +31,6 @@ export function getNode(requestId) {
 				'</div>' +
 				'<div class="panel-body collapse debug">' +
 					'<div class="sidebar-trigger"></div>' +
-					// '<div class="sidebar-tab"><i class="fa fa-lg fa-filter"></i></div>' +
 					'<div class="debug-body">' +
 						'<ul class="debug-log-summary group-body"></ul>' +
 						'<ul class="debug-log group-body"></ul>' +
@@ -86,14 +85,15 @@ export function processEntry(logEntry) {
 		if ($node) {
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-			if (meta.class) {
-				$node.addClass(meta.class);
+			if (meta.attribs) {
+				if (meta.attribs.class) {
+					$node.addClass(meta.attribs.class);
+					delete meta.attribs.class;
+				}
+				$node.attr(meta.attribs);
 			}
 			if (meta.icon) {
 				$node.data("icon", meta.icon);
-			}
-			if (meta.style) {
-				$node.attr("style", meta.style);
 			}
 			if (channels.length > 1 && channel !== "phpError" && !info.$container.find('.channels input[value="'+channel+'"]').prop("checked")) {
 				$node.addClass("filter-hidden");
@@ -103,17 +103,17 @@ export function processEntry(logEntry) {
 				$node.attr('data-detect-files', meta.detectFiles);
 				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
 			}
-			if ($node.is(':visible')) {
+			if ($node.is(':visible:not(.filter-hidden)')) {
 				$node.debugEnhance();
 			}
 			if (!$node.is(".m_group")) {
 				// don't remove from ourself
-				$node.closest(".m_group").removeClass("empty");
+				// console.warn('remove empty?');
+				$node.parents(".m_group").removeClass("empty");
 			}
 		}
 	} catch (err) {
 		console.warn(err);
-		/*
 		processEntry({
 			method: 'error',
 			args: [
@@ -124,7 +124,6 @@ export function processEntry(logEntry) {
 			],
 			meta: meta
 		});
-		*/
 	}
 };
 
