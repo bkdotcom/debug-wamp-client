@@ -51,15 +51,16 @@ export function getNode(requestId) {
 };
 
 export function processEntry(logEntry) {
-	var info = {
-			$currentNode: getNode(logEntry.meta.requestId),
-			$container: $("#"+logEntry.meta.requestId)
+	var method = logEntry.method,
+		meta = logEntry.meta,
+		requestId = meta.requestId,
+		i,
+		info = {
+			$currentNode: getNode(requestId),
+			$container: $("#"+requestId)
 		},
 		channels = info.$container.data('channels') || [],
-		method = logEntry.method,
-		meta = logEntry.meta,
 		channel = meta.channel || info.$container.data("channelRoot"),
-		i,
 		$channelCheckbox,
 		$node;
 	// console.log('processEntry', logEntry);
@@ -83,6 +84,10 @@ export function processEntry(logEntry) {
 		}
 		updateSidebar(logEntry, info, $node != false);
 		if ($node) {
+			if (meta.attribs && meta.attribs.class && meta.attribs.class == "php-shutdown") {
+				info.$currentNode = info.$container.find("> .panel-body > .debug-body > .debug-log");
+				connections[requestId] = [ info.$currentNode ];
+			}
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
 			if (meta.attribs) {

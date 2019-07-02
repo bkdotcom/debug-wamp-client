@@ -258,6 +258,9 @@ DumpObject.prototype.dumpMethods = function(abs) {
         if (info.implements && info.implements.length) {
             $dd.attr("data-implements", info.implements);
         }
+        if (info.inheritedFrom) {
+            $dd.addClass("inherited");
+        }
         html += $dd[0].outerHTML;
     });
     return html;
