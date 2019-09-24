@@ -13,7 +13,11 @@ export function Table(dump) {
 Table.prototype.build = function(rows, meta, classname) {
 	// console.warn('methodTable', meta, classname);
 	var i,
-		length;
+		length,
+		propName,
+		propsNew = {},
+		property,
+		$caption;
 	if (classname === undefined) {
 		classname = "table-bordered";
 	}
@@ -33,13 +37,36 @@ Table.prototype.build = function(rows, meta, classname) {
 		.addClass(classname);
 	if (this.isAbstraction(rows)) {
 		if (rows.type == "object") {
-			$table.find('caption').append(' ' + this.dump.markupIdentifier(rows.className));
+			// reusing classname var
+			classname = this.dump.markupIdentifier(rows.className, {
+				title: rows.phpDoc.summary
+			});
+			$caption = $table.find('caption');
+			if ($caption.text().length) {
+				$caption.append(" (" + classname + ")");
+			} else {
+				$caption.html(classname);
+			}
 		}
 		if (Object.keys(rows.traverseValues).length) {
 			rows = rows.traverseValues;
+		} else {
+			for (propName in rows.properties) {
+				property = rows.properties[propName];
+				if (["private","protected"].indexOf(property.visibility) > -1) {
+					continue;
+				}
+				propsNew[propName] = property.value;
+			}
+			rows = propsNew;
 		}
 	}
 	colKeys = meta.columns.length ? meta.columns : this.getTableKeys(rows);
+	// remove __key if it's a thing
+	i = colKeys.indexOf('__key');
+	if (i > -1) {
+		colKeys.splice(i, 1);
+	}
 	this.buildHead();
 	this.buildBody(rows, meta);
 	this.addTotals();
@@ -77,6 +104,9 @@ Table.prototype.buildBody = function(rows, meta) {
 	for (i = 0, length = rowKeys.length; i < length; i++) {
 		rowKey = rowKeys[i];
 		row = rows[rowKey];
+        if (row.__key) {
+            rowKey = row.__key;
+        }
 		// using for in, so every key will be a string
 		//  check if actually an integer
 		if (typeof rowKey == "string" && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
@@ -274,9 +304,10 @@ Table.prototype.getValues = function(row) {
 		}
 	}
 	rowObjInfo.push(objInfo);
-	if (typeof row !== "object") {
+	if (row === null || typeof row !== "object") {
 		row = {'':row};
 	}
+
 	for (i = 0, length = colKeys.length; i < length; i++) {
 		k = colKeys[i];
 		value = typeof row[k] !== "undefined"

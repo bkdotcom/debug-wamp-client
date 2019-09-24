@@ -90,7 +90,7 @@ export function processEntry(logEntry) {
 			}
 			info.$currentNode.append($node);
 			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-			if (meta.attribs) {
+			if (meta.attribs && Object.keys(meta.attribs).length) {
 				if (meta.attribs.class) {
 					$node.addClass(meta.attribs.class);
 					delete meta.attribs.class;
@@ -108,7 +108,7 @@ export function processEntry(logEntry) {
 				$node.attr('data-detect-files', meta.detectFiles);
 				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
 			}
-			if ($node.is(':visible:not(.filter-hidden)')) {
+			if ($node.is(":visible:not(.filter-hidden)")) {
 				$node.debugEnhance();
 			}
 			if (!$node.is(".m_group")) {
@@ -119,6 +119,8 @@ export function processEntry(logEntry) {
 		}
 	} catch (err) {
 		console.warn(err);
+		console.log('logEntry', logEntry);
+		/*
 		processEntry({
 			method: 'error',
 			args: [
@@ -129,6 +131,7 @@ export function processEntry(logEntry) {
 			],
 			meta: meta
 		});
+		*/
 	}
 };
 

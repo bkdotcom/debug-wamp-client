@@ -15,7 +15,9 @@ DumpObject.prototype.dumpObject = function(abs) {
         toStringVal = null,
         toStringLen,
         toStringValAppend,
-        $toStringDump;
+        $toStringDump,
+        OUTPUT_CONSTANTS = 4,
+        OUTPUT_METHODS = 8;
     if (abs.isRecursion) {
         html = strClassName +
             ' <span class="t_recursion">*RECURSION*</span>';
@@ -61,12 +63,12 @@ DumpObject.prototype.dumpObject = function(abs) {
                             '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
                         : ''
                     ) +
-                    (true // outputConstants
+                    (abs.flags & this.OUTPUT_CONSTANTS
                         ? this.dumpConstants(abs.constants)
                         : ''
                     ) +
                     this.dumpProperties(abs, {'viaDebugInfo': abs.viaDebugInfo}) +
-                    (abs.collectMethods // outputMethods
+                    (abs.flags & this.OUTPUT_METHODS
                         ? this.dumpMethods(abs)
                         : ''
                     ) +
@@ -227,13 +229,13 @@ DumpObject.prototype.dumpMethods = function(abs) {
         if (info.isStatic) {
             modifiers.push('<span class="t_modifier_static">static</span>');
         }
-        if (typeof info.phpDoc.return != "undefined") {
+        if (info.return.type) {
             returnType = ' <span class="t_type"' +
-                (info.phpDoc.return.desc !== null
-                    ? ' title="' + info.phpDoc.return.desc.escapeHtml() + '"'
+                (info.return.desc !== null
+                    ? ' title="' + info.return.desc.escapeHtml() + '"'
                     : ''
                 ) +
-                '>' + info.phpDoc.return.type + '</span>';
+                '>' + info.return.type + '</span>';
         }
         $dd = $('<dd class="method">' +
             modifiers.join(' ') +

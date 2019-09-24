@@ -86,7 +86,7 @@ class WampClient
     public function actionCss()
     {
         \header('Content-Type: text/css');
-        echo $this->debug->output->getCss();
+        echo $this->debug->routeHtml->getCss();
         \readfile(__DIR__.'/css/WampClient.css');
     }
 
@@ -117,7 +117,7 @@ class WampClient
     public function actionScript()
     {
         \header('Content-Type: application/javascript');
-        echo $this->debug->output->getScript();
+        echo $this->debug->routeHtml->getScript();
         \readfile($this->cfg['filepathScript']);
     }
 }

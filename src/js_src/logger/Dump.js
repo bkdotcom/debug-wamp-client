@@ -98,8 +98,8 @@ Dump.prototype.dumpArray = function(array) {
 }
 
 Dump.prototype.dumpCallable = function(abs) {
-	return '<span class="t_type">callable</span> ' +
-		this.markupIdentifier(abs.values[0] + '::' + abs.values[1]);
+	return (!abs.hideType ? '<span class="t_type">callable</span> ' : '') +
+		this.markupIdentifier(abs);
 }
 
 Dump.prototype.dumpConst = function(abs) {
@@ -221,27 +221,57 @@ Dump.prototype.getType = function(val) {
 	}
 };
 
-Dump.prototype.markupIdentifier = function(str, attribs, tag) {
-    var classname = str,
-    	matches = str.match(/^(.+)(::|->)(.+)$/),
+Dump.prototype.markupIdentifier = function(val, attribs, tag) {
+    var classname = '',
+        operator = '::',
+        identifier = '',
+    	regex = /^(.+)(::|->)(.+)$/,
+    	matches = [],	// str.match(),
         opMethod = '',
         split = [];
     attribs = attribs || {};
     tag = tag || 'span';
-    if (matches) {
+
+	if (typeof val == "object" && val.debug === this.ABSTRACTION) {
+        val = val.value;
+        if (typeof val == "object") {
+            classname = val[0];
+            identifier = val[1];
+        } else {
+            if (matches = val.match(regex)) {
+                classname = matches[1];
+                operator = matches[2];
+                identifier = matches[3];
+            } else {
+                identifier = val;
+            }
+        }
+	} else if (matches = val.match(regex)) {
         classname = matches[1];
-        opMethod = '<span class="t_operator">' + matches[2] + '</span>'
-                + '<span class="t_identifier">' + matches[3] + '</span>';
+        operator = matches[2];
+        identifier = matches[3];
+	} else {
+		classname = val;
+	}
+    operator = '<span class="t_operator">' + operator.escapeHtml() + '</span>';
+    if (classname) {
+	    split = classname.split('\\');
+	    if (split.length > 1) {
+	        classname = split.pop();
+	        classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
+	            + classname;
+	    }
+	    attribs.class = 'classname';
+	    classname = $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
+    } else {
+        operator = '';
     }
-    split = classname.split('\\');
-    if (split.length > 1) {
-        classname = split.pop();
-        classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
-            + classname;
+    if (identifier) {
+        identifier = '<span class="t_identifier">' + identifier + '</span>';
+    } else {
+        operator = '';
     }
-    attribs.class = 'classname';
-    return  $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
-        + opMethod;
+    return classname + operator + identifier;
 }
 
 function checkTimestamp(val) {

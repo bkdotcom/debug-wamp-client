@@ -32,10 +32,10 @@ $(function() {
 				args: data[1],
 				meta: data[2]
 			});
-			if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
+			if (data[0] == 'meta' && data[2].linkFilesTemplateDefault) {
 				config.setDefault({
 					linkFiles: true,
-					linkFilesTemplate: data[1][1].linkFilesTemplateDefault
+					linkFilesTemplate: data[2].linkFilesTemplateDefault
 				});
 			}
 			// myWorker.postMessage("getMsg"); // request next msg
@@ -46,7 +46,7 @@ $(function() {
 				return;
 			}
 			$("#body").prepend(
-				'<div id="alert" class="alert alert-warning alert-dismissible closed">' +
+				'<div id="alert" class="alert alert-warn alert-dismissible closed">' +
 					'<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
 					'Not connected to debug server' +
 				'</div>'

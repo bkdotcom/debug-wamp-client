@@ -37,7 +37,8 @@ export var methods = {
 	clear: function (logEntry, info) {
 		var attribs = {
 				class: 'm_clear',
-				title: logEntry.meta.file + ': line ' + logEntry.meta.line
+				"data-file": logEntry.meta.file,
+				"data-line": logEntry.meta.line
 			},
 			channelFilter = function() {
 				return $(this).data('channel') == logEntry.meta.channel;
@@ -52,7 +53,7 @@ export var methods = {
 			$node,
 			$remove,
 			stackLen = connections[logEntry.meta.requestId].length;
-		processSubstitutions(logEntry)
+		processSubstitutions(logEntry);
 		for (i = stackLen - 1; i >= 0; i--) {
 			$node = connections[logEntry.meta.requestId][i];
 			if ($node.closest(".debug-log-summary").length && !$curTreeSummary) {
@@ -126,27 +127,26 @@ export var methods = {
 		setTimeout(function(){
 			// There's no hurry... keep around.. as more entrys may follow php's onShutdown
 			delete connections[logEntry.meta.requestId];
-		}, 1000 * 30)
+		}, 1000 * 30);
 	},
 	errorNotConsoled: function (logEntry, info) {
 		var $container = info.$container,
 			$node = $container.find('.alert.error-summary');
 		if (!$node.length) {
-			$node = $('<div class="alert alert-danger error-summary">' +
+			$node = $('<div class="alert alert-error error-summary">' +
 				'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
 				'<ul class="list-unstyled">' +
 				'</ul>' +
 				'</div>');
-			$container.find(".panel-body").prepend($node);
+			$container.find(".debug-body").prepend($node);
 		}
 		$node = $node.find('ul');
 		$node.append($("<li></li>").text(logEntry.args[0]));
-		if (logEntry.meta.class == "danger") {
-			// console.log('panel-danger');
-			$container.addClass("panel-danger");
-			$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+		if (logEntry.meta.class == "error") {
+			$container
+                .addClass("panel-danger")
+			    .removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
 		} else if (!$container.hasClass("panel-danger")) {
-			// console.log('panel warning');
 			$container.addClass("panel-warning");
 		}
 		$container.removeClass('panel-default');
@@ -170,7 +170,7 @@ export var methods = {
 			.append($groupHeader)
 			.append($groupBody);
 		// info.$currentNode.append( $group );
-		connections[logEntry.meta.requestId].push($groupBody)
+		connections[logEntry.meta.requestId].push($groupBody);
 		if ($group.is(":visible")) {
 			$group.debugEnhance();
 		}
@@ -208,7 +208,7 @@ export var methods = {
 				.find(".debug-log-summary")
 				.append( $node );
 		}
-		$node = $node.find("> ul")
+		$node = $node.find("> ul");
 		connections[logEntry.meta.requestId].push($node);
 	},
 	groupEnd: function (logEntry, info) {
@@ -242,30 +242,29 @@ export var methods = {
 		/*
 			The initial message/method
 		*/
-		// console.log('logEntry', logEntry);
 		var i, arg,
 			$title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
-			meta = logEntry.args[0],
-			opts = logEntry.args[1] || {};
-		info.$container.data("channelRoot", opts.channelRoot);
+			metaVals = logEntry.args[0],
+			meta = logEntry.meta;
+		info.$container.data("channelRoot", meta.channelRoot);
 		info.$container.data("options", {
-			drawer: opts.drawer
+			drawer: meta.drawer
 		});
 		info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
-		if (meta.HTTPS === "on") {
+		if (metaVals.HTTPS === "on") {
 			$title.append('<i class="fa fa-lock fa-lg"></i> ');
 		}
-		if (meta.REQUEST_METHOD) {
-			$title.append(meta.REQUEST_METHOD + ' ');
+		if (metaVals.REQUEST_METHOD) {
+			$title.append(metaVals.REQUEST_METHOD + ' ');
 		}
-		if (meta.HTTP_HOST) {
-			$title.append('<span class="http-host">' + meta.HTTP_HOST + '</span>');
+		if (metaVals.HTTP_HOST) {
+			$title.append('<span class="http-host">' + metaVals.HTTP_HOST + '</span>');
 		}
-		if (meta.REQUEST_URI) {
-			$title.append('<span class="request-uri">' + meta.REQUEST_URI + '</span>');
+		if (metaVals.REQUEST_URI) {
+			$title.append('<span class="request-uri">' + metaVals.REQUEST_URI + '</span>');
 		}
-		if (meta.REQUEST_TIME) {
-			var date = (new Date(meta.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
+		if (metaVals.REQUEST_TIME) {
+			var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
 			info.$container
 				.find(".panel-heading .panel-heading-body")
 				.prepend('<span class="pull-right">'+date+'</span>');
@@ -277,6 +276,7 @@ export var methods = {
 	},
 	table: function (logEntry, info) {
 		var $table;
+		// console.warn('table', logEntry.meta.caption, logEntry);
 		if (typeof logEntry.args[0] == "object" && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
 			$table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
 			if (logEntry.meta.sortable) {
@@ -284,8 +284,8 @@ export var methods = {
 			}
 			return $('<li>', {class:"m_"+logEntry.method}).append($table);
 		} else {
-			if (logEntry.meta["caption"]) {
-				logEntry.args.unshift(logEntry.meta["caption"]);
+			if (logEntry.meta.caption) {
+				logEntry.args.unshift(logEntry.meta.caption);
 			}
 			return methods.default({
 				method: "log",
@@ -305,7 +305,6 @@ export var methods = {
 		var arg,
 			attribs = {
 				"class" : "m_" + logEntry.method,
-				"title" : null
 			},
 			$container = info.$container,
 			i,
@@ -315,26 +314,28 @@ export var methods = {
 			meta = logEntry.meta;
 			// numArgs = args.length;
 		hasSubs = false;
-		if (["error","warn"].indexOf(method) > -1) {
-			if (meta.file && meta.channel !== "phpError") {
-				attribs.title = meta.file + ': line ' + meta.line;
+        if (meta.file && meta.channel !== "phpError") {
+            attribs = $.extend({
+                "data-file": meta.file,
+                "data-line": meta.line,
+            }, attribs);
+        }
+		/*
+			update panel header to empasize error
+		*/
+		if (meta.errorCat) {
+			// console.warn('errorCat', meta.errorCat);
+			attribs.class += ' error-' + meta.errorCat;
+			if (method == "error") {
+				// console.log('panel-danger');
+				$container
+					.addClass("panel-danger")
+					.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+			} else if (!$container.hasClass("panel-danger")) {
+				// console.log('panel warning');
+				$container.addClass("panel-warning");
 			}
-			/*
-				update panel header to empasize error
-			*/
-			if (meta.errorCat) {
-				// console.warn('errorCat', meta.errorCat);
-				attribs.class += ' error-' + meta.errorCat;
-				if (method == "error") {
-					// console.log('panel-danger');
-					$container.addClass("panel-danger");
-					$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-				} else if (!$container.hasClass("panel-danger")) {
-					// console.log('panel warning');
-					$container.addClass("panel-warning");
-				}
-				$container.removeClass('panel-default');
-			}
+			$container.removeClass('panel-default');
 		}
 		if (['assert','error','info','log','warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
 			processSubstitutions(logEntry);
@@ -345,7 +346,10 @@ export var methods = {
 			// console.warn("have backtrace");
 			$node.append(
 				$('<ul>', { "class": "list-unstyled" }).append(
-					$("<li>", { "class": "m_trace"}).append(
+					$("<li>", {
+						"class":"m_trace",
+						"data-detect-files":"true"
+					}).append(
 						table.build(
 							meta.backtrace,
 							{
@@ -455,7 +459,7 @@ function groupHeader(logEntry) {
  *
  * @return void
  */
-function processSubstitutions(logEntry) {
+function processSubstitutions(logEntry, opts) {
 	var subRegex = '%' +
 			'(?:' +
 			'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
@@ -467,50 +471,56 @@ function processSubstitutions(logEntry) {
 			'[difs]' +
 			')',
 		args = logEntry.args,
+		argLen = args.length,
+		hasSubs = false,
 		index = 0,
-		indexes = {
-			c: []
-		},
-		segments = [],
-		segment = '',
-		argsNew = [];
-	if (typeof args[0] != "string" || args.length < 2) {
+		typeCounts = {
+			c: 0
+		};
+	if (typeof args[0] != "string" || argLen < 2) {
 		return;
 	}
 	subRegex = new RegExp(subRegex, 'g');
-	var arg0 = args[0].replace(subRegex, function (match) {
+	args[0] = args[0].replace(subRegex, function (match) {
 		var replacement = match,
 			type = match.substr(-1);
-		hasSubs = true;
 		index++;
+		if (index > argLen - 1) {
+			return replacement;
+		}
 		if ("di".indexOf(type) > -1) {
 			replacement = parseInt(args[index], 10);
 		} else if (type == "f") {
 			replacement = parseFloat(args[index], 10);
 		} else if (type == "s") {
-			replacement = substitutionAsString(args[index]);
+			replacement = substitutionAsString(args[index], opts);
 		} else if (type === 'c') {
 			replacement = '';
-			if (indexes['c'].length) {
+			if (typeCounts.c) {
 				// close prev
 				replacement = '</span>';
 			}
 			replacement += '<span style="'+args[index].escapeHtml()+'">';
-			indexes['c'].push(index);
 		} else if ("oO".indexOf(type) > -1) {
 			replacement = dump.dump(args[index]);
 		}
-		// console.log('replacement', replacement);
+		typeCounts[type] = typeCounts[type]
+			? typeCounts[type] + 1
+			: 1;
+		delete args[index]; // sets to undefined
 		return replacement;
 	});
-	if (indexes['c'].length) {
-		arg0 += '</span>';
-	}
+	// using reduce to perform an array_sum
+	hasSubs = Object.values(typeCounts).reduce(function(acc, val) { return acc + val; }, 0) > 0;
 	if (hasSubs) {
-		logEntry.args = [ arg0 ];
+		if (typeCounts.c) {
+			args[0] += '</span>';
+		}
+		logEntry.args = args.filter(function(val){
+			return val !== undefined;
+		});
 		logEntry.meta.sanitizeFirst = false;
 	}
-	// return args;
 }
 
 /**
@@ -529,7 +539,7 @@ function substitutionAsString(val) {
 		val = '<span class="t_keyword">array</span>' +
 			'<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
 	} else if (type == 'object') {
-		val = dump.markupIdentifier(val['className']);
+		val = dump.markupIdentifier(val.className);
 	} else {
 		val = dump.dump(val);
 	}

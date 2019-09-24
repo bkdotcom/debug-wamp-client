@@ -2,8 +2,6 @@ import $ from 'jquery'; // external global
 import {updateCssProperty} from "./Css.js";
 
 export function init(config) {
-
-
     $("#link-files").on("change", function(){
         var isChecked = $(this).prop("checked"),
             $templateGroup = $("#link-files-template").closest(".form-group");

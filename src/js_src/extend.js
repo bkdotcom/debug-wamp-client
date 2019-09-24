@@ -7,15 +7,15 @@
  */
 export function extend(defaults, options) {
     var extended = {},
-        prop;
-    for (prop in defaults) {
-        if (Object.prototype.hasOwnProperty.call(defaults, prop)) {
-            extended[prop] = defaults[prop];
-        }
-    }
-    for (prop in options) {
-        if (Object.prototype.hasOwnProperty.call(options, prop)) {
-            extended[prop] = options[prop];
+        i,
+        length,
+        prop,
+        vals;
+    for (i =0, length = arguments.length; i < length; i++) {
+        for (prop in arguments[i]) {
+            if (Object.prototype.hasOwnProperty.call(arguments[i], prop)) {
+                extended[prop] = arguments[i][prop];
+            }
         }
     }
     return extended;

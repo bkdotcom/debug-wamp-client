@@ -115,8 +115,6 @@
     }
 
     function init(config) {
-
-
         $("#link-files").on("change", function(){
             var isChecked = $(this).prop("checked"),
                 $templateGroup = $("#link-files-template").closest(".form-group");
@@ -339,7 +337,11 @@
     Table.prototype.build = function(rows, meta, classname) {
     	// console.warn('methodTable', meta, classname);
     	var i,
-    		length;
+    		length,
+    		propName,
+    		propsNew = {},
+    		property,
+    		$caption;
     	if (classname === undefined) {
     		classname = "table-bordered";
     	}
@@ -359,13 +361,36 @@
     		.addClass(classname);
     	if (this.isAbstraction(rows)) {
     		if (rows.type == "object") {
-    			$table.find('caption').append(' ' + this.dump.markupIdentifier(rows.className));
+    			// reusing classname var
+    			classname = this.dump.markupIdentifier(rows.className, {
+    				title: rows.phpDoc.summary
+    			});
+    			$caption = $table.find('caption');
+    			if ($caption.text().length) {
+    				$caption.append(" (" + classname + ")");
+    			} else {
+    				$caption.html(classname);
+    			}
     		}
     		if (Object.keys(rows.traverseValues).length) {
     			rows = rows.traverseValues;
+    		} else {
+    			for (propName in rows.properties) {
+    				property = rows.properties[propName];
+    				if (["private","protected"].indexOf(property.visibility) > -1) {
+    					continue;
+    				}
+    				propsNew[propName] = property.value;
+    			}
+    			rows = propsNew;
     		}
     	}
     	colKeys = meta.columns.length ? meta.columns : this.getTableKeys(rows);
+    	// remove __key if it's a thing
+    	i = colKeys.indexOf('__key');
+    	if (i > -1) {
+    		colKeys.splice(i, 1);
+    	}
     	this.buildHead();
     	this.buildBody(rows, meta);
     	this.addTotals();
@@ -403,6 +428,9 @@
     	for (i = 0, length = rowKeys.length; i < length; i++) {
     		rowKey = rowKeys[i];
     		row = rows[rowKey];
+            if (row.__key) {
+                rowKey = row.__key;
+            }
     		// using for in, so every key will be a string
     		//  check if actually an integer
     		if (typeof rowKey == "string" && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
@@ -600,9 +628,10 @@
     		}
     	}
     	rowObjInfo.push(objInfo);
-    	if (typeof row !== "object") {
+    	if (row === null || typeof row !== "object") {
     		row = {'':row};
     	}
+
     	for (i = 0, length = colKeys.length; i < length; i++) {
     		k = colKeys[i];
     		value = typeof row[k] !== "undefined"
@@ -1320,10 +1349,12 @@
                                 '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
                             : ''
                         ) +
-                        (this.dumpConstants(abs.constants)
+                        (abs.flags & this.OUTPUT_CONSTANTS
+                            ? this.dumpConstants(abs.constants)
+                            : ''
                         ) +
                         this.dumpProperties(abs, {'viaDebugInfo': abs.viaDebugInfo}) +
-                        (abs.collectMethods // outputMethods
+                        (abs.flags & this.OUTPUT_METHODS
                             ? this.dumpMethods(abs)
                             : ''
                         ) +
@@ -1483,13 +1514,13 @@
             if (info.isStatic) {
                 modifiers.push('<span class="t_modifier_static">static</span>');
             }
-            if (typeof info.phpDoc.return != "undefined") {
+            if (info.return.type) {
                 returnType = ' <span class="t_type"' +
-                    (info.phpDoc.return.desc !== null
-                        ? ' title="' + info.phpDoc.return.desc.escapeHtml() + '"'
+                    (info.return.desc !== null
+                        ? ' title="' + info.return.desc.escapeHtml() + '"'
                         : ''
                     ) +
-                    '>' + info.phpDoc.return.type + '</span>';
+                    '>' + info.return.type + '</span>';
             }
             $dd = $('<dd class="method">' +
                 modifiers.join(' ') +
@@ -1668,8 +1699,8 @@
     };
 
     Dump.prototype.dumpCallable = function(abs) {
-    	return '<span class="t_type">callable</span> ' +
-    		this.markupIdentifier(abs.values[0] + '::' + abs.values[1]);
+    	return (!abs.hideType ? '<span class="t_type">callable</span> ' : '') +
+    		this.markupIdentifier(abs);
     };
 
     Dump.prototype.dumpConst = function(abs) {
@@ -1790,27 +1821,56 @@
     	}
     };
 
-    Dump.prototype.markupIdentifier = function(str, attribs, tag) {
-        var classname = str,
-        	matches = str.match(/^(.+)(::|->)(.+)$/),
-            opMethod = '',
+    Dump.prototype.markupIdentifier = function(val, attribs, tag) {
+        var classname = '',
+            operator = '::',
+            identifier = '',
+        	regex = /^(.+)(::|->)(.+)$/,
+        	matches = [],	// str.match(),
             split = [];
         attribs = attribs || {};
         tag = tag || 'span';
-        if (matches) {
+
+    	if (typeof val == "object" && val.debug === this.ABSTRACTION) {
+            val = val.value;
+            if (typeof val == "object") {
+                classname = val[0];
+                identifier = val[1];
+            } else {
+                if (matches = val.match(regex)) {
+                    classname = matches[1];
+                    operator = matches[2];
+                    identifier = matches[3];
+                } else {
+                    identifier = val;
+                }
+            }
+    	} else if (matches = val.match(regex)) {
             classname = matches[1];
-            opMethod = '<span class="t_operator">' + matches[2] + '</span>'
-                    + '<span class="t_identifier">' + matches[3] + '</span>';
+            operator = matches[2];
+            identifier = matches[3];
+    	} else {
+    		classname = val;
+    	}
+        operator = '<span class="t_operator">' + operator.escapeHtml() + '</span>';
+        if (classname) {
+    	    split = classname.split('\\');
+    	    if (split.length > 1) {
+    	        classname = split.pop();
+    	        classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
+    	            + classname;
+    	    }
+    	    attribs.class = 'classname';
+    	    classname = $('<'+tag+'/>', attribs).html(classname)[0].outerHTML;
+        } else {
+            operator = '';
         }
-        split = classname.split('\\');
-        if (split.length > 1) {
-            classname = split.pop();
-            classname = '<span class="namespace">' + split.join('\\') + '\\</span>'
-                + classname;
+        if (identifier) {
+            identifier = '<span class="t_identifier">' + identifier + '</span>';
+        } else {
+            operator = '';
         }
-        attribs.class = 'classname';
-        return  $('<'+tag+'/>', attribs).html(classname)[0].outerHTML
-            + opMethod;
+        return classname + operator + identifier;
     };
 
     function checkTimestamp(val) {
@@ -1852,7 +1912,6 @@
 
     var connections = {};
     var dump = new Dump();
-    var hasSubs = false;	// substitutions
     var table = new Table(dump);
 
     function init$2(_connections) {
@@ -1883,7 +1942,8 @@
     	clear: function (logEntry, info) {
     		var attribs = {
     				class: 'm_clear',
-    				title: logEntry.meta.file + ': line ' + logEntry.meta.line
+    				"data-file": logEntry.meta.file,
+    				"data-line": logEntry.meta.line
     			},
     			channelFilter = function() {
     				return $(this).data('channel') == logEntry.meta.channel;
@@ -1975,21 +2035,20 @@
     		var $container = info.$container,
     			$node = $container.find('.alert.error-summary');
     		if (!$node.length) {
-    			$node = $('<div class="alert alert-danger error-summary">' +
+    			$node = $('<div class="alert alert-error error-summary">' +
     				'<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
     				'<ul class="list-unstyled">' +
     				'</ul>' +
     				'</div>');
-    			$container.find(".panel-body").prepend($node);
+    			$container.find(".debug-body").prepend($node);
     		}
     		$node = $node.find('ul');
     		$node.append($("<li></li>").text(logEntry.args[0]));
-    		if (logEntry.meta.class == "danger") {
-    			// console.log('panel-danger');
-    			$container.addClass("panel-danger");
-    			$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+    		if (logEntry.meta.class == "error") {
+    			$container
+                    .addClass("panel-danger")
+    			    .removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
     		} else if (!$container.hasClass("panel-danger")) {
-    			// console.log('panel warning');
     			$container.addClass("panel-warning");
     		}
     		$container.removeClass('panel-default');
@@ -2085,29 +2144,28 @@
     		/*
     			The initial message/method
     		*/
-    		// console.log('logEntry', logEntry);
     		var $title = info.$container.find(".panel-heading .panel-heading-body .panel-title").html(''),
-    			meta = logEntry.args[0],
-    			opts = logEntry.args[1] || {};
-    		info.$container.data("channelRoot", opts.channelRoot);
+    			metaVals = logEntry.args[0],
+    			meta = logEntry.meta;
+    		info.$container.data("channelRoot", meta.channelRoot);
     		info.$container.data("options", {
-    			drawer: opts.drawer
+    			drawer: meta.drawer
     		});
     		info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
-    		if (meta.HTTPS === "on") {
+    		if (metaVals.HTTPS === "on") {
     			$title.append('<i class="fa fa-lock fa-lg"></i> ');
     		}
-    		if (meta.REQUEST_METHOD) {
-    			$title.append(meta.REQUEST_METHOD + ' ');
+    		if (metaVals.REQUEST_METHOD) {
+    			$title.append(metaVals.REQUEST_METHOD + ' ');
     		}
-    		if (meta.HTTP_HOST) {
-    			$title.append('<span class="http-host">' + meta.HTTP_HOST + '</span>');
+    		if (metaVals.HTTP_HOST) {
+    			$title.append('<span class="http-host">' + metaVals.HTTP_HOST + '</span>');
     		}
-    		if (meta.REQUEST_URI) {
-    			$title.append('<span class="request-uri">' + meta.REQUEST_URI + '</span>');
+    		if (metaVals.REQUEST_URI) {
+    			$title.append('<span class="request-uri">' + metaVals.REQUEST_URI + '</span>');
     		}
-    		if (meta.REQUEST_TIME) {
-    			var date = (new Date(meta.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
+    		if (metaVals.REQUEST_TIME) {
+    			var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
     			info.$container
     				.find(".panel-heading .panel-heading-body")
     				.prepend('<span class="pull-right">'+date+'</span>');
@@ -2119,6 +2177,7 @@
     	},
     	table: function (logEntry, info) {
     		var $table;
+    		// console.warn('table', logEntry.meta.caption, logEntry);
     		if (typeof logEntry.args[0] == "object" && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
     			$table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
     			if (logEntry.meta.sortable) {
@@ -2126,8 +2185,8 @@
     			}
     			return $('<li>', {class:"m_"+logEntry.method}).append($table);
     		} else {
-    			if (logEntry.meta["caption"]) {
-    				logEntry.args.unshift(logEntry.meta["caption"]);
+    			if (logEntry.meta.caption) {
+    				logEntry.args.unshift(logEntry.meta.caption);
     			}
     			return methods.default({
     				method: "log",
@@ -2146,35 +2205,34 @@
     	default: function (logEntry, info) {
     		var attribs = {
     				"class" : "m_" + logEntry.method,
-    				"title" : null
     			},
     			$container = info.$container,
     			$node,
     			method = logEntry.method,
     			// args = logEntry.args,
     			meta = logEntry.meta;
-    			// numArgs = args.length;
-    		hasSubs = false;
-    		if (["error","warn"].indexOf(method) > -1) {
-    			if (meta.file && meta.channel !== "phpError") {
-    				attribs.title = meta.file + ': line ' + meta.line;
+            if (meta.file && meta.channel !== "phpError") {
+                attribs = $.extend({
+                    "data-file": meta.file,
+                    "data-line": meta.line,
+                }, attribs);
+            }
+    		/*
+    			update panel header to empasize error
+    		*/
+    		if (meta.errorCat) {
+    			// console.warn('errorCat', meta.errorCat);
+    			attribs.class += ' error-' + meta.errorCat;
+    			if (method == "error") {
+    				// console.log('panel-danger');
+    				$container
+    					.addClass("panel-danger")
+    					.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+    			} else if (!$container.hasClass("panel-danger")) {
+    				// console.log('panel warning');
+    				$container.addClass("panel-warning");
     			}
-    			/*
-    				update panel header to empasize error
-    			*/
-    			if (meta.errorCat) {
-    				// console.warn('errorCat', meta.errorCat);
-    				attribs.class += ' error-' + meta.errorCat;
-    				if (method == "error") {
-    					// console.log('panel-danger');
-    					$container.addClass("panel-danger");
-    					$container.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-    				} else if (!$container.hasClass("panel-danger")) {
-    					// console.log('panel warning');
-    					$container.addClass("panel-warning");
-    				}
-    				$container.removeClass('panel-default');
-    			}
+    			$container.removeClass('panel-default');
     		}
     		if (['assert','error','info','log','warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
     			processSubstitutions(logEntry);
@@ -2185,7 +2243,10 @@
     			// console.warn("have backtrace");
     			$node.append(
     				$('<ul>', { "class": "list-unstyled" }).append(
-    					$("<li>", { "class": "m_trace"}).append(
+    					$("<li>", {
+    						"class":"m_trace",
+    						"data-detect-files":"true"
+    					}).append(
     						table.build(
     							meta.backtrace,
     							{
@@ -2295,7 +2356,7 @@
      *
      * @return void
      */
-    function processSubstitutions(logEntry) {
+    function processSubstitutions(logEntry, opts) {
     	var subRegex = '%' +
     			'(?:' +
     			'[coO]|' +			// c: css, o: obj with max info, O: obj w generic info
@@ -2307,47 +2368,56 @@
     			'[difs]' +
     			')',
     		args = logEntry.args,
+    		argLen = args.length,
+    		hasSubs = false,
     		index = 0,
-    		indexes = {
-    			c: []
+    		typeCounts = {
+    			c: 0
     		};
-    	if (typeof args[0] != "string" || args.length < 2) {
+    	if (typeof args[0] != "string" || argLen < 2) {
     		return;
     	}
     	subRegex = new RegExp(subRegex, 'g');
-    	var arg0 = args[0].replace(subRegex, function (match) {
+    	args[0] = args[0].replace(subRegex, function (match) {
     		var replacement = match,
     			type = match.substr(-1);
-    		hasSubs = true;
     		index++;
+    		if (index > argLen - 1) {
+    			return replacement;
+    		}
     		if ("di".indexOf(type) > -1) {
     			replacement = parseInt(args[index], 10);
     		} else if (type == "f") {
     			replacement = parseFloat(args[index], 10);
     		} else if (type == "s") {
-    			replacement = substitutionAsString(args[index]);
+    			replacement = substitutionAsString(args[index], opts);
     		} else if (type === 'c') {
     			replacement = '';
-    			if (indexes['c'].length) {
+    			if (typeCounts.c) {
     				// close prev
     				replacement = '</span>';
     			}
     			replacement += '<span style="'+args[index].escapeHtml()+'">';
-    			indexes['c'].push(index);
     		} else if ("oO".indexOf(type) > -1) {
     			replacement = dump.dump(args[index]);
     		}
-    		// console.log('replacement', replacement);
+    		typeCounts[type] = typeCounts[type]
+    			? typeCounts[type] + 1
+    			: 1;
+    		delete args[index]; // sets to undefined
     		return replacement;
     	});
-    	if (indexes['c'].length) {
-    		arg0 += '</span>';
-    	}
+    	// using reduce to perform an array_sum
+    	hasSubs = Object.values(typeCounts).reduce(function(acc, val) { return acc + val; }, 0) > 0;
     	if (hasSubs) {
-    		logEntry.args = [ arg0 ];
+    		if (typeCounts.c) {
+    			args[0] += '</span>';
+    		}
+    		logEntry.args = args.filter(function(val){
+    			return val !== undefined;
+    		});
     		logEntry.meta.sanitizeFirst = false;
     	}
-    	// return args;
     }
 
     /**
@@ -2366,7 +2436,7 @@
     		val = '<span class="t_keyword">array</span>' +
     			'<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
     	} else if (type == 'object') {
-    		val = dump.markupIdentifier(val['className']);
+    		val = dump.markupIdentifier(val.className);
     	} else {
     		val = dump.dump(val);
     	}
@@ -2460,7 +2530,7 @@
     			}
     			info.$currentNode.append($node);
     			$node.attr("data-channel", meta.channel);	// using attr so can use [data-channel="xxx"] selector
-    			if (meta.attribs) {
+    			if (meta.attribs && Object.keys(meta.attribs).length) {
     				if (meta.attribs.class) {
     					$node.addClass(meta.attribs.class);
     					delete meta.attribs.class;
@@ -2478,7 +2548,7 @@
     				$node.attr('data-detect-files', meta.detectFiles);
     				$node.attr('data-found-files', meta.foundFiles ? meta.foundFiles : []);
     			}
-    			if ($node.is(':visible:not(.filter-hidden)')) {
+    			if ($node.is(":visible:not(.filter-hidden)")) {
     				$node.debugEnhance();
     			}
     			if (!$node.is(".m_group")) {
@@ -2489,6 +2559,8 @@
     		}
     	} catch (err) {
     		console.warn(err);
+    		console.log('logEntry', logEntry);
+    		/*
     		processEntry({
     			method: 'error',
     			args: [
@@ -2499,6 +2571,7 @@
     			],
     			meta: meta
     		});
+    		*/
     	}
     }
     function updateSidebar(logEntry, info, haveNode) {
@@ -2664,15 +2737,14 @@
      */
     function extend(defaults, options) {
         var extended = {},
+            i,
+            length,
             prop;
-        for (prop in defaults) {
-            if (Object.prototype.hasOwnProperty.call(defaults, prop)) {
-                extended[prop] = defaults[prop];
-            }
-        }
-        for (prop in options) {
-            if (Object.prototype.hasOwnProperty.call(options, prop)) {
-                extended[prop] = options[prop];
+        for (i =0, length = arguments.length; i < length; i++) {
+            for (prop in arguments[i]) {
+                if (Object.prototype.hasOwnProperty.call(arguments[i], prop)) {
+                    extended[prop] = arguments[i][prop];
+                }
             }
         }
         return extended;
@@ -3553,10 +3625,10 @@
     				args: data[1],
     				meta: data[2]
     			});
-    			if (data[0] == 'meta' && data[1][1].linkFilesTemplateDefault) {
+    			if (data[0] == 'meta' && data[2].linkFilesTemplateDefault) {
     				config.setDefault({
     					linkFiles: true,
-    					linkFilesTemplate: data[1][1].linkFilesTemplateDefault
+    					linkFilesTemplate: data[2].linkFilesTemplateDefault
     				});
     			}
     			// myWorker.postMessage("getMsg"); // request next msg
@@ -3567,7 +3639,7 @@
     				return;
     			}
     			$("#body").prepend(
-    				'<div id="alert" class="alert alert-warning alert-dismissible closed">' +
+    				'<div id="alert" class="alert alert-warn alert-dismissible closed">' +
     					'<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
     					'Not connected to debug server' +
     				'</div>'
