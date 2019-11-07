@@ -1303,7 +1303,9 @@
             toStringVal = null,
             toStringLen,
             toStringValAppend,
-            $toStringDump;
+            $toStringDump,
+            OUTPUT_CONSTANTS = 4,
+            OUTPUT_METHODS = 8;
         if (abs.isRecursion) {
             html = strClassName +
                 ' <span class="t_recursion">*RECURSION*</span>';
@@ -1349,12 +1351,12 @@
                                 '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
                             : ''
                         ) +
-                        (abs.flags & this.OUTPUT_CONSTANTS
+                        (abs.flags & OUTPUT_CONSTANTS
                             ? this.dumpConstants(abs.constants)
                             : ''
                         ) +
                         this.dumpProperties(abs, {'viaDebugInfo': abs.viaDebugInfo}) +
-                        (abs.flags & this.OUTPUT_METHODS
+                        (abs.flags & OUTPUT_METHODS
                             ? this.dumpMethods(abs)
                             : ''
                         ) +

@@ -63,12 +63,12 @@ DumpObject.prototype.dumpObject = function(abs) {
                             '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
                         : ''
                     ) +
-                    (abs.flags & this.OUTPUT_CONSTANTS
+                    (abs.flags & OUTPUT_CONSTANTS
                         ? this.dumpConstants(abs.constants)
                         : ''
                     ) +
                     this.dumpProperties(abs, {'viaDebugInfo': abs.viaDebugInfo}) +
-                    (abs.flags & this.OUTPUT_METHODS
+                    (abs.flags & OUTPUT_METHODS
                         ? this.dumpMethods(abs)
                         : ''
                     ) +
