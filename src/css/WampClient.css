@@ -84,6 +84,13 @@ kbd {
 	padding-bottom: 0;
 }
 
+.form-horizontal .control-label {
+	padding-top: 7px;
+	margin-bottom: 0;
+	text-align: right;
+}
+
+
 .debug {
 	transform: none;
 }

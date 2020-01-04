@@ -246,7 +246,7 @@ Dump.prototype.markupIdentifier = function(val, attribs, tag) {
                 identifier = val;
             }
         }
-	} else if (matches = val.match(regex)) {
+	} else if (typeof val == "string" && (matches = val.match(regex))) {
         classname = matches[1];
         operator = matches[2];
         identifier = matches[3];
