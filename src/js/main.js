@@ -2225,16 +2225,19 @@
     		if (meta.errorCat) {
     			// console.warn('errorCat', meta.errorCat);
     			attribs.class += ' error-' + meta.errorCat;
-    			if (method == "error") {
-    				// console.log('panel-danger');
-    				$container
-    					.addClass("panel-danger")
-    					.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-    			} else if (!$container.hasClass("panel-danger")) {
-    				// console.log('panel warning');
-    				$container.addClass("panel-warning");
+    			if (!meta.isSuppressed) {
+    				if (method == "error") {
+    					// if suppressed, don't update panel
+    					// console.log('panel-danger');
+    					$container
+    						.addClass("panel-danger")
+    						.removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
+    				} else if (!$container.hasClass("panel-danger")) {
+    					// console.log('panel warning');
+    					$container.addClass("panel-warning");
+    				}
+    				$container.removeClass('panel-default');
     			}
-    			$container.removeClass('panel-default');
     		}
     		if (['assert','error','info','log','warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
     			processSubstitutions(logEntry);
