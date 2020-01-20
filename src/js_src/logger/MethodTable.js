@@ -10,7 +10,7 @@ export function Table(dump) {
 	this.dump = dump;
 }
 
-Table.prototype.build = function(rows, meta, classname) {
+Table.prototype.build = function(rows, meta, classname, onBuildRow) {
 	// console.warn('methodTable', meta, classname);
 	var i,
 		length,
@@ -21,6 +21,10 @@ Table.prototype.build = function(rows, meta, classname) {
 	if (classname === undefined) {
 		classname = "table-bordered";
 	}
+	meta = $.extend({
+		caption: '',
+		columns: []
+	}, meta);
 	if (meta.caption === null) {
 		meta.caption = '';
 	}
@@ -68,7 +72,7 @@ Table.prototype.build = function(rows, meta, classname) {
 		colKeys.splice(i, 1);
 	}
 	this.buildHead();
-	this.buildBody(rows, meta);
+	this.buildBody(rows, meta, onBuildRow);
 	this.addTotals();
 	this.addColObjInfo();
 	addRowObjInfo();
@@ -89,7 +93,7 @@ Table.prototype.buildHead = function() {
 	}
 }
 
-Table.prototype.buildBody = function(rows, meta) {
+Table.prototype.buildBody = function(rows, meta, onBuildRow) {
 	var i, length,
 		i2, length2,
 		classAndInner,
@@ -122,6 +126,9 @@ Table.prototype.buildBody = function(rows, meta) {
 			}
 			classAndInner = parseAttribString(this.dump.dump(values[i2], true));
 			$tr.append('<td class="'+classAndInner.class+'">'+classAndInner.innerhtml+'</td>');
+		}
+		if (onBuildRow) {
+			$tr = onBuildRow($tr, row, rowKey);
 		}
 		$table.append($tr);
 	}

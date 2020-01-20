@@ -334,7 +334,7 @@
     	this.dump = dump;
     }
 
-    Table.prototype.build = function(rows, meta, classname) {
+    Table.prototype.build = function(rows, meta, classname, onBuildRow) {
     	// console.warn('methodTable', meta, classname);
     	var i,
     		length,
@@ -345,6 +345,10 @@
     	if (classname === undefined) {
     		classname = "table-bordered";
     	}
+    	meta = $.extend({
+    		caption: '',
+    		columns: []
+    	}, meta);
     	if (meta.caption === null) {
     		meta.caption = '';
     	}
@@ -392,7 +396,7 @@
     		colKeys.splice(i, 1);
     	}
     	this.buildHead();
-    	this.buildBody(rows, meta);
+    	this.buildBody(rows, meta, onBuildRow);
     	this.addTotals();
     	this.addColObjInfo();
     	addRowObjInfo();
@@ -413,7 +417,7 @@
     	}
     };
 
-    Table.prototype.buildBody = function(rows, meta) {
+    Table.prototype.buildBody = function(rows, meta, onBuildRow) {
     	var i, length,
     		i2, length2,
     		classAndInner,
@@ -446,6 +450,9 @@
     			}
     			classAndInner = parseAttribString(this.dump.dump(values[i2], true));
     			$tr.append('<td class="'+classAndInner.class+'">'+classAndInner.innerhtml+'</td>');
+    		}
+    		if (onBuildRow) {
+    			$tr = onBuildRow($tr, row, rowKey);
     		}
     		$table.append($tr);
     	}
@@ -2198,7 +2205,22 @@
     		}
     	},
     	trace: function (logEntry, info) {
-    		var $table = table.build(logEntry.args[0], logEntry.meta, "table-bordered");
+    		var $table;
+    		logEntry.meta = $.extend({
+    			caption: "trace",
+    			columns: ["file", "line", "function"]
+    		}, logEntry.meta);
+    		$table = table.build(
+    			logEntry.args[0],
+    			logEntry.meta,
+    			"table-bordered",
+    			logEntry.meta.inclContext
+    				? tableAddContextRow
+    				: null
+    		);
+    		if (logEntry.meta.inclContext) {
+    			$table.addClass("trace-context");
+    		}
     		if (logEntry.meta.sortable) {
     			$table.addClass("sortable");
     		}
@@ -2248,19 +2270,12 @@
     			// console.warn("have backtrace");
     			$node.append(
     				$('<ul>', { "class": "list-unstyled" }).append(
-    					$("<li>", {
-    						"class":"m_trace",
-    						"data-detect-files":"true"
-    					}).append(
-    						table.build(
-    							meta.backtrace,
-    							{
-    								caption: "trace",
-    								columns: ["file","line","function"]
-    							},
-    							"table-bordered"
-    						)
-    					)
+    					methods.trace({
+    						args: [ meta.backtrace ],
+    						meta: {
+    							inclContext: true,
+    						}
+    					}).attr("data-detect-files", "true")
     				)
     			);
     			$node.find(".m_trace").debugEnhance();
@@ -2271,6 +2286,46 @@
     		return $node;
     	}
     };
+
+    function tableAddContextRow($tr, row, i) {
+    	var keys = Object.keys(row.context),	// .map(function(val){return parseInt(val)}),
+    		start = Math.min.apply(null, keys);
+    	if (!row.context) {
+    		return
+    	}
+    	$tr.attr("data-toggle", "next");
+    	if (i == 0) {
+    		$tr.addClass("expanded");
+    	}
+    	return [
+    		$tr,
+    		$("<tr>", {
+    			"class" : "context",
+    			"style" : i == 0
+    				? "display:table-row;"
+    				: null
+    		}).append(
+    			$('<td>', {
+    				colspan: 4
+    			}).append(
+    				[
+    					$("<pre>", {
+    						"class": "line-numbers prism",
+    						"data-line": row.line,
+    						"data-start": start
+    					}).append(
+    						$("<code>", {
+    							"class": "language-php"
+    						}).append(Object.values(row.context).join(""))
+    					),
+    					row.args.length
+    						? '<hr />Arguments = ' + dump.dump(row.args	)
+    						: ''
+    				]
+    			)
+    		)
+    	];
+    }
 
     function buildEntryNode(logEntry) {
     	var i,
