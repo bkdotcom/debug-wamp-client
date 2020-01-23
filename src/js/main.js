@@ -2160,7 +2160,10 @@
     		info.$container.data("options", {
     			drawer: meta.drawer
     		});
-    		info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
+    		// info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
+    		if (meta.interface) {
+    			info.$container.find(".panel-heading").attr("data-interface", meta.interface);
+    		}
     		if (metaVals.HTTPS === "on") {
     			$title.append('<i class="fa fa-lock fa-lg"></i> ');
     		}
@@ -2523,7 +2526,7 @@
     		// create
     		$panel = $('' +
     			'<div class="panel panel-default working">' +
-    				'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' > .panel-body.collapse">' +
+    				'<div class="panel-heading" data-toggle="collapse" data-target="#'+requestId+' &gt; .panel-body.collapse">' +
     					'<i class="glyphicon glyphicon-chevron-right"></i>' +
     					'<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
     					'<div class="panel-heading-body">' +
@@ -2639,6 +2642,10 @@
     		// channel = logEntry.meta.channel || info.$container.data("channelRoot"),
     		method = logEntry.method,
     		$filters = info.$container.find(".debug-sidebar .debug-filters");
+    	/*
+    		Update channel filter
+    	*/
+    	addChannel(logEntry, info);
     	if (['groupSummary','groupEnd'].indexOf(method) > -1) {
     		return;
     	}
@@ -2648,10 +2655,6 @@
     	if (["error","warn"].indexOf(method) > -1 && logEntry.meta.channel == "phpError") {
     		addError(logEntry, info);
     	}
-    	/*
-    		Update channel filter
-    	*/
-    	addChannel(logEntry, info);
     	/*
     		Update method filter
     	*/

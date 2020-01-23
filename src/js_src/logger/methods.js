@@ -250,7 +250,10 @@ export var methods = {
 		info.$container.data("options", {
 			drawer: meta.drawer
 		});
-		info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
+		// info.$container.find(".panel-heading .panel-heading-body .pull-right").remove();
+		if (meta.interface) {
+			info.$container.find(".panel-heading").attr("data-interface", meta.interface);
+		}
 		if (metaVals.HTTPS === "on") {
 			$title.append('<i class="fa fa-lock fa-lg"></i> ');
 		}
