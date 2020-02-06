@@ -3,9 +3,10 @@
 *.png -text
 
 /.editorconfig export-ignore
+/.eslintrc.json
 /.gitattributes export-ignore
 /.gitignore export-ignore
-/src/js_src export-ignore
-/package.json export-ignore
 /package-lock.json export-ignore
+/package.json export-ignore
 /rollup.config.js export-ignore
+/src/js_src export-ignore
