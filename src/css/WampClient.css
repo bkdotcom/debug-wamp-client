@@ -9,6 +9,12 @@ body { padding-top:50px; }
 }
 */
 
+kbd {
+	background-color: #ccc;
+	color: #000;
+}
+
+
 .navbar {
 	margin-bottom: 10px;
 	min-height: auto;
@@ -48,6 +54,9 @@ body { padding-top:50px; }
 }
 .alert-dismissible { padding-right: 35px; }
 
+.panel-heading[data-interface="http ajax"] {
+	border-left: solid 2px rgba(80,80,200,0.5);
+}
 .panel-heading { cursor:pointer; }
 .panel-heading * { font-size:inherit; }
 .panel-heading > i { float:left; }
@@ -62,6 +71,7 @@ body { padding-top:50px; }
 }
 .panel-body {
 	overflow: auto;
+	padding: 15px;
 }
 .panel-title {
 	display: inline;
@@ -71,4 +81,76 @@ body { padding-top:50px; }
 }
 .panel-heading-body .fa-spinner {
 	margin-left: .75em;
+}
+
+#modal-settings .modal-body {
+	padding-bottom: 0;
+}
+
+.form-horizontal .control-label {
+	padding-top: 7px;
+	margin-bottom: 0;
+	text-align: right;
+}
+
+
+.debug {
+	transform: none;
+}
+
+/**
+ * Serves as mouseenter trigger area
+ */
+.panel .sidebar-trigger {
+	position: absolute;
+	width: 12px;
+	height: 100%;
+	margin-left: -15px;
+	margin-top: -15px;
+}
+
+.panel .debug-sidebar {
+	margin-top: -15px;
+	margin-left: -15px;
+	z-index: 1;
+	width: 120px;
+	position: absolute;
+	border-right: #ddd solid 1px;
+	font-size: 13px;
+	transform: translateX(-120px);
+}
+.panel .debug-sidebar .sidebar-content {
+	padding-right: 4px;
+}
+.panel .debug-sidebar .sidebar-toggle {
+	display: block;
+	position: absolute;
+	left: 100%;
+	/*
+	top: 0;
+	margin-left: -1px;
+	text-align: center;
+	*/
+	width: 2em;
+	height: 1.5em;
+	padding-top: 2px;
+	border-left: 0;
+	border-right: #ddd solid 1px;
+	border-bottom: #ddd solid 1px;
+	border-bottom-right-radius: .5em;
+	color: #333;
+}
+.panel .debug-sidebar .sidebar-toggle i.fa {
+	margin-right: 0;
+}
+.panel .filter-active .debug-sidebar .sidebar-toggle {
+	background-color: #CCC;
+}
+
+.debug .debug-sidebar + .debug-body {
+	margin-left: 0;
+	padding-left: 0;
+}
+.debug .debug-sidebar.show + .debug-body  {
+	margin-left: 0;
 }
