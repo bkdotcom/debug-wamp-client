@@ -408,7 +408,7 @@ function tableAddContextRow ($tr, row, i) {
       }).append(
         [
           $('<pre>', {
-            class: 'line-numbers prism',
+            class: 'highlight line-numbers',
             'data-line': row.line,
             'data-start': start
           }).append(

@@ -54,8 +54,11 @@ kbd {
 }
 .alert-dismissible { padding-right: 35px; }
 
+.panel-heading[data-interface="cli"] {
+	border-left: solid 2px rgba(0, 0, 0, 0.5);
+}
 .panel-heading[data-interface="http ajax"] {
-	border-left: solid 2px rgba(80,80,200,0.5);
+	border-left: solid 2px rgba(80, 80, 200, 0.5);
 }
 .panel-heading { cursor:pointer; }
 .panel-heading * { font-size:inherit; }

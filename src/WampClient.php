@@ -14,7 +14,7 @@
 namespace bdk\Debug;
 
 use bdk\Debug;
-use bdk\Debug\Plugin\Prism;
+use bdk\Debug\Plugin\Highlight;
 
 /**
  * PHPDebugConsole WAMP plugin client
@@ -39,7 +39,7 @@ class WampClient
             'bootstrapCss' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css',
             'filepathScript' => __DIR__.'/js/main.min.js',
         ), $cfg);
-        $this->debug->addPlugin(new Prism());
+        $this->debug->addPlugin(new Highlight());
     }
 
     /**
