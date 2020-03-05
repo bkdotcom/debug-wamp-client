@@ -33,7 +33,6 @@ $(function () {
   })
 
   PubSub.subscribe('websocket', function (cmd, data) {
-    // console.warn('rcvd websocket', cmd, JSON.stringify(data))
     if (cmd === 'msg' && data) {
       logger.processEntry({
         method: data[0],

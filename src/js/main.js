@@ -1967,16 +1967,8 @@
     return str
   }
 
-  var connections = {};
   var dump = new Dump();
-  // var hasSubs = false  // substitutions
   var table = new Table(dump);
-  // var detectFiles = false
-  // var foundFiles = []
-
-  function init$2 (_connections) {
-    connections = _connections;
-  }
 
   var methods = {
     alert: function (logEntry, info) {
@@ -1996,7 +1988,7 @@
       if (logEntry.meta.icon) {
         $node.data('icon', logEntry.meta.icon);
       }
-      info.$container.find('.debug-log-summary').before($node);
+      info.$tab.find('> .tab-body > .debug-log-summary').before($node);
       $node.debugEnhance();
     },
     clear: function (logEntry, info) {
@@ -2010,17 +2002,17 @@
       };
       var flags = logEntry.meta.flags;
       var i;
-      var $container = info.$container;
+      var $tab = info.$tab;
       var $curNodeLog;
       var $curTreeSummary;
       var $curTreeLog;
-      // var $nestedError
       var $node;
       var $remove;
-      var stackLen = connections[logEntry.meta.requestId].length;
+      var nodes = info.$node.closest('.tab-pane').data('nodes');
+      var stackLen = nodes.length;
       processSubstitutions(logEntry);
       for (i = stackLen - 1; i >= 0; i--) {
-        $node = connections[logEntry.meta.requestId][i];
+        $node = nodes[i];
         if ($node.closest('.debug-log-summary').length && !$curTreeSummary) {
           $curTreeSummary = $node.parentsUntil('.debug-log-summary')
             .addBack()
@@ -2035,10 +2027,10 @@
         }
       }
       if (flags.alerts) {
-        $container.find('.alert').filter(channelFilter).remove();
+        $tab.find('.alert').filter(channelFilter).remove();
       }
       if (flags.summary) {
-        $container.find('.debug-log-summary > .m_groupSummary').each(function () {
+        $tab.find('.debug-log-summary > .m_groupSummary').each(function () {
           $remove = $(this)
             .find('*')
             .not($curTreeSummary)
@@ -2050,10 +2042,10 @@
           $remove.remove();
         });
       } else if (flags.summaryErrors) {
-        $container.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove();
+        $tab.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove();
       }
       if (flags.log) {
-        $remove = $container
+        $remove = $tab
           .find('.debug-log > *, .debug-log .m_group > *')
           .not($curTreeLog)
           .filter(channelFilter);
@@ -2063,21 +2055,19 @@
         $remove.filter('.group-header').not('.enhanced').debugEnhance('expand');
         $remove.remove();
       } else if (flags.logErrors) {
-        $container.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove();
+        $tab.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove();
       }
       if (!flags.silent) {
-        if (info.$currentNode.closest('.debug-log-summary').length) {
+        if (info.$node.closest('.debug-log-summary').length) {
           // we're in summary.. let's switch to content
-          info.$currentNode = $container.find('.debug-log');
+          info.$node = info.$tab.find('.debug-log');
         }
-        info.$currentNode = $curNodeLog;
+        info.$node = $curNodeLog;
         return $('<li>', attribs).html(logEntry.args[0])
       }
     },
     endOutput: function (logEntry, info) {
       var $container = info.$container;
-      // var i
-      // var arg
       var responseCode = logEntry.meta.responseCode;
       $container.removeClass('working');
       $container.find('.panel-heading .fa-spinner').remove();
@@ -2088,22 +2078,18 @@
           $container.addClass('panel-danger');
         }
       }
-      $container.data('lastNode', info.$currentNode);
-      setTimeout(function () {
-        // There's no hurry... keep around.. as more entrys may follow php's onShutdown
-        delete connections[logEntry.meta.requestId];
-      }, 1000 * 30);
     },
     errorNotConsoled: function (logEntry, info) {
       var $container = info.$container;
-      var $node = $container.find('.alert.error-summary');
+      var $tab = info.$tab;
+      var $node = $tab.find('.alert.error-summary');
       if (!$node.length) {
         $node = $('<div class="alert alert-error error-summary">' +
           '<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
           '<ul class="list-unstyled">' +
           '</ul>' +
           '</div>');
-        $container.find('.debug-body').prepend($node);
+        $tab.prepend($node);
       }
       $node = $node.find('ul');
       $node.append($('<li></li>').text(logEntry.args[0]));
@@ -2124,6 +2110,7 @@
       var $groupBody = $('<ul>', {
         class: 'group-body'
       });
+      var nodes = info.$tab.data('nodes');
       if (logEntry.meta.hideIfEmpty) {
         $group.addClass('hide-if-empty');
       }
@@ -2134,8 +2121,7 @@
       $group
         .append($groupHeader)
         .append($groupBody);
-      // info.$currentNode.append( $group )
-      connections[logEntry.meta.requestId].push($groupBody);
+      nodes.push($groupBody);
       if ($group.is(':visible')) {
         $group.debugEnhance();
       }
@@ -2150,7 +2136,9 @@
         ? logEntry.meta.priority // v2.1
         : logEntry.args[0];
       var $node;
-      info.$container.find('.debug-log-summary .m_groupSummary').each(function () {
+      var $tab = info.$tab;
+      var nodes = $tab.data('nodes');
+      $tab.find('.debug-log-summary .m_groupSummary').each(function () {
         var priorityCur = $(this).data('priority');
         if (priorityCur === priority) {
           $node = $(this);
@@ -2169,21 +2157,23 @@
           .addClass('m_groupSummary')
           .data('priority', priority)
           .html('<ul class="group-body"></ul>');
-        info.$container
+        info.$tab
           .find('.debug-log-summary')
           .append($node);
       }
       $node = $node.find('> ul');
-      connections[logEntry.meta.requestId].push($node);
+      nodes.push($node);
     },
     groupEnd: function (logEntry, info) {
-      var isSummaryRoot = connections[logEntry.meta.requestId].length > 1 &&
-        info.$currentNode.hasClass('m_groupSummary');
+      var $tab = info.$tab;
+      var nodes = $tab.data('nodes');
+      var isSummaryRoot = nodes.length > 1 &&
+        info.$node.hasClass('m_groupSummary');
       var $group;
       var $toggle;
-      connections[logEntry.meta.requestId].pop();
+      nodes.pop();
       if (!isSummaryRoot) {
-        $toggle = info.$currentNode.prev();
+        $toggle = info.$node.prev();
         $group = $toggle.parent();
         if ($group.hasClass('empty') && $group.hasClass('hide-if-empty')) {
           // console.log('remove', $group)
@@ -2197,19 +2187,18 @@
       }
     },
     groupUncollapse: function (logEntry, info) {
-      var $toggleNodes = info.$currentNode.parentsUntil('.debug-log-summary, .debug-log').add(info.$currentNode).prev();
+      var $toggleNodes = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).prev();
       $toggleNodes.removeClass('collapsed').addClass('expanded');
     },
     meta: function (logEntry, info) {
       /*
         The initial message/method
       */
-      // var i
-      // var arg
       var $title = info.$container.find('.panel-heading .panel-heading-body .panel-title').html('');
       var metaVals = logEntry.args[0];
       var meta = logEntry.meta;
-      info.$container.data('channelRoot', meta.channelRoot);
+      // console.log('meta', meta)
+      info.$container.data('channelNameRoot', meta.channelNameRoot);
       info.$container.data('options', {
         drawer: meta.drawer
       });
@@ -2295,7 +2284,7 @@
       var meta = logEntry.meta;
       // var numArgs = args.length
       // var hasSubs = false
-      if (meta.file && meta.channel !== 'phpError') {
+      if (meta.file && meta.channel !== 'general.phpError') {
         attribs = $.extend({
           'data-file': meta.file,
           'data-line': meta.line
@@ -2563,27 +2552,25 @@
     return val
   }
 
-  var connections$1 = {
-    /*
-    requestId : [ $node, ... ]
-    */
-  };
-
-  init$2(connections$1);
-
-  function getNode (requestId) {
-    var $panel;
+  function getNodeInfo (meta) {
     var $node;
-    if (typeof connections$1[requestId] !== 'undefined') {
-      $node = connections$1[requestId].slice(-1)[0];
-    } else if ($('#' + requestId).length) {
-      // 'session alrleady closed?'  do our best to continue where we left off
-      $node = $('#' + requestId).data('lastNode');
+    var $container = $('#' + meta.requestId);
+    var $debug;
+    var $tab;
+    var channelNameRoot = $container.data('channelNameRoot') || 'general';
+    var channelName = meta.channel || channelNameRoot;
+    var channelSplit = channelName.split('.');
+    var channelNameTop = channelSplit.shift();
+    var info;
+    if ($container.length) {
+      $debug = $container.find('.debug');
+      $tab = getTabPane($container, channelNameTop);
+      $node = $tab.data('nodes').slice(-1)[0];
     } else {
       // create
-      $panel = $('' +
+      $container = $('' +
         '<div class="panel panel-default working">' +
-          '<div class="panel-heading" data-toggle="collapse" data-target="#' + requestId + ' &gt; .panel-body.collapse">' +
+          '<div class="panel-heading" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .panel-body.collapse">' +
             '<i class="glyphicon glyphicon-chevron-right"></i>' +
             '<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
             '<div class="panel-heading-body">' +
@@ -2591,41 +2578,93 @@
               '<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
             '</div>' +
           '</div>' +
-          '<div class="panel-body collapse debug">' +
-            '<div class="sidebar-trigger"></div>' +
-            '<div class="debug-body">' +
-              '<ul class="debug-log-summary group-body"></ul>' +
-              '<ul class="debug-log group-body"></ul>' +
+          '<div class="collapse debug debug-enhanced-ui panel-body">' +
+            '<header class="debug-menu-bar hide">' +
+              '<nav role="tablist">' +
+                '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
+              '</nav>' +
+            '</header>' +
+            '<div class="debug-tabs">' +
+              '<div class="active debug-root ' + nameToClassname(channelNameRoot) + ' tab-pane" role="tabpanel">' +
+                '<div class="sidebar-trigger"></div>' +
+                '<div class="tab-body">' +
+                  '<ul class="debug-log-summary group-body"></ul>' +
+                  '<ul class="debug-log group-body"></ul>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
             '<i class="fa fa-spinner fa-pulse"></i>' +
           '</div>' +
         '</div>'
       );
-      $panel.debugEnhance('sidebar', 'add');
-      $panel.debugEnhance('sidebar', 'close');
-      $panel.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>');
-      $node = $panel.find('.debug-log');
-      connections$1[requestId] = [$node];
-      $panel.attr('id', requestId);
-      $('#body').append($panel);
+      $debug = $container.find('.debug');
+      $debug.data('channels', []);
+      $debug.data('channelNameRoot', channelNameRoot);
+      $container.debugEnhance('sidebar', 'add');
+      $container.debugEnhance('sidebar', 'close');
+      $container.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>');
+      $tab = $container.find('.debug-root');
+      $node = $tab.find('.debug-log');
+      $tab.data('nodes', [
+        $node
+      ]);
+      $container.attr('id', meta.requestId);
+      $('#body').append($container);
     }
-    return $node
+    info = {
+      $container: $container,
+      $node: $node,
+      $tab: $tab,
+      channelName: channelName,
+      channelNameRoot: channelNameRoot,
+      channelNameTop: channelNameTop, // ie channelName of tab
+      channels: $debug.data('channels')
+    };
+    addChannel(info, meta);
+    return info
+  }
+
+  function getTabPane ($container, channelNameTop) {
+    // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
+    var classname = nameToClassname(channelNameTop);
+    var $tabPane = $container.find('.debug-tabs > .' + classname);
+    if ($tabPane.length) {
+      return $tabPane
+    }
+    // add tab
+    $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
+      $('<a>', {
+        class: 'nav-link',
+        'data-target': '.' + classname,
+        'data-toggle': 'tab',
+        role: 'tab',
+        html: channelNameTop
+      })
+    );
+    $tabPane = $('<div>', {
+      class: 'tab-pane ' + classname,
+      role: 'tabpanel'
+    })
+      .append($('<div>', {
+        class: 'tab-body',
+        html: '<ul class="debug-log-summary group-body"></ul>' +
+          '<ul class="debug-log group-body"></ul>'
+      }));
+    $tabPane.data('nodes', [$tabPane.find('.debug-log')]);
+    $container.find('.debug-tabs').append($tabPane);
+    return $tabPane
   }
 
   function processEntry (logEntry) {
     var method = logEntry.method;
     var meta = logEntry.meta;
-    var requestId = meta.requestId;
     var i;
-    var info = {
-      $currentNode: getNode(requestId),
-      $container: $('#' + requestId)
-    };
-    var channels = info.$container.data('channels') || [];
-    var channel = meta.channel || info.$container.data('channelRoot');
-    // var $channelCheckbox
+    var info = getNodeInfo(meta);
+    var channelsTab = info.channels.filter(function (channelInfo) {
+      return channelInfo.name === info.channelNameTop || channelInfo.name.indexOf(info.channelNameTop + '.') === 0
+    });
     var $node;
-    // console.log('processEntry', logEntry)
+
     try {
       if (meta.format === 'html') {
         if (typeof logEntry.args === 'object') {
@@ -2647,10 +2686,9 @@
       updateSidebar(logEntry, info, $node !== false);
       if ($node) {
         if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-          info.$currentNode = info.$container.find('> .panel-body > .debug-body > .debug-log');
-          connections$1[requestId] = [info.$currentNode];
+          info.$node = info.$container.find('> .panel-body > .debug-tabs > .debug-root > .tab-body');
         }
-        info.$currentNode.append($node);
+        info.$node.append($node);
         $node.attr('data-channel', meta.channel); // using attr so can use [data-channel="xxx"] selector
         if (meta.attribs && Object.keys(meta.attribs).length) {
           if (meta.attribs.class) {
@@ -2662,7 +2700,11 @@
         if (meta.icon) {
           $node.data('icon', meta.icon);
         }
-        if (channels.length > 1 && channel !== 'phpError' && !info.$container.find('.channels input[value="' + channel + '"]').prop('checked')) {
+        if (
+          channelsTab.length > 1 &&
+          info.channelName !== info.channelNameRoot + '.phpError' &&
+          !info.$container.find('.channels input[value="' + info.channelName + '"]').prop('checked')
+        ) {
           $node.addClass('filter-hidden');
         }
         if (meta.detectFiles) {
@@ -2699,21 +2741,20 @@
 
   function updateSidebar (logEntry, info, haveNode) {
     var filterVal = null;
-    // var channel = logEntry.meta.channel || info.$container.data('channelRoot'),
     var method = logEntry.method;
     var $filters = info.$container.find('.debug-sidebar .debug-filters');
     /*
       Update channel filter
     */
-    addChannel(logEntry, info);
     if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
       return
     }
     /*
       Update error filters
     */
-    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'phpError') {
+    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'general.phpError') {
       addError(logEntry, info);
+      return
     }
     /*
       Update method filter
@@ -2731,63 +2772,64 @@
         .removeClass('disabled');
     }
     /*
-      Expand all groups
+      Show "Expand All Groups" button
     */
-    if (method === 'group' && info.$container.find('.debug-body .m_group').length > 2) {
+    if (method === 'group' && info.$tab.find('.m_group').length > 2) {
       info.$container.find('.debug-sidebar .expand-all').show();
     }
   }
 
-  function addChannel (logEntry, info) {
+  function addChannel (info, meta) {
     var $container = info.$container;
     var $channels = $container.find('.channels');
-    var channelName = logEntry.meta.channel || info.$container.data('channelRoot');
-    var channelRoot = $container.data('channelRoot') || 'general';
-    var channels = $container.data('channels') || [];
-    var checkedChannels = [];
+    var channelsChecked = [];
+    var channelsTab;
     var $ul;
-    if (channelName === 'phpError' || haveChannel(channelName, channels)) {
+    if (info.channelName === 'general.phpError' || haveChannel(info.channelName, info.channels)) {
       return false
     }
-    channels.push({
-      name: channelName,
-      icon: logEntry.meta.channelIcon,
-      show: logEntry.meta.channelShow
+    info.channels.push({
+      name: info.channelName,
+      icon: meta.channelIcon,
+      show: meta.channelShow
     });
-    /*
-    console.log({
-      name: channelName,
-      icon: logEntry.meta.channelIcon,
-      show: logEntry.meta.channelShow
-    })
-    */
-    $container.data('channels', channels);
-    if (channels.length > 1) {
-      if (channels.length === 2) {
-        // checkboxes weren't added when there was only one...
-        checkedChannels.push(channels[0].name);
-      }
-      if (logEntry.meta.channelShow) {
-        checkedChannels.push(channelName);
-      }
-      $channels.find('input:checked').each(function () {
-        checkedChannels.push($(this).val());
-      });
-      $ul = $().debugEnhance('buildChannelList', channels, channelRoot, checkedChannels);
-      if ($channels.length) {
-        $channels.find('> ul').replaceWith($ul);
-        $channels.show();
-      } else {
-        $channels = $('<fieldset />', {
-          class: 'channels'
-        })
-          .append('<legend>Channels</legend>')
-          .append($ul);
-        $container.find('.debug-body').prepend($channels);
-      }
-      $container.find('.debug').trigger('channelAdded.debug');
+    if (info.channelName !== info.channelNameRoot && info.channelName.indexOf(info.channelNameRoot + '.') !== 0) {
+      // not main tab
+      return true
     }
+
+    /*
+      only interested in main tab's channels
+    */
+    channelsTab = info.channels.filter(function (channel) {
+      return channel.name === info.channelNameRoot || channel.name.indexOf(info.channelNameRoot + '.') === 0
+    });
+    if (channelsTab.length < 2) {
+      return true
+    }
+    /*
+      Two or more channels
+    */
+    if (channelsTab.length === 2) {
+      // checkboxes weren't added when there was only one...
+      channelsChecked.push(channelsTab[0].name);
+    }
+    if (meta.channelShow) {
+      channelsChecked.push(info.channelName);
+    }
+    $channels.find('input:checked').each(function () {
+      channelsChecked.push($(this).val());
+    });
+    $ul = $().debugEnhance('buildChannelList', channelsTab, info.channelNameRoot, channelsChecked);
+
+    $channels.find('> ul').replaceWith($ul);
+    $channels.show();
+    $container.find('.debug').trigger('channelAdded.debug');
     return true
+  }
+
+  function nameToClassname (name) {
+    return 'debug-tab-' + name.toLowerCase().replace(/\W+/, '-')
   }
 
   function haveChannel (channelName, channels) {
@@ -3754,7 +3796,6 @@
     });
 
     PubSub.subscribe('websocket', function (cmd, data) {
-      // console.warn('rcvd websocket', cmd, JSON.stringify(data))
       if (cmd === 'msg' && data) {
         processEntry({
           method: data[0],

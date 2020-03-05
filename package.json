@@ -1,5 +1,5 @@
 {
-  "name": "PHPDebugConsole",
+  "name": "DebugWampConsole",
   "version": "3.0.0",
   "description": "Build CSS & Javascript for PHPDebugConsole",
   "main": "index.js",

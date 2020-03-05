@@ -1,27 +1,25 @@
 import $ from 'jquery' // external global
 import * as methods from './methods.js'
 
-var connections = {
-  /*
-  requestId : [ $node, ... ]
-  */
-}
-
-methods.init(connections)
-
-export function getNode (requestId) {
-  var $panel
+export function getNodeInfo (meta) {
   var $node
-  if (typeof connections[requestId] !== 'undefined') {
-    $node = connections[requestId].slice(-1)[0]
-  } else if ($('#' + requestId).length) {
-    // 'session alrleady closed?'  do our best to continue where we left off
-    $node = $('#' + requestId).data('lastNode')
+  var $container = $('#' + meta.requestId)
+  var $debug
+  var $tab
+  var channelNameRoot = $container.data('channelNameRoot') || 'general'
+  var channelName = meta.channel || channelNameRoot
+  var channelSplit = channelName.split('.')
+  var channelNameTop = channelSplit.shift()
+  var info
+  if ($container.length) {
+    $debug = $container.find('.debug')
+    $tab = getTabPane($container, channelNameTop)
+    $node = $tab.data('nodes').slice(-1)[0]
   } else {
     // create
-    $panel = $('' +
+    $container = $('' +
       '<div class="panel panel-default working">' +
-        '<div class="panel-heading" data-toggle="collapse" data-target="#' + requestId + ' &gt; .panel-body.collapse">' +
+        '<div class="panel-heading" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .panel-body.collapse">' +
           '<i class="glyphicon glyphicon-chevron-right"></i>' +
           '<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
           '<div class="panel-heading-body">' +
@@ -29,41 +27,93 @@ export function getNode (requestId) {
             '<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
           '</div>' +
         '</div>' +
-        '<div class="panel-body collapse debug">' +
-          '<div class="sidebar-trigger"></div>' +
-          '<div class="debug-body">' +
-            '<ul class="debug-log-summary group-body"></ul>' +
-            '<ul class="debug-log group-body"></ul>' +
+        '<div class="collapse debug debug-enhanced-ui panel-body">' +
+          '<header class="debug-menu-bar hide">' +
+            '<nav role="tablist">' +
+              '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
+            '</nav>' +
+          '</header>' +
+          '<div class="debug-tabs">' +
+            '<div class="active debug-root ' + nameToClassname(channelNameRoot) + ' tab-pane" role="tabpanel">' +
+              '<div class="sidebar-trigger"></div>' +
+              '<div class="tab-body">' +
+                '<ul class="debug-log-summary group-body"></ul>' +
+                '<ul class="debug-log group-body"></ul>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
           '<i class="fa fa-spinner fa-pulse"></i>' +
         '</div>' +
       '</div>'
     )
-    $panel.debugEnhance('sidebar', 'add')
-    $panel.debugEnhance('sidebar', 'close')
-    $panel.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>')
-    $node = $panel.find('.debug-log')
-    connections[requestId] = [$node]
-    $panel.attr('id', requestId)
-    $('#body').append($panel)
+    $debug = $container.find('.debug')
+    $debug.data('channels', [])
+    $debug.data('channelNameRoot', channelNameRoot)
+    $container.debugEnhance('sidebar', 'add')
+    $container.debugEnhance('sidebar', 'close')
+    $container.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>')
+    $tab = $container.find('.debug-root')
+    $node = $tab.find('.debug-log')
+    $tab.data('nodes', [
+      $node
+    ])
+    $container.attr('id', meta.requestId)
+    $('#body').append($container)
   }
-  return $node
+  info = {
+    $container: $container,
+    $node: $node,
+    $tab: $tab,
+    channelName: channelName,
+    channelNameRoot: channelNameRoot,
+    channelNameTop: channelNameTop, // ie channelName of tab
+    channels: $debug.data('channels')
+  }
+  addChannel(info, meta)
+  return info
+}
+
+function getTabPane ($container, channelNameTop) {
+  // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
+  var classname = nameToClassname(channelNameTop)
+  var $tabPane = $container.find('.debug-tabs > .' + classname)
+  if ($tabPane.length) {
+    return $tabPane
+  }
+  // add tab
+  $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
+    $('<a>', {
+      class: 'nav-link',
+      'data-target': '.' + classname,
+      'data-toggle': 'tab',
+      role: 'tab',
+      html: channelNameTop
+    })
+  )
+  $tabPane = $('<div>', {
+    class: 'tab-pane ' + classname,
+    role: 'tabpanel'
+  })
+    .append($('<div>', {
+      class: 'tab-body',
+      html: '<ul class="debug-log-summary group-body"></ul>' +
+        '<ul class="debug-log group-body"></ul>'
+    }))
+  $tabPane.data('nodes', [$tabPane.find('.debug-log')])
+  $container.find('.debug-tabs').append($tabPane)
+  return $tabPane
 }
 
 export function processEntry (logEntry) {
   var method = logEntry.method
   var meta = logEntry.meta
-  var requestId = meta.requestId
   var i
-  var info = {
-    $currentNode: getNode(requestId),
-    $container: $('#' + requestId)
-  }
-  var channels = info.$container.data('channels') || []
-  var channel = meta.channel || info.$container.data('channelRoot')
-  // var $channelCheckbox
+  var info = getNodeInfo(meta)
+  var channelsTab = info.channels.filter(function (channelInfo) {
+    return channelInfo.name === info.channelNameTop || channelInfo.name.indexOf(info.channelNameTop + '.') === 0
+  })
   var $node
-  // console.log('processEntry', logEntry)
+
   try {
     if (meta.format === 'html') {
       if (typeof logEntry.args === 'object') {
@@ -85,10 +135,9 @@ export function processEntry (logEntry) {
     updateSidebar(logEntry, info, $node !== false)
     if ($node) {
       if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-        info.$currentNode = info.$container.find('> .panel-body > .debug-body > .debug-log')
-        connections[requestId] = [info.$currentNode]
+        info.$node = info.$container.find('> .panel-body > .debug-tabs > .debug-root > .tab-body')
       }
-      info.$currentNode.append($node)
+      info.$node.append($node)
       $node.attr('data-channel', meta.channel) // using attr so can use [data-channel="xxx"] selector
       if (meta.attribs && Object.keys(meta.attribs).length) {
         if (meta.attribs.class) {
@@ -100,7 +149,11 @@ export function processEntry (logEntry) {
       if (meta.icon) {
         $node.data('icon', meta.icon)
       }
-      if (channels.length > 1 && channel !== 'phpError' && !info.$container.find('.channels input[value="' + channel + '"]').prop('checked')) {
+      if (
+        channelsTab.length > 1 &&
+        info.channelName !== info.channelNameRoot + '.phpError' &&
+        !info.$container.find('.channels input[value="' + info.channelName + '"]').prop('checked')
+      ) {
         $node.addClass('filter-hidden')
       }
       if (meta.detectFiles) {
@@ -137,21 +190,20 @@ export function processEntry (logEntry) {
 
 function updateSidebar (logEntry, info, haveNode) {
   var filterVal = null
-  // var channel = logEntry.meta.channel || info.$container.data('channelRoot'),
   var method = logEntry.method
   var $filters = info.$container.find('.debug-sidebar .debug-filters')
   /*
     Update channel filter
   */
-  addChannel(logEntry, info)
   if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
     return
   }
   /*
     Update error filters
   */
-  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'phpError') {
+  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'general.phpError') {
     addError(logEntry, info)
+    return
   }
   /*
     Update method filter
@@ -169,63 +221,64 @@ function updateSidebar (logEntry, info, haveNode) {
       .removeClass('disabled')
   }
   /*
-    Expand all groups
+    Show "Expand All Groups" button
   */
-  if (method === 'group' && info.$container.find('.debug-body .m_group').length > 2) {
+  if (method === 'group' && info.$tab.find('.m_group').length > 2) {
     info.$container.find('.debug-sidebar .expand-all').show()
   }
 }
 
-function addChannel (logEntry, info) {
+function addChannel (info, meta) {
   var $container = info.$container
   var $channels = $container.find('.channels')
-  var channelName = logEntry.meta.channel || info.$container.data('channelRoot')
-  var channelRoot = $container.data('channelRoot') || 'general'
-  var channels = $container.data('channels') || []
-  var checkedChannels = []
+  var channelsChecked = []
+  var channelsTab
   var $ul
-  if (channelName === 'phpError' || haveChannel(channelName, channels)) {
+  if (info.channelName === 'general.phpError' || haveChannel(info.channelName, info.channels)) {
     return false
   }
-  channels.push({
-    name: channelName,
-    icon: logEntry.meta.channelIcon,
-    show: logEntry.meta.channelShow
+  info.channels.push({
+    name: info.channelName,
+    icon: meta.channelIcon,
+    show: meta.channelShow
   })
-  /*
-  console.log({
-    name: channelName,
-    icon: logEntry.meta.channelIcon,
-    show: logEntry.meta.channelShow
-  })
-  */
-  $container.data('channels', channels)
-  if (channels.length > 1) {
-    if (channels.length === 2) {
-      // checkboxes weren't added when there was only one...
-      checkedChannels.push(channels[0].name)
-    }
-    if (logEntry.meta.channelShow) {
-      checkedChannels.push(channelName)
-    }
-    $channels.find('input:checked').each(function () {
-      checkedChannels.push($(this).val())
-    })
-    $ul = $().debugEnhance('buildChannelList', channels, channelRoot, checkedChannels)
-    if ($channels.length) {
-      $channels.find('> ul').replaceWith($ul)
-      $channels.show()
-    } else {
-      $channels = $('<fieldset />', {
-        class: 'channels'
-      })
-        .append('<legend>Channels</legend>')
-        .append($ul)
-      $container.find('.debug-body').prepend($channels)
-    }
-    $container.find('.debug').trigger('channelAdded.debug')
+  if (info.channelName !== info.channelNameRoot && info.channelName.indexOf(info.channelNameRoot + '.') !== 0) {
+    // not main tab
+    return true
   }
+
+  /*
+    only interested in main tab's channels
+  */
+  channelsTab = info.channels.filter(function (channel) {
+    return channel.name === info.channelNameRoot || channel.name.indexOf(info.channelNameRoot + '.') === 0
+  })
+  if (channelsTab.length < 2) {
+    return true
+  }
+  /*
+    Two or more channels
+  */
+  if (channelsTab.length === 2) {
+    // checkboxes weren't added when there was only one...
+    channelsChecked.push(channelsTab[0].name)
+  }
+  if (meta.channelShow) {
+    channelsChecked.push(info.channelName)
+  }
+  $channels.find('input:checked').each(function () {
+    channelsChecked.push($(this).val())
+  })
+  $ul = $().debugEnhance('buildChannelList', channelsTab, info.channelNameRoot, channelsChecked)
+
+  $channels.find('> ul').replaceWith($ul)
+  $channels.show()
+  $container.find('.debug').trigger('channelAdded.debug')
   return true
+}
+
+function nameToClassname (name) {
+  return 'debug-tab-' + name.toLowerCase().replace(/\W+/, '-')
 }
 
 function haveChannel (channelName, channels) {

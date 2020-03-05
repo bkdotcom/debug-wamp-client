@@ -2,16 +2,8 @@ import $ from 'jquery' // external global
 import { Table } from './methodTable.js'
 import { Dump } from './Dump.js'
 
-var connections = {}
 var dump = new Dump()
-// var hasSubs = false  // substitutions
 var table = new Table(dump)
-// var detectFiles = false
-// var foundFiles = []
-
-export function init (_connections) {
-  connections = _connections
-}
 
 export var methods = {
   alert: function (logEntry, info) {
@@ -31,7 +23,7 @@ export var methods = {
     if (logEntry.meta.icon) {
       $node.data('icon', logEntry.meta.icon)
     }
-    info.$container.find('.debug-log-summary').before($node)
+    info.$tab.find('> .tab-body > .debug-log-summary').before($node)
     $node.debugEnhance()
   },
   clear: function (logEntry, info) {
@@ -45,17 +37,17 @@ export var methods = {
     }
     var flags = logEntry.meta.flags
     var i
-    var $container = info.$container
+    var $tab = info.$tab
     var $curNodeLog
     var $curTreeSummary
     var $curTreeLog
-    // var $nestedError
     var $node
     var $remove
-    var stackLen = connections[logEntry.meta.requestId].length
+    var nodes = info.$node.closest('.tab-pane').data('nodes')
+    var stackLen = nodes.length
     processSubstitutions(logEntry)
     for (i = stackLen - 1; i >= 0; i--) {
-      $node = connections[logEntry.meta.requestId][i]
+      $node = nodes[i]
       if ($node.closest('.debug-log-summary').length && !$curTreeSummary) {
         $curTreeSummary = $node.parentsUntil('.debug-log-summary')
           .addBack()
@@ -70,10 +62,10 @@ export var methods = {
       }
     }
     if (flags.alerts) {
-      $container.find('.alert').filter(channelFilter).remove()
+      $tab.find('.alert').filter(channelFilter).remove()
     }
     if (flags.summary) {
-      $container.find('.debug-log-summary > .m_groupSummary').each(function () {
+      $tab.find('.debug-log-summary > .m_groupSummary').each(function () {
         $remove = $(this)
           .find('*')
           .not($curTreeSummary)
@@ -85,10 +77,10 @@ export var methods = {
         $remove.remove()
       })
     } else if (flags.summaryErrors) {
-      $container.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove()
+      $tab.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove()
     }
     if (flags.log) {
-      $remove = $container
+      $remove = $tab
         .find('.debug-log > *, .debug-log .m_group > *')
         .not($curTreeLog)
         .filter(channelFilter)
@@ -98,21 +90,19 @@ export var methods = {
       $remove.filter('.group-header').not('.enhanced').debugEnhance('expand')
       $remove.remove()
     } else if (flags.logErrors) {
-      $container.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove()
+      $tab.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove()
     }
     if (!flags.silent) {
-      if (info.$currentNode.closest('.debug-log-summary').length) {
+      if (info.$node.closest('.debug-log-summary').length) {
         // we're in summary.. let's switch to content
-        info.$currentNode = $container.find('.debug-log')
+        info.$node = info.$tab.find('.debug-log')
       }
-      info.$currentNode = $curNodeLog
+      info.$node = $curNodeLog
       return $('<li>', attribs).html(logEntry.args[0])
     }
   },
   endOutput: function (logEntry, info) {
     var $container = info.$container
-    // var i
-    // var arg
     var responseCode = logEntry.meta.responseCode
     $container.removeClass('working')
     $container.find('.panel-heading .fa-spinner').remove()
@@ -123,22 +113,18 @@ export var methods = {
         $container.addClass('panel-danger')
       }
     }
-    $container.data('lastNode', info.$currentNode)
-    setTimeout(function () {
-      // There's no hurry... keep around.. as more entrys may follow php's onShutdown
-      delete connections[logEntry.meta.requestId]
-    }, 1000 * 30)
   },
   errorNotConsoled: function (logEntry, info) {
     var $container = info.$container
-    var $node = $container.find('.alert.error-summary')
+    var $tab = info.$tab
+    var $node = $tab.find('.alert.error-summary')
     if (!$node.length) {
       $node = $('<div class="alert alert-error error-summary">' +
         '<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
         '<ul class="list-unstyled">' +
         '</ul>' +
         '</div>')
-      $container.find('.debug-body').prepend($node)
+      $tab.prepend($node)
     }
     $node = $node.find('ul')
     $node.append($('<li></li>').text(logEntry.args[0]))
@@ -159,6 +145,7 @@ export var methods = {
     var $groupBody = $('<ul>', {
       class: 'group-body'
     })
+    var nodes = info.$tab.data('nodes')
     if (logEntry.meta.hideIfEmpty) {
       $group.addClass('hide-if-empty')
     }
@@ -169,8 +156,7 @@ export var methods = {
     $group
       .append($groupHeader)
       .append($groupBody)
-    // info.$currentNode.append( $group )
-    connections[logEntry.meta.requestId].push($groupBody)
+    nodes.push($groupBody)
     if ($group.is(':visible')) {
       $group.debugEnhance()
     }
@@ -185,7 +171,9 @@ export var methods = {
       ? logEntry.meta.priority // v2.1
       : logEntry.args[0]
     var $node
-    info.$container.find('.debug-log-summary .m_groupSummary').each(function () {
+    var $tab = info.$tab
+    var nodes = $tab.data('nodes')
+    $tab.find('.debug-log-summary .m_groupSummary').each(function () {
       var priorityCur = $(this).data('priority')
       if (priorityCur === priority) {
         $node = $(this)
@@ -204,21 +192,23 @@ export var methods = {
         .addClass('m_groupSummary')
         .data('priority', priority)
         .html('<ul class="group-body"></ul>')
-      info.$container
+      info.$tab
         .find('.debug-log-summary')
         .append($node)
     }
     $node = $node.find('> ul')
-    connections[logEntry.meta.requestId].push($node)
+    nodes.push($node)
   },
   groupEnd: function (logEntry, info) {
-    var isSummaryRoot = connections[logEntry.meta.requestId].length > 1 &&
-      info.$currentNode.hasClass('m_groupSummary')
+    var $tab = info.$tab
+    var nodes = $tab.data('nodes')
+    var isSummaryRoot = nodes.length > 1 &&
+      info.$node.hasClass('m_groupSummary')
     var $group
     var $toggle
-    connections[logEntry.meta.requestId].pop()
+    nodes.pop()
     if (!isSummaryRoot) {
-      $toggle = info.$currentNode.prev()
+      $toggle = info.$node.prev()
       $group = $toggle.parent()
       if ($group.hasClass('empty') && $group.hasClass('hide-if-empty')) {
         // console.log('remove', $group)
@@ -235,19 +225,18 @@ export var methods = {
     }
   },
   groupUncollapse: function (logEntry, info) {
-    var $toggleNodes = info.$currentNode.parentsUntil('.debug-log-summary, .debug-log').add(info.$currentNode).prev()
+    var $toggleNodes = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).prev()
     $toggleNodes.removeClass('collapsed').addClass('expanded')
   },
   meta: function (logEntry, info) {
     /*
       The initial message/method
     */
-    // var i
-    // var arg
     var $title = info.$container.find('.panel-heading .panel-heading-body .panel-title').html('')
     var metaVals = logEntry.args[0]
     var meta = logEntry.meta
-    info.$container.data('channelRoot', meta.channelRoot)
+    // console.log('meta', meta)
+    info.$container.data('channelNameRoot', meta.channelNameRoot)
     info.$container.data('options', {
       drawer: meta.drawer
     })
@@ -333,7 +322,7 @@ export var methods = {
     var meta = logEntry.meta
     // var numArgs = args.length
     // var hasSubs = false
-    if (meta.file && meta.channel !== 'phpError') {
+    if (meta.file && meta.channel !== 'general.phpError') {
       attribs = $.extend({
         'data-file': meta.file,
         'data-line': meta.line
