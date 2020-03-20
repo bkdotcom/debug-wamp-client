@@ -374,10 +374,10 @@ export var methods = {
 }
 
 function tableAddContextRow ($tr, row, i) {
-  var keys = Object.keys(row.context) // .map(function(val){return parseInt(val)}),
+  var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
   var start = Math.min.apply(null, keys)
   if (!row.context) {
-    return
+    return $tr
   }
   i = parseInt(i, 10)
   $tr.attr('data-toggle', 'next')

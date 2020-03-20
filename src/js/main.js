@@ -2336,10 +2336,10 @@
   };
 
   function tableAddContextRow ($tr, row, i) {
-    var keys = Object.keys(row.context); // .map(function(val){return parseInt(val)}),
+    var keys = Object.keys(row.context || {}); // .map(function(val){return parseInt(val)}),
     var start = Math.min.apply(null, keys);
     if (!row.context) {
-      return
+      return $tr
     }
     i = parseInt(i, 10);
     $tr.attr('data-toggle', 'next');
@@ -2585,7 +2585,7 @@
               '</nav>' +
             '</header>' +
             '<div class="debug-tabs">' +
-              '<div class="active debug-root ' + nameToClassname(channelNameRoot) + ' tab-pane" role="tabpanel">' +
+              '<div class="active ' + nameToClassname(channelNameRoot) + ' tab-pane tab-primary" role="tabpanel">' +
                 '<div class="sidebar-trigger"></div>' +
                 '<div class="tab-body">' +
                   '<ul class="debug-log-summary group-body"></ul>' +
@@ -2603,7 +2603,7 @@
       $container.debugEnhance('sidebar', 'add');
       $container.debugEnhance('sidebar', 'close');
       $container.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>');
-      $tab = $container.find('.debug-root');
+      $tab = $debug.find('.tab-primary');
       $node = $tab.find('.debug-log');
       $tab.data('nodes', [
         $node
@@ -2686,7 +2686,7 @@
       updateSidebar(logEntry, info, $node !== false);
       if ($node) {
         if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-          info.$node = info.$container.find('> .panel-body > .debug-tabs > .debug-root > .tab-body');
+          info.$node = info.$container.find('> .panel-body > .debug-tabs > .tab-primary > .tab-body');
         }
         info.$node.append($node);
         $node.attr('data-channel', meta.channel); // using attr so can use [data-channel="xxx"] selector

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This is a WAMP (http://wamp-proto.org/) based PHPDebugConsole client
  *
@@ -37,7 +38,7 @@ class WampClient
             'jquery' => '//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js',
             'bootstrapJs' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js',
             'bootstrapCss' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css',
-            'filepathScript' => __DIR__.'/js/main.min.js',
+            'filepathScript' => __DIR__ . '/js/main.min.js',
         ), $cfg);
         $this->debug->addPlugin(new Highlight());
     }
@@ -52,14 +53,14 @@ class WampClient
         $action = isset($_GET['action'])
             ? $_GET['action']
             : 'index';
-        $method = 'action'.\ucfirst($action);
-        if (\method_exists($this, $method)) {
-            $this->{$method}();
-        } else {
-            \header("HTTP/1.0 404 Not Found");
+        $method = 'action' . \ucfirst($action);
+        if (\method_exists($this, $method) === false) {
+            \header('HTTP/1.0 404 Not Found');
             echo '<h1>404</h1>';
-            echo '<p><code>action='.\htmlspecialchars($action).'</code> isn\'t a thing.</p>';
+            echo '<p><code>action=' . \htmlspecialchars($action) . '</code> isn\'t a thing.</p>';
+            return;
         }
+        $this->{$method}();
     }
 
     /**
@@ -75,7 +76,7 @@ class WampClient
             return isset($this->cfg[$token])
                 ? $this->cfg[$token]
                 : '';
-        }, \file_get_contents(__DIR__.'/views/index.html'));
+        }, \file_get_contents(__DIR__ . '/views/index.html'));
     }
 
     /**
@@ -87,7 +88,7 @@ class WampClient
     {
         \header('Content-Type: text/css');
         echo $this->debug->routeHtml->getCss();
-        \readfile(__DIR__.'/css/WampClient.css');
+        \readfile(__DIR__ . '/css/WampClient.css');
     }
 
     /**
@@ -98,15 +99,15 @@ class WampClient
     public function actionImg()
     {
         $src = isset($_GET['src']) ? $_GET['src'] : null;
-        $srcSanitized = __DIR__.'/img/'.\str_replace('..', '', $src);
-        if ($src && \file_exists($srcSanitized)) {
-            \header('Content-Type: image/png');
-            \header('Content-Disposition: inline; filename="'.\rawurlencode(\basename($srcSanitized)).'"');
-            \header('Content-Length: '.\filesize($srcSanitized));
-            \readfile($srcSanitized);
-        } else {
-            \header("HTTP/1.0 404 Not Found");
+        $srcSanitized = __DIR__ . '/img/' . \str_replace('..', '', $src);
+        if (!$src || \file_exists($srcSanitized) === false) {
+            \header('HTTP/1.0 404 Not Found');
+            return;
         }
+        \header('Content-Type: image/png');
+        \header('Content-Disposition: inline; filename="' . \rawurlencode(\basename($srcSanitized)) . '"');
+        \header('Content-Length: ' . \filesize($srcSanitized));
+        \readfile($srcSanitized);
     }
 
     /**
