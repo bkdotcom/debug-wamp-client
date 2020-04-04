@@ -44,7 +44,7 @@ Dump.prototype.dump = function (val, opts, wrap, decodeString) {
     }
     absAttribs = val.attribs || {}
     if (['string', 'bool', 'float', 'int', 'null'].indexOf(type) >= 0) {
-      val = this[method](val.value)
+      val = this[method](val.value, val)
     } else {
       val = this[method](val)
     }
@@ -146,7 +146,7 @@ Dump.prototype.dumpResource = function (abs) {
   return abs.value
 }
 
-Dump.prototype.dumpString = function (val) {
+Dump.prototype.dumpString = function (val, abs) {
   var bytes
   var date
   // var sanitize = true
@@ -165,6 +165,9 @@ Dump.prototype.dumpString = function (val) {
       val = strDump.dump(bytes, true)
     } else {
       val = strDump.dump(bytes, false)
+    }
+    if (abs && abs.strlen) {
+      val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>'
     }
     if (argStringOpts.visualWhiteSpace) {
       val = visualWhiteSpace(val)

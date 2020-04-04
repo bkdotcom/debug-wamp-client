@@ -35,9 +35,9 @@ class WampClient
     {
         $this->debug = $debug;
         $this->cfg = \array_merge(array(
-            'jquery' => '//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js',
-            'bootstrapJs' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js',
-            'bootstrapCss' => '//maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css',
+            'jquery' => '//ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js',
+            'bootstrapJs' => '//stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js',
+            'bootstrapCss' => '//stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css',
             'filepathScript' => __DIR__ . '/js/main.min.js',
         ), $cfg);
         $this->debug->addPlugin(new Highlight());

@@ -2,8 +2,8 @@ import $ from 'jquery' // external global
 import * as configModal from './configModal.js'
 import { updateCssProperty } from './Css.js'
 
-var classCollapsed = 'glyphicon-chevron-right'
-var classExpanded = 'glyphicon-chevron-down'
+var classCollapsed = 'fa-chevron-right'
+var classExpanded = 'fa-chevron-down'
 var timeoutHandler
 var navbarHeight = $('.navbar-collapse').outerHeight()
 
@@ -14,7 +14,7 @@ export function init (config) {
   configModal.init(config)
 
   $('.clear').on('click', function () {
-    $('#body > .panel').not('.working').remove()
+    $('#body > .card').not('.working').remove()
   })
 
   $('body').on('mouseup', function (e) {
@@ -29,12 +29,12 @@ export function init (config) {
     timeoutHandler = setTimeout(function () {
       // has been long pressed (3 seconds)
       // clear all (incl working)
-      $('#body > .panel').remove()
+      $('#body > .card').remove()
     }, 2000)
   })
 
-  $('body').on('shown.bs.collapse hidden.bs.collapse', '.panel-body', function (e) {
-    var $icon = $(this).closest('.panel').find('.panel-heading .' + classCollapsed + ', .panel-heading .' + classExpanded)
+  $('body').on('shown.bs.collapse hidden.bs.collapse', '.card-body', function (e) {
+    var $icon = $(this).closest('.card').find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded)
     $icon.toggleClass(classExpanded + ' ' + classCollapsed)
     if (e.type === 'shown') {
       $(this).find('.m_groupSummary > .group-body, .debug-log').debugEnhance()
@@ -42,7 +42,7 @@ export function init (config) {
   })
 
   $('body').on('click', '.btn-remove-session', function (e) {
-    $(this).closest('.panel').remove()
+    $(this).closest('.card').remove()
   })
 
   $(window).on('scroll', positionSidebar)
@@ -51,8 +51,8 @@ export function init (config) {
     // console.warn('open.debug.sidebar')
     positionSidebar(true)
     var sidebarContentHeight = $(e.target).find('.sidebar-content').height()
-    var $panel = $(e.target).closest('.panel')
-    $panel.find('.panel-body').css({
+    var $card = $(e.target).closest('.card')
+    $card.find('.card-body').css({
       minHeight: sidebarContentHeight + 8 + 'px'
     })
     $('body').on('click', onBodyClick)
@@ -61,31 +61,37 @@ export function init (config) {
   $('body').on('close.debug.sidebar', function (e) {
     // remove minHeight
     positionSidebar(true)
-    var $panel = $(e.target).closest('.panel')
-    $panel.find('.panel-body').attr('style', '')
+    var $card = $(e.target).closest('.card')
+    $card.find('.card-body').attr('style', '')
     $('body').off('click', onBodyClick)
+  })
+
+  $('body').on('click', '.card-header[data-toggle=collapse]', function () {
+    // data-target selector doesn't seem to work like it dit in bootstrap 3
+    var $target = $($(this).data('target'))
+    $target.collapse('toggle')
   })
 
   /*
   $('body').on('click', '.sidebar-tab', function (e){
-    var $panel = $(e.target).closest('.panel'),
-      sidebarIsOpen = $panel.find('.debug-sidebar.show').length > 0
-    $panel.debugEnhance('sidebar', sidebarIsOpen ? 'close' : 'open')
+    var $card = $(e.target).closest('.card'),
+      sidebarIsOpen = $card.find('.debug-sidebar.show').length > 0
+    $card.debugEnhance('sidebar', sidebarIsOpen ? 'close' : 'open')
   })
   */
 
   $('body').on('mouseenter', '.sidebar-trigger', function () {
-    $(this).closest('.panel').debugEnhance('sidebar', 'open')
+    $(this).closest('.card').debugEnhance('sidebar', 'open')
   })
 
   $('body').on('mouseleave', '.debug-sidebar', function () {
-    $(this).closest('.panel').debugEnhance('sidebar', 'close')
+    $(this).closest('.card').debugEnhance('sidebar', 'close')
   })
 }
 
 function onBodyClick (e) {
   if ($(e.target).closest('.debug-sidebar').length === 0) {
-    $('.debug-sidebar.show').closest('.panel').debugEnhance('sidebar', 'close')
+    $('.debug-sidebar.show').closest('.card').debugEnhance('sidebar', 'close')
   }
 }
 
@@ -101,8 +107,8 @@ function positionSidebar (transition) {
   var contentHeight = 0
   transition = typeof transition === 'boolean' ? transition : false
   if ($sidebar.length === 0) {
-    // no sidebar open... find first visible open panel
-    $('body').find('.panel-body.in').each(function () {
+    // no sidebar open... find first visible open card
+    $('body').find('.card-body.in').each(function () {
       // var rect = this.getBoundingClientRect()
       $panelBody = $(this)
       panelOffset = $panelBody.offset().top
@@ -117,7 +123,7 @@ function positionSidebar (transition) {
       return
     }
   } else {
-    $panelBody = $sidebar.closest('.panel-body')
+    $panelBody = $sidebar.closest('.card-body')
     panelOffset = $panelBody.offset().top
     panelHeight = $panelBody.innerHeight()
     heightAvail = panelOffset + panelHeight - scrollTop

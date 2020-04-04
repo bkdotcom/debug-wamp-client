@@ -1,51 +1,12 @@
-body { padding-top:50px; }
-
-/*
-#body > .panel {
-	margin-top: 20px;
+body {
+	padding-top: 50px;
+	font-size: 14px;
 }
-#body > .panel:first-child {
-	margin-top: 0;
-}
-*/
 
 kbd {
 	background-color: #ccc;
 	color: #000;
 }
-
-
-.navbar {
-	margin-bottom: 10px;
-	min-height: auto;
-}
-.navbar-header {
-	float: left;
-}
-.navbar-brand {
-	padding: 5px 15px;
-	height: auto;
-	line-height: normal;
-}
-.navbar-collapse {
-	display: block;
-}
-.navbar-form {
-	float: left;
-	padding-top: 0;
-	padding-bottom: 0;
-	margin: 0px 0px;
-}
-
-.navbar-right {
-	float: right;
-	margin-top: 0;
-	margin-bottom: 0;
-}
-	.navbar-right .settings-toggle {
-		padding-top: 8px;
-		padding-bottom: 5px;
-	}
 
 .alert {
 	padding: 10px;
@@ -53,18 +14,84 @@ kbd {
 	border: 1px solid transparent;
 }
 .alert-dismissible { padding-right: 35px; }
+.alert-dismissible .close { padding-top: 8px; }
 
-.panel-heading[data-interface="cli"] {
+.modal .close {
+	opacity: 0.2;
+}
+
+.card.bg-danger {
+	background-color: #f2dede !important;
+	color: #a94442;
+}
+.card.bg-warning {
+	background-color: #fcf8e3 !important;
+	color: #8a6d3b;
+}
+.card-header[data-interface="cli"] {
 	border-left: solid 2px rgba(0, 0, 0, 0.5);
 }
-.panel-heading[data-interface="http ajax"] {
+.card-header[data-interface="http ajax"] {
 	border-left: solid 2px rgba(80, 80, 200, 0.5);
 }
-.panel-heading { cursor:pointer; }
-.panel-heading * { font-size:inherit; }
-.panel-heading > i { float:left; }
-.panel-heading .label { padding: .1em .6em .2em; }
-.panel-heading .http-host { opacity: 0.6; }
+.card-header {
+	cursor: pointer;
+	border-bottom: 0; /* we'll border-top on body instead */
+}
+/*
+a.card-header {
+	color: inherit;
+}
+*/
+.card-header * { font-size:inherit; }
+.card-header > i { float:left; }
+.card-header .label { padding: .1em .6em .2em; }
+.card-header .http-host { opacity: 0.6; }
+.card-header-body {
+	margin-left: 2em;
+}
+.card-header-body .fa-spinner {
+	margin-left: .75em;
+}
+.card-title {
+	display: inline;
+}
+.card-body {
+    border-top: 1px solid rgba(0,0,0,.125);
+}
+
+.col-form-label {
+	text-align: right;
+}
+
+.navbar {
+	padding: 0 1rem;
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+}
+.navbar-brand {
+	padding: 0;
+}
+.navbar-light {
+	background-color: #f8f8f8;
+	border-color: #e7e7e7;
+	color: #777;
+}
+.navbar-light .navbar-brand {
+	color: #777;
+}
+
+.navbar .btn,
+.navbar a {
+	color: inherit;
+}
+
+.tab-pane {
+	padding: 15px;
+	overflow: auto;
+	min-height: 200px;
+}
+
 .label-default { background-color: rgba(119, 119, 119, 0.3); color: inherit; }
 
 .btn-remove-session {
@@ -72,46 +99,24 @@ kbd {
 	font-size: 1.5em;
 	margin-top: -2px;
 }
-.panel-body {
-	/*
-	overflow: auto;
-	padding: 15px;
-	*/
-}
-.tab-pane {
-	padding: 15px;
-	overflow: auto;
-	min-height: 200px;
-}
-.panel-title {
-	display: inline;
-}
-.panel-heading-body {
-	margin-left: 2em;
-}
-.panel-heading-body .fa-spinner {
-	margin-left: .75em;
-}
 
 #modal-settings .modal-body {
 	padding-bottom: 0;
 }
 
+/*
 .form-horizontal .control-label {
 	padding-top: 7px;
 	margin-bottom: 0;
 	text-align: right;
 }
+*/
 
-
-.debug {
-	transform: none;
-}
 
 /**
  * Serves as mouseenter trigger area
  */
-.panel .sidebar-trigger {
+.card .sidebar-trigger {
 	position: absolute;
 	width: 12px;
 	height: 100%;
@@ -131,7 +136,7 @@ kbd {
 	position: relative;
 }
 
-.panel .debug-sidebar {
+.card .debug-sidebar {
 	/*
 	margin-top: -15px;
 	margin-left: -15px;
@@ -143,10 +148,10 @@ kbd {
 	font-size: 13px;
 	transform: translateX(-120px);
 }
-.panel .debug-sidebar .sidebar-content {
+.card .debug-sidebar .sidebar-content {
 	padding-right: 4px;
 }
-.panel .debug-sidebar .sidebar-toggle {
+.card .debug-sidebar .sidebar-toggle {
 	display: block;
 	position: absolute;
 	left: 100%;
@@ -164,11 +169,15 @@ kbd {
 	border-bottom-right-radius: .5em;
 	color: #333;
 }
-.panel .debug-sidebar .sidebar-toggle i.fa {
+.card .debug-sidebar .sidebar-toggle i.fa {
 	margin-right: 0;
 }
-.panel .filter-active .debug-sidebar .sidebar-toggle {
+.card .filter-active .debug-sidebar .sidebar-toggle {
 	background-color: #CCC;
+}
+
+.debug {
+	transform: none;
 }
 
 .debug .debug-sidebar + .tab-body {

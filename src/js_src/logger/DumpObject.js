@@ -11,11 +11,6 @@ DumpObject.prototype.dumpObject = function (abs) {
   var strClassName = this.dump.markupIdentifier(abs.className, {
     title: title.length ? title : null
   })
-  var objToString = ''
-  var toStringVal = null
-  var toStringLen
-  var toStringValAppend
-  var $toStringDump
   var OUTPUT_CONSTANTS = 4
   var OUTPUT_METHODS = 8
   if (abs.isRecursion) {
@@ -25,32 +20,8 @@ DumpObject.prototype.dumpObject = function (abs) {
     html = strClassName +
       ' <span class="excluded">(not inspected)</span>'
   } else {
-    if (abs.stringified !== null) {
-      toStringVal = abs.stringified
-    } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
-      toStringVal = abs.methods.__toString.returnValue
-    }
-    if (toStringVal) {
-      toStringLen = toStringVal.length
-      toStringValAppend = ''
-      if (toStringLen > 100) {
-        toStringVal = toStringVal.substring(0, 100)
-        toStringValAppend = '&hellip; <i>(' + (toStringLen - 100) + ' more chars)</i>'
-      }
-      $toStringDump = $(this.dump.dump(toStringVal))
-      title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title')
-      if (title === '__toString() : ') {
-        title = '__toString()'
-      }
-      objToString = '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
-        (title.length ? 'title="' + title + '"' : '') +
-        '>' +
-        $toStringDump.html() +
-        toStringValAppend +
-        '</span> '
-    }
     try {
-      html = objToString +
+      html = this.dumpToString(abs) +
         strClassName +
         '<dl class="object-inner">' +
           (abs.extends.length
@@ -79,6 +50,44 @@ DumpObject.prototype.dumpObject = function (abs) {
     }
   }
   return html
+}
+
+DumpObject.prototype.dumpToString = function (abs) {
+  // var objToString = ''
+  var val = ''
+  var len
+  var title
+  var valAppend = ''
+  var $toStringDump
+  if (abs.stringified !== null) {
+    val = abs.stringified
+  } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
+    val = abs.methods.__toString.returnValue
+  }
+  if (typeof val === 'object') {
+    len = val.strlen
+    val = val.value
+  } else {
+      len = val.length
+  }
+  if (len === 0) {
+    return ''
+  }
+  if (len > 100) {
+    val = val.substring(0, 100)
+    valAppend = '&hellip; <i>(' + (len - 100) + ' more bytes)</i>'
+  }
+  $toStringDump = $(this.dump.dump(val))
+  title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title')
+  if (title === '__toString() : ') {
+    title = '__toString()'
+  }
+  return '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
+    (title.length ? 'title="' + title + '"' : '') +
+    '>' +
+    $toStringDump.html() +
+    valAppend +
+    '</span> '
 }
 
 DumpObject.prototype.dumpConstants = function (constants) {
@@ -224,7 +233,6 @@ DumpObject.prototype.dumpMethods = function (abs) {
   var self = this
   html += magicMethodInfo(abs, ['__call', '__callStatic'])
   $.each(abs.methods, function (k, info) {
-    // console.info('method info', k, info)
     var paramStr = self.dumpMethodParams(info.params)
     var modifiers = []
     var returnType = ''
@@ -236,7 +244,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
     if (info.isStatic) {
       modifiers.push('<span class="t_modifier_static">static</span>')
     }
-    if (info.return.type) {
+    if (info.return && info.return.type) {
       returnType = ' <span class="t_type"' +
         (info.return.desc !== null
           ? ' title="' + info.return.desc.escapeHtml() + '"'
@@ -248,7 +256,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
       modifiers.join(' ') +
       returnType +
       ' <span class="t_identifier"' +
-        (info.phpDoc.summary !== null
+        (info.phpDoc && info.phpDoc.summary !== null
           ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
           : ''
         ) +

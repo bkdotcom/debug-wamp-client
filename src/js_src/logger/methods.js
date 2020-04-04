@@ -105,12 +105,12 @@ export var methods = {
     var $container = info.$container
     var responseCode = logEntry.meta.responseCode
     $container.removeClass('working')
-    $container.find('.panel-heading .fa-spinner').remove()
-    $container.find('.panel-body > .fa-spinner').remove()
+    $container.find('.card-header .fa-spinner').remove()
+    $container.find('.card-body > .fa-spinner').remove()
     if (responseCode && responseCode !== '200') {
-      $container.find('.panel-title').append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>')
+      $container.find('.card-title').append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>')
       if (responseCode.toString().match(/^5/)) {
-        $container.addClass('panel-danger')
+        $container.addClass('bg-danger')
       }
     }
   },
@@ -130,12 +130,12 @@ export var methods = {
     $node.append($('<li></li>').text(logEntry.args[0]))
     if (logEntry.meta.class === 'error') {
       $container
-        .addClass('panel-danger')
-        .removeClass('panel-warning') // could keep it.. but lets remove ambiguity
-    } else if (!$container.hasClass('panel-danger')) {
-      $container.addClass('panel-warning')
+        .addClass('bg-danger')
+        .removeClass('bg-warning') // could keep it.. but lets remove ambiguity
+    } else if (!$container.hasClass('bg-danger')) {
+      $container.addClass('bg-warning')
     }
-    $container.removeClass('panel-default')
+    // $container.removeClass('bg-default')
   },
   group: function (logEntry, info) {
     var $group = $('<li>', {
@@ -232,7 +232,7 @@ export var methods = {
     /*
       The initial message/method
     */
-    var $title = info.$container.find('.panel-heading .panel-heading-body .panel-title').html('')
+    var $title = info.$container.find('.card-header .card-header-body .card-title').html('')
     var metaVals = logEntry.args[0]
     var meta = logEntry.meta
     // console.log('meta', meta)
@@ -240,9 +240,9 @@ export var methods = {
     info.$container.data('options', {
       drawer: meta.drawer
     })
-    // info.$container.find('.panel-heading .panel-heading-body .pull-right').remove()
+    // info.$container.find('.card-header .card-header-body .pull-right').remove()
     if (meta.interface) {
-      info.$container.find('.panel-heading').attr('data-interface', meta.interface)
+      info.$container.find('.card-header').attr('data-interface', meta.interface)
     }
     if (metaVals.HTTPS === 'on') {
       $title.append('<i class="fa fa-lock fa-lg"></i> ')
@@ -259,7 +259,7 @@ export var methods = {
     if (metaVals.REQUEST_TIME) {
       var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '')
       info.$container
-        .find('.panel-heading .panel-heading-body')
+        .find('.card-header .card-header-body')
         .prepend('<span class="pull-right">' + date + '</span>')
     }
   },
@@ -329,23 +329,23 @@ export var methods = {
       }, attribs)
     }
     /*
-      update panel header to empasize error
+      update card header to empasize error
     */
     if (meta.errorCat) {
       // console.warn('errorCat', meta.errorCat)
       attribs.class += ' error-' + meta.errorCat
       if (!meta.isSuppressed) {
         if (method === 'error') {
-          // if suppressed, don't update panel
-          // console.log('panel-danger')
+          // if suppressed, don't update card
+          // console.log('bg-danger')
           $container
-            .addClass('panel-danger')
-            .removeClass('panel-warning') // could keep it.. but lets remove ambiguity
-        } else if (!$container.hasClass('panel-danger')) {
-          // console.log('panel warning')
-          $container.addClass('panel-warning')
+            .addClass('bg-danger')
+            .removeClass('bg-warning') // could keep it.. but lets remove ambiguity
+        } else if (!$container.hasClass('bg-danger')) {
+          // console.log('card warning')
+          $container.addClass('bg-warning')
         }
-        $container.removeClass('panel-default')
+        // $container.removeClass('bg-default')
       }
     }
     if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {

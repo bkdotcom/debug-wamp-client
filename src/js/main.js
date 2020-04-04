@@ -158,8 +158,8 @@
     });
   }
 
-  var classCollapsed = 'glyphicon-chevron-right';
-  var classExpanded = 'glyphicon-chevron-down';
+  var classCollapsed = 'fa-chevron-right';
+  var classExpanded = 'fa-chevron-down';
   var timeoutHandler;
   var navbarHeight = $('.navbar-collapse').outerHeight();
 
@@ -170,7 +170,7 @@
     init(config);
 
     $('.clear').on('click', function () {
-      $('#body > .panel').not('.working').remove();
+      $('#body > .card').not('.working').remove();
     });
 
     $('body').on('mouseup', function (e) {
@@ -185,12 +185,12 @@
       timeoutHandler = setTimeout(function () {
         // has been long pressed (3 seconds)
         // clear all (incl working)
-        $('#body > .panel').remove();
+        $('#body > .card').remove();
       }, 2000);
     });
 
-    $('body').on('shown.bs.collapse hidden.bs.collapse', '.panel-body', function (e) {
-      var $icon = $(this).closest('.panel').find('.panel-heading .' + classCollapsed + ', .panel-heading .' + classExpanded);
+    $('body').on('shown.bs.collapse hidden.bs.collapse', '.card-body', function (e) {
+      var $icon = $(this).closest('.card').find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded);
       $icon.toggleClass(classExpanded + ' ' + classCollapsed);
       if (e.type === 'shown') {
         $(this).find('.m_groupSummary > .group-body, .debug-log').debugEnhance();
@@ -198,7 +198,7 @@
     });
 
     $('body').on('click', '.btn-remove-session', function (e) {
-      $(this).closest('.panel').remove();
+      $(this).closest('.card').remove();
     });
 
     $(window).on('scroll', positionSidebar);
@@ -207,8 +207,8 @@
       // console.warn('open.debug.sidebar')
       positionSidebar(true);
       var sidebarContentHeight = $(e.target).find('.sidebar-content').height();
-      var $panel = $(e.target).closest('.panel');
-      $panel.find('.panel-body').css({
+      var $card = $(e.target).closest('.card');
+      $card.find('.card-body').css({
         minHeight: sidebarContentHeight + 8 + 'px'
       });
       $('body').on('click', onBodyClick);
@@ -217,31 +217,37 @@
     $('body').on('close.debug.sidebar', function (e) {
       // remove minHeight
       positionSidebar(true);
-      var $panel = $(e.target).closest('.panel');
-      $panel.find('.panel-body').attr('style', '');
+      var $card = $(e.target).closest('.card');
+      $card.find('.card-body').attr('style', '');
       $('body').off('click', onBodyClick);
+    });
+
+    $('body').on('click', '.card-header[data-toggle=collapse]', function () {
+      // data-target selector doesn't seem to work like it dit in bootstrap 3
+      var $target = $($(this).data('target'));
+      $target.collapse('toggle');
     });
 
     /*
     $('body').on('click', '.sidebar-tab', function (e){
-      var $panel = $(e.target).closest('.panel'),
-        sidebarIsOpen = $panel.find('.debug-sidebar.show').length > 0
-      $panel.debugEnhance('sidebar', sidebarIsOpen ? 'close' : 'open')
+      var $card = $(e.target).closest('.card'),
+        sidebarIsOpen = $card.find('.debug-sidebar.show').length > 0
+      $card.debugEnhance('sidebar', sidebarIsOpen ? 'close' : 'open')
     })
     */
 
     $('body').on('mouseenter', '.sidebar-trigger', function () {
-      $(this).closest('.panel').debugEnhance('sidebar', 'open');
+      $(this).closest('.card').debugEnhance('sidebar', 'open');
     });
 
     $('body').on('mouseleave', '.debug-sidebar', function () {
-      $(this).closest('.panel').debugEnhance('sidebar', 'close');
+      $(this).closest('.card').debugEnhance('sidebar', 'close');
     });
   }
 
   function onBodyClick (e) {
     if ($(e.target).closest('.debug-sidebar').length === 0) {
-      $('.debug-sidebar.show').closest('.panel').debugEnhance('sidebar', 'close');
+      $('.debug-sidebar.show').closest('.card').debugEnhance('sidebar', 'close');
     }
   }
 
@@ -257,8 +263,8 @@
     var contentHeight = 0;
     transition = typeof transition === 'boolean' ? transition : false;
     if ($sidebar.length === 0) {
-      // no sidebar open... find first visible open panel
-      $('body').find('.panel-body.in').each(function () {
+      // no sidebar open... find first visible open card
+      $('body').find('.card-body.in').each(function () {
         // var rect = this.getBoundingClientRect()
         $panelBody = $(this);
         panelOffset = $panelBody.offset().top;
@@ -273,7 +279,7 @@
         return
       }
     } else {
-      $panelBody = $sidebar.closest('.panel-body');
+      $panelBody = $sidebar.closest('.card-body');
       panelOffset = $panelBody.offset().top;
       panelHeight = $panelBody.innerHeight();
       heightAvail = panelOffset + panelHeight - scrollTop;
@@ -1342,11 +1348,6 @@
     var strClassName = this.dump.markupIdentifier(abs.className, {
       title: title.length ? title : null
     });
-    var objToString = '';
-    var toStringVal = null;
-    var toStringLen;
-    var toStringValAppend;
-    var $toStringDump;
     var OUTPUT_CONSTANTS = 4;
     var OUTPUT_METHODS = 8;
     if (abs.isRecursion) {
@@ -1356,32 +1357,8 @@
       html = strClassName +
         ' <span class="excluded">(not inspected)</span>';
     } else {
-      if (abs.stringified !== null) {
-        toStringVal = abs.stringified;
-      } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
-        toStringVal = abs.methods.__toString.returnValue;
-      }
-      if (toStringVal) {
-        toStringLen = toStringVal.length;
-        toStringValAppend = '';
-        if (toStringLen > 100) {
-          toStringVal = toStringVal.substring(0, 100);
-          toStringValAppend = '&hellip; <i>(' + (toStringLen - 100) + ' more chars)</i>';
-        }
-        $toStringDump = $(this.dump.dump(toStringVal));
-        title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title');
-        if (title === '__toString() : ') {
-          title = '__toString()';
-        }
-        objToString = '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
-          (title.length ? 'title="' + title + '"' : '') +
-          '>' +
-          $toStringDump.html() +
-          toStringValAppend +
-          '</span> ';
-      }
       try {
-        html = objToString +
+        html = this.dumpToString(abs) +
           strClassName +
           '<dl class="object-inner">' +
             (abs.extends.length
@@ -1410,6 +1387,44 @@
       }
     }
     return html
+  };
+
+  DumpObject.prototype.dumpToString = function (abs) {
+    // var objToString = ''
+    var val = '';
+    var len;
+    var title;
+    var valAppend = '';
+    var $toStringDump;
+    if (abs.stringified !== null) {
+      val = abs.stringified;
+    } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
+      val = abs.methods.__toString.returnValue;
+    }
+    if (typeof val === 'object') {
+      len = val.strlen;
+      val = val.value;
+    } else {
+        len = val.length;
+    }
+    if (len === 0) {
+      return ''
+    }
+    if (len > 100) {
+      val = val.substring(0, 100);
+      valAppend = '&hellip; <i>(' + (len - 100) + ' more bytes)</i>';
+    }
+    $toStringDump = $(this.dump.dump(val));
+    title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title');
+    if (title === '__toString() : ') {
+      title = '__toString()';
+    }
+    return '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
+      (title.length ? 'title="' + title + '"' : '') +
+      '>' +
+      $toStringDump.html() +
+      valAppend +
+      '</span> '
   };
 
   DumpObject.prototype.dumpConstants = function (constants) {
@@ -1555,7 +1570,6 @@
     var self = this;
     html += magicMethodInfo(abs, ['__call', '__callStatic']);
     $.each(abs.methods, function (k, info) {
-      // console.info('method info', k, info)
       var paramStr = self.dumpMethodParams(info.params);
       var modifiers = [];
       var returnType = '';
@@ -1567,7 +1581,7 @@
       if (info.isStatic) {
         modifiers.push('<span class="t_modifier_static">static</span>');
       }
-      if (info.return.type) {
+      if (info.return && info.return.type) {
         returnType = ' <span class="t_type"' +
           (info.return.desc !== null
             ? ' title="' + info.return.desc.escapeHtml() + '"'
@@ -1579,7 +1593,7 @@
         modifiers.join(' ') +
         returnType +
         ' <span class="t_identifier"' +
-          (info.phpDoc.summary !== null
+          (info.phpDoc && info.phpDoc.summary !== null
             ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
             : ''
           ) +
@@ -1699,7 +1713,7 @@
       }
       absAttribs = val.attribs || {};
       if (['string', 'bool', 'float', 'int', 'null'].indexOf(type) >= 0) {
-        val = this[method](val.value);
+        val = this[method](val.value, val);
       } else {
         val = this[method](val);
       }
@@ -1801,7 +1815,7 @@
     return abs.value
   };
 
-  Dump.prototype.dumpString = function (val) {
+  Dump.prototype.dumpString = function (val, abs) {
     var bytes;
     var date;
     // var sanitize = true
@@ -1820,6 +1834,9 @@
         val = strDump.dump(bytes, true);
       } else {
         val = strDump.dump(bytes, false);
+      }
+      if (abs && abs.strlen) {
+        val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
       }
       if (argStringOpts.visualWhiteSpace) {
         val = visualWhiteSpace(val);
@@ -2070,12 +2087,12 @@
       var $container = info.$container;
       var responseCode = logEntry.meta.responseCode;
       $container.removeClass('working');
-      $container.find('.panel-heading .fa-spinner').remove();
-      $container.find('.panel-body > .fa-spinner').remove();
+      $container.find('.card-header .fa-spinner').remove();
+      $container.find('.card-body > .fa-spinner').remove();
       if (responseCode && responseCode !== '200') {
-        $container.find('.panel-title').append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>');
+        $container.find('.card-title').append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>');
         if (responseCode.toString().match(/^5/)) {
-          $container.addClass('panel-danger');
+          $container.addClass('bg-danger');
         }
       }
     },
@@ -2095,12 +2112,12 @@
       $node.append($('<li></li>').text(logEntry.args[0]));
       if (logEntry.meta.class === 'error') {
         $container
-          .addClass('panel-danger')
-          .removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-      } else if (!$container.hasClass('panel-danger')) {
-        $container.addClass('panel-warning');
+          .addClass('bg-danger')
+          .removeClass('bg-warning'); // could keep it.. but lets remove ambiguity
+      } else if (!$container.hasClass('bg-danger')) {
+        $container.addClass('bg-warning');
       }
-      $container.removeClass('panel-default');
+      // $container.removeClass('bg-default')
     },
     group: function (logEntry, info) {
       var $group = $('<li>', {
@@ -2194,7 +2211,7 @@
       /*
         The initial message/method
       */
-      var $title = info.$container.find('.panel-heading .panel-heading-body .panel-title').html('');
+      var $title = info.$container.find('.card-header .card-header-body .card-title').html('');
       var metaVals = logEntry.args[0];
       var meta = logEntry.meta;
       // console.log('meta', meta)
@@ -2202,9 +2219,9 @@
       info.$container.data('options', {
         drawer: meta.drawer
       });
-      // info.$container.find('.panel-heading .panel-heading-body .pull-right').remove()
+      // info.$container.find('.card-header .card-header-body .pull-right').remove()
       if (meta.interface) {
-        info.$container.find('.panel-heading').attr('data-interface', meta.interface);
+        info.$container.find('.card-header').attr('data-interface', meta.interface);
       }
       if (metaVals.HTTPS === 'on') {
         $title.append('<i class="fa fa-lock fa-lg"></i> ');
@@ -2221,7 +2238,7 @@
       if (metaVals.REQUEST_TIME) {
         var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
         info.$container
-          .find('.panel-heading .panel-heading-body')
+          .find('.card-header .card-header-body')
           .prepend('<span class="pull-right">' + date + '</span>');
       }
     },
@@ -2291,23 +2308,23 @@
         }, attribs);
       }
       /*
-        update panel header to empasize error
+        update card header to empasize error
       */
       if (meta.errorCat) {
         // console.warn('errorCat', meta.errorCat)
         attribs.class += ' error-' + meta.errorCat;
         if (!meta.isSuppressed) {
           if (method === 'error') {
-            // if suppressed, don't update panel
-            // console.log('panel-danger')
+            // if suppressed, don't update card
+            // console.log('bg-danger')
             $container
-              .addClass('panel-danger')
-              .removeClass('panel-warning'); // could keep it.. but lets remove ambiguity
-          } else if (!$container.hasClass('panel-danger')) {
-            // console.log('panel warning')
-            $container.addClass('panel-warning');
+              .addClass('bg-danger')
+              .removeClass('bg-warning'); // could keep it.. but lets remove ambiguity
+          } else if (!$container.hasClass('bg-danger')) {
+            // console.log('card warning')
+            $container.addClass('bg-warning');
           }
-          $container.removeClass('panel-default');
+          // $container.removeClass('bg-default')
         }
       }
       if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
@@ -2569,16 +2586,16 @@
     } else {
       // create
       $container = $('' +
-        '<div class="panel panel-default working">' +
-          '<div class="panel-heading" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .panel-body.collapse">' +
-            '<i class="glyphicon glyphicon-chevron-right"></i>' +
-            '<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
-            '<div class="panel-heading-body">' +
-              '<h3 class="panel-title">Building Request&hellip;</h3>' +
+        '<div class="card mb-3 working">' +
+          '<div class="card-header" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .card-body.collapse">' +
+            '<i class="fa fa-chevron-right"></i>' +
+            '<i class="fa fa-times float-right btn-remove-session"></i>' +
+            '<div class="card-header-body">' +
+              '<h3 class="card-title">Building Request&hellip;</h3>' +
               '<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
             '</div>' +
           '</div>' +
-          '<div class="collapse debug debug-enhanced-ui panel-body">' +
+          '<div class="bg-white card-body collapse debug debug-enhanced-ui">' +
             '<header class="debug-menu-bar hide">' +
               '<nav role="tablist">' +
                 '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
@@ -2686,7 +2703,7 @@
       updateSidebar(logEntry, info, $node !== false);
       if ($node) {
         if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-          info.$node = info.$container.find('> .panel-body > .debug-tabs > .tab-primary > .tab-body');
+          info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body');
         }
         info.$node.append($node);
         $node.attr('data-channel', meta.channel); // using attr so can use [data-channel="xxx"] selector
@@ -3816,9 +3833,9 @@
           return
         }
         $('#body').prepend(
-          '<div id="alert" class="alert alert-warn alert-dismissible closed">' +
-            '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+          '<div id="alert" class="alert alert-warning alert-dismissible closed">' +
             'Not connected to debug server' +
+            '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
           '</div>'
         );
         if (!config.haveSavedConfig && !hasConnected) {

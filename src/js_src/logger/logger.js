@@ -18,16 +18,16 @@ export function getNodeInfo (meta) {
   } else {
     // create
     $container = $('' +
-      '<div class="panel panel-default working">' +
-        '<div class="panel-heading" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .panel-body.collapse">' +
-          '<i class="glyphicon glyphicon-chevron-right"></i>' +
-          '<i class="glyphicon glyphicon-remove pull-right btn-remove-session"></i>' +
-          '<div class="panel-heading-body">' +
-            '<h3 class="panel-title">Building Request&hellip;</h3>' +
+      '<div class="card mb-3 working">' +
+        '<div class="card-header" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .card-body.collapse">' +
+          '<i class="fa fa-chevron-right"></i>' +
+          '<i class="fa fa-times float-right btn-remove-session"></i>' +
+          '<div class="card-header-body">' +
+            '<h3 class="card-title">Building Request&hellip;</h3>' +
             '<i class="fa fa-spinner fa-pulse fa-lg"></i>' +
           '</div>' +
         '</div>' +
-        '<div class="collapse debug debug-enhanced-ui panel-body">' +
+        '<div class="bg-white card-body collapse debug debug-enhanced-ui">' +
           '<header class="debug-menu-bar hide">' +
             '<nav role="tablist">' +
               '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
@@ -135,7 +135,7 @@ export function processEntry (logEntry) {
     updateSidebar(logEntry, info, $node !== false)
     if ($node) {
       if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-        info.$node = info.$container.find('> .panel-body > .debug-tabs > .tab-primary > .tab-body')
+        info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body')
       }
       info.$node.append($node)
       $node.attr('data-channel', meta.channel) // using attr so can use [data-channel="xxx"] selector
