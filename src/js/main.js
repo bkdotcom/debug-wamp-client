@@ -208,8 +208,9 @@
       positionSidebar(true);
       var sidebarContentHeight = $(e.target).find('.sidebar-content').height();
       var $card = $(e.target).closest('.card');
-      $card.find('.card-body').css({
-        minHeight: sidebarContentHeight + 8 + 'px'
+      var minHeight = Math.max(sidebarContentHeight + 8, 200);
+      $card.find('.card-body .tab-pane.active').css({
+        minHeight: minHeight + 'px'
       });
       $('body').on('click', onBodyClick);
     });
@@ -218,7 +219,7 @@
       // remove minHeight
       positionSidebar(true);
       var $card = $(e.target).closest('.card');
-      $card.find('.card-body').attr('style', '');
+      $card.find('.card-body .tab-pane.active').attr('style', '');
       $('body').off('click', onBodyClick);
     });
 
@@ -238,6 +239,7 @@
 
     $('body').on('mouseenter', '.sidebar-trigger', function () {
       $(this).closest('.card').debugEnhance('sidebar', 'open');
+      // positionSidebar(false);
     });
 
     $('body').on('mouseleave', '.debug-sidebar', function () {
@@ -351,7 +353,7 @@
   }
 
   Table.prototype.build = function (rows, meta, classname, onBuildRow) {
-    // console.warn('methodTable', meta, classname)
+    // console.warn('Table.build', meta, classname)
     var i;
     var length;
     var propName;
@@ -377,7 +379,12 @@
         totals[meta.totalCols[i]] = null;
       }
     }
-    $table = $('<table><caption>' + meta.caption.escapeHtml() + '</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
+    $table = $('<table>' +
+      '<caption>' + meta.caption.escapeHtml() + '</caption>' +
+      '<thead><tr><th>&nbsp;</th></tr></thead>' +
+      '<tbody></tbody>' +
+      '</table>'
+    )
       .addClass(classname);
     if (this.isAbstraction(rows)) {
       if (rows.type === 'object') {
@@ -423,13 +430,14 @@
     var i;
     var length;
     var colKey;
+    var $theadTr = $table.find('thead tr');
     for (i = 0, length = colKeys.length; i < length; i++) {
       colKey = colKeys[i];
       if (colKey === '') {
         colKey = 'value';
       }
       colClasses[colKey] = null; // initialize
-      $table.find('thead tr').append(
+      $theadTr.append(
         '<th scope="col">' + this.dump.dump(colKey, true, false, false) + '</th>'
       );
     }
@@ -445,6 +453,7 @@
     var rowKeys = [];
     var rowKey;
     var row;
+    var $tbody = $table.find('> tbody');
     var $tr;
     var values;
     rowKeys = rows.__debug_key_order__ || Object.keys(rows);
@@ -474,7 +483,7 @@
       if (onBuildRow) {
         $tr = onBuildRow($tr, row, rowKey);
       }
-      $table.append($tr);
+      $tbody.append($tr);
     }
   };
 
@@ -1405,7 +1414,7 @@
       len = val.strlen;
       val = val.value;
     } else {
-        len = val.length;
+      len = val.length;
     }
     if (len === 0) {
       return ''
@@ -2625,6 +2634,9 @@
       $tab.data('nodes', [
         $node
       ]);
+      $tab.data('options', {
+        sidebar: true
+      });
       $container.attr('id', meta.requestId);
       $('#body').append($container);
     }

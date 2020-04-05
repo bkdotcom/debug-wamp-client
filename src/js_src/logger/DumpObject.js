@@ -68,7 +68,7 @@ DumpObject.prototype.dumpToString = function (abs) {
     len = val.strlen
     val = val.value
   } else {
-      len = val.length
+    len = val.length
   }
   if (len === 0) {
     return ''

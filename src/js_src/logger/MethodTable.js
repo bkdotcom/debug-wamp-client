@@ -11,7 +11,7 @@ export function Table (dump) {
 }
 
 Table.prototype.build = function (rows, meta, classname, onBuildRow) {
-  // console.warn('methodTable', meta, classname)
+  // console.warn('Table.build', meta, classname)
   var i
   var length
   var propName
@@ -37,7 +37,12 @@ Table.prototype.build = function (rows, meta, classname, onBuildRow) {
       totals[meta.totalCols[i]] = null
     }
   }
-  $table = $('<table><caption>' + meta.caption.escapeHtml() + '</caption><thead><tr><th>&nbsp;</th></tr></thead></table>')
+  $table = $('<table>' +
+    '<caption>' + meta.caption.escapeHtml() + '</caption>' +
+    '<thead><tr><th>&nbsp;</th></tr></thead>' +
+    '<tbody></tbody>' +
+    '</table>'
+  )
     .addClass(classname)
   if (this.isAbstraction(rows)) {
     if (rows.type === 'object') {
@@ -83,13 +88,14 @@ Table.prototype.buildHead = function () {
   var i
   var length
   var colKey
+  var $theadTr = $table.find('thead tr')
   for (i = 0, length = colKeys.length; i < length; i++) {
     colKey = colKeys[i]
     if (colKey === '') {
       colKey = 'value'
     }
     colClasses[colKey] = null // initialize
-    $table.find('thead tr').append(
+    $theadTr.append(
       '<th scope="col">' + this.dump.dump(colKey, true, false, false) + '</th>'
     )
   }
@@ -105,6 +111,7 @@ Table.prototype.buildBody = function (rows, meta, onBuildRow) {
   var rowKeys = []
   var rowKey
   var row
+  var $tbody = $table.find('> tbody')
   var $tr
   var values
   rowKeys = rows.__debug_key_order__ || Object.keys(rows)
@@ -134,7 +141,7 @@ Table.prototype.buildBody = function (rows, meta, onBuildRow) {
     if (onBuildRow) {
       $tr = onBuildRow($tr, row, rowKey)
     }
-    $table.append($tr)
+    $tbody.append($tr)
   }
 }
 

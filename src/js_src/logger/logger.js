@@ -57,6 +57,9 @@ export function getNodeInfo (meta) {
     $tab.data('nodes', [
       $node
     ])
+    $tab.data('options', {
+      sidebar: true
+    })
     $container.attr('id', meta.requestId)
     $('#body').append($container)
   }

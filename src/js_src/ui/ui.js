@@ -52,8 +52,9 @@ export function init (config) {
     positionSidebar(true)
     var sidebarContentHeight = $(e.target).find('.sidebar-content').height()
     var $card = $(e.target).closest('.card')
-    $card.find('.card-body').css({
-      minHeight: sidebarContentHeight + 8 + 'px'
+    var minHeight = Math.max(sidebarContentHeight + 8, 200)
+    $card.find('.card-body .tab-pane.active').css({
+      minHeight: minHeight + 'px'
     })
     $('body').on('click', onBodyClick)
   })
@@ -62,7 +63,7 @@ export function init (config) {
     // remove minHeight
     positionSidebar(true)
     var $card = $(e.target).closest('.card')
-    $card.find('.card-body').attr('style', '')
+    $card.find('.card-body .tab-pane.active').attr('style', '')
     $('body').off('click', onBodyClick)
   })
 
