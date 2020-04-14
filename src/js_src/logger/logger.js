@@ -169,7 +169,7 @@ export function processEntry (logEntry) {
       }
       if (!$node.is('.m_group')) {
         // don't remove from ourself
-        // console.warn('remove empty?')
+        // console.warn('remove empty from parent groups', $node[0])
         $node.parents('.m_group').removeClass('empty')
       }
     }
@@ -204,7 +204,7 @@ function updateSidebar (logEntry, info, haveNode) {
   /*
     Update error filters
   */
-  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'general.phpError') {
+  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
     addError(logEntry, info)
     return
   }
@@ -237,7 +237,7 @@ function addChannel (info, meta) {
   var channelsChecked = []
   var channelsTab
   var $ul
-  if (info.channelName === 'general.phpError' || haveChannel(info.channelName, info.channels)) {
+  if (info.channelName === info.channelNameRoot + '.phpError' || haveChannel(info.channelName, info.channels)) {
     return false
   }
   info.channels.push({

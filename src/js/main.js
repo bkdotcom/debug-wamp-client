@@ -239,7 +239,6 @@
 
     $('body').on('mouseenter', '.sidebar-trigger', function () {
       $(this).closest('.card').debugEnhance('sidebar', 'open');
-      // positionSidebar(false);
     });
 
     $('body').on('mouseleave', '.debug-sidebar', function () {
@@ -2746,7 +2745,7 @@
         }
         if (!$node.is('.m_group')) {
           // don't remove from ourself
-          // console.warn('remove empty?')
+          // console.warn('remove empty from parent groups', $node[0])
           $node.parents('.m_group').removeClass('empty');
         }
       }
@@ -2781,7 +2780,7 @@
     /*
       Update error filters
     */
-    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === 'general.phpError') {
+    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
       addError(logEntry, info);
       return
     }
@@ -2814,7 +2813,7 @@
     var channelsChecked = [];
     var channelsTab;
     var $ul;
-    if (info.channelName === 'general.phpError' || haveChannel(info.channelName, info.channels)) {
+    if (info.channelName === info.channelNameRoot + '.phpError' || haveChannel(info.channelName, info.channels)) {
       return false
     }
     info.channels.push({
