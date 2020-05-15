@@ -353,29 +353,50 @@ export var methods = {
     }
     $node = buildEntryNode(logEntry)
     $node.attr(attribs)
-    if (method === 'error' && meta.backtrace && meta.backtrace.length > 1) {
-      $node.append(
-        $('<ul>', { class: 'list-unstyled' }).append(
-          methods.trace({
-            args: [meta.backtrace],
-            meta: {
-              inclContext: true
-            }
-          }).attr('data-detect-files', 'true')
+    if (method === 'error') {
+      if (meta.backtrace && meta.backtrace.length > 1) {
+        $node.append(
+          $('<ul>', { class: 'list-unstyled' }).append(
+            methods.trace({
+              args: [meta.backtrace],
+              meta: {
+                inclContext: true
+              }
+            }).attr('data-detect-files', 'true')
+          )
         )
-      )
-      $node.find('.m_trace').debugEnhance()
-      if ($node.is('.error-fatal')) {
-        this.endOutput(logEntry, info)
+        $node.find('.m_trace').debugEnhance()
+        if ($node.is('.error-fatal')) {
+          this.endOutput(logEntry, info)
+        }
+      } else if (meta.context) {
+        console.log('context', meta.context);
+        $node.append(
+          buildContext(meta.context, meta.line)
+        );
       }
     }
     return $node
   }
 }
 
-function tableAddContextRow ($tr, row, i) {
-  var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
+function buildContext(context, lineNumber) {
+  var keys = Object.keys(context || {}) // .map(function(val){return parseInt(val)}),
   var start = Math.min.apply(null, keys)
+  return $('<pre>', {
+    class: 'highlight line-numbers',
+    'data-line': lineNumber,
+    'data-start': start
+  }).append(
+    $('<code>', {
+      class: 'language-php'
+    }).text(Object.values(context).join(''))
+  )
+}
+
+function tableAddContextRow ($tr, row, i) {
+  // var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
+  // var start = Math.min.apply(null, keys)
   if (!row.context) {
     return $tr
   }
@@ -396,15 +417,7 @@ function tableAddContextRow ($tr, row, i) {
         colspan: 4
       }).append(
         [
-          $('<pre>', {
-            class: 'highlight line-numbers',
-            'data-line': row.line,
-            'data-start': start
-          }).append(
-            $('<code>', {
-              class: 'language-php'
-            }).text(Object.values(row.context).join(''))
-          ),
+          buildContext(row.context, row.line),
           row.args.length
             ? '<hr />Arguments = ' + dump.dump(row.args)
             : ''

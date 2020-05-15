@@ -82,16 +82,16 @@ Dump.prototype.dumpArray = function (array) {
     delete array.__debug_key_order__
     html = '<span class="t_keyword">array</span>' +
       '<span class="t_punct">(</span>\n' +
-      '<span class="array-inner">\n'
+      '<ul class="array-inner list-unstyled">\n'
     for (i = 0; i < length; i++) {
       key = keys[i]
-      html += '\t<span class="key-value">' +
+      html += '\t<li>' +
           '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
           '<span class="t_operator">=&gt;</span>' +
           this.dump(array[key], true) +
-        '</span>\n'
+        '</li>\n'
     }
-    html += '</span>' +
+    html += '</ul>' +
       '<span class="t_punct">)</span>'
   }
   return html

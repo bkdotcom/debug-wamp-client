@@ -1759,16 +1759,16 @@
       delete array.__debug_key_order__;
       html = '<span class="t_keyword">array</span>' +
         '<span class="t_punct">(</span>\n' +
-        '<span class="array-inner">\n';
+        '<ul class="array-inner list-unstyled">\n';
       for (i = 0; i < length; i++) {
         key = keys[i];
-        html += '\t<span class="key-value">' +
+        html += '\t<li>' +
             '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
             '<span class="t_operator">=&gt;</span>' +
             this.dump(array[key], true) +
-          '</span>\n';
+          '</li>\n';
       }
-      html += '</span>' +
+      html += '</ul>' +
         '<span class="t_punct">)</span>';
     }
     return html
@@ -2340,29 +2340,50 @@
       }
       $node = buildEntryNode(logEntry);
       $node.attr(attribs);
-      if (method === 'error' && meta.backtrace && meta.backtrace.length > 1) {
-        $node.append(
-          $('<ul>', { class: 'list-unstyled' }).append(
-            methods.trace({
-              args: [meta.backtrace],
-              meta: {
-                inclContext: true
-              }
-            }).attr('data-detect-files', 'true')
-          )
-        );
-        $node.find('.m_trace').debugEnhance();
-        if ($node.is('.error-fatal')) {
-          this.endOutput(logEntry, info);
+      if (method === 'error') {
+        if (meta.backtrace && meta.backtrace.length > 1) {
+          $node.append(
+            $('<ul>', { class: 'list-unstyled' }).append(
+              methods.trace({
+                args: [meta.backtrace],
+                meta: {
+                  inclContext: true
+                }
+              }).attr('data-detect-files', 'true')
+            )
+          );
+          $node.find('.m_trace').debugEnhance();
+          if ($node.is('.error-fatal')) {
+            this.endOutput(logEntry, info);
+          }
+        } else if (meta.context) {
+          console.log('context', meta.context);
+          $node.append(
+            buildContext(meta.context, meta.line)
+          );
         }
       }
       return $node
     }
   };
 
-  function tableAddContextRow ($tr, row, i) {
-    var keys = Object.keys(row.context || {}); // .map(function(val){return parseInt(val)}),
+  function buildContext(context, lineNumber) {
+    var keys = Object.keys(context || {}); // .map(function(val){return parseInt(val)}),
     var start = Math.min.apply(null, keys);
+    return $('<pre>', {
+      class: 'highlight line-numbers',
+      'data-line': lineNumber,
+      'data-start': start
+    }).append(
+      $('<code>', {
+        class: 'language-php'
+      }).text(Object.values(context).join(''))
+    )
+  }
+
+  function tableAddContextRow ($tr, row, i) {
+    // var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
+    // var start = Math.min.apply(null, keys)
     if (!row.context) {
       return $tr
     }
@@ -2383,15 +2404,7 @@
           colspan: 4
         }).append(
           [
-            $('<pre>', {
-              class: 'highlight line-numbers',
-              'data-line': row.line,
-              'data-start': start
-            }).append(
-              $('<code>', {
-                class: 'language-php'
-              }).text(Object.values(row.context).join(''))
-            ),
+            buildContext(row.context, row.line),
             row.args.length
               ? '<hr />Arguments = ' + dump.dump(row.args)
               : ''
