@@ -2139,6 +2139,9 @@
       if (logEntry.meta.hideIfEmpty) {
         $group.addClass('hide-if-empty');
       }
+      if (logEntry.meta.ungroup) {
+        $group.addClass('ungroup');
+      }
       if (logEntry.meta.level) {
         $groupHeader.addClass('level-' + logEntry.meta.level);
         $groupBody.addClass('level-' + logEntry.meta.level);
@@ -2205,6 +2208,17 @@
           // $toggle.remove()
           // info.$currentNode.remove()
           $group.remove();
+        } else if ($group.hasClass('ungroup')) {
+          var $children = $group.find('> ul.group-body > li');
+          var $groupLabel = $group.find('> .group-header > .group-label');
+          var $li = $('<li></li>').data($group.data());
+          if ($children.length === 0) {
+            $group.replaceWith(
+              $li.html($groupLabel.html())
+            );
+          } else if ($children.length === 1 && $children.filter('.m_group').length === 0) {
+            $group.replaceWith($children);
+          }
         } else if (!$group.is(':visible')) ; else {
           // console.log('enhance')
           $group.debugEnhance();
@@ -2367,7 +2381,7 @@
     }
   };
 
-  function buildContext(context, lineNumber) {
+  function buildContext (context, lineNumber) {
     var keys = Object.keys(context || {}); // .map(function(val){return parseInt(val)}),
     var start = Math.min.apply(null, keys);
     return $('<pre>', {
@@ -2697,6 +2711,7 @@
   }
 
   function processEntry (logEntry) {
+    // console.log(JSON.parse(JSON.stringify(logEntry)));
     var method = logEntry.method;
     var meta = logEntry.meta;
     var i;
@@ -2727,7 +2742,7 @@
       updateSidebar(logEntry, info, $node !== false);
       if ($node) {
         if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-          info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body');
+          info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body > .debug-log.group-body');
         }
         info.$node.append($node);
         $node.attr('data-channel', meta.channel); // using attr so can use [data-channel="xxx"] selector

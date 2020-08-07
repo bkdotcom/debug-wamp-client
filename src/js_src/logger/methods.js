@@ -149,6 +149,9 @@ export var methods = {
     if (logEntry.meta.hideIfEmpty) {
       $group.addClass('hide-if-empty')
     }
+    if (logEntry.meta.ungroup) {
+      $group.addClass('ungroup')
+    }
     if (logEntry.meta.level) {
       $groupHeader.addClass('level-' + logEntry.meta.level)
       $groupBody.addClass('level-' + logEntry.meta.level)
@@ -215,6 +218,17 @@ export var methods = {
         // $toggle.remove()
         // info.$currentNode.remove()
         $group.remove()
+      } else if ($group.hasClass('ungroup')) {
+        var $children = $group.find('> ul.group-body > li')
+        var $groupLabel = $group.find('> .group-header > .group-label')
+        var $li = $('<li></li>').data($group.data())
+        if ($children.length === 0) {
+          $group.replaceWith(
+            $li.html($groupLabel.html())
+          )
+        } else if ($children.length === 1 && $children.filter('.m_group').length === 0) {
+          $group.replaceWith($children)
+        }
       } else if (!$group.is(':visible')) {
         // console.log('not vis')
         // return
@@ -370,17 +384,17 @@ export var methods = {
           this.endOutput(logEntry, info)
         }
       } else if (meta.context) {
-        console.log('context', meta.context);
+        console.log('context', meta.context)
         $node.append(
           buildContext(meta.context, meta.line)
-        );
+        )
       }
     }
     return $node
   }
 }
 
-function buildContext(context, lineNumber) {
+function buildContext (context, lineNumber) {
   var keys = Object.keys(context || {}) // .map(function(val){return parseInt(val)}),
   var start = Math.min.apply(null, keys)
   return $('<pre>', {

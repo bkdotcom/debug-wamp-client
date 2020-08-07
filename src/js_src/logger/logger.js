@@ -108,6 +108,7 @@ function getTabPane ($container, channelNameTop) {
 }
 
 export function processEntry (logEntry) {
+  // console.log(JSON.parse(JSON.stringify(logEntry)));
   var method = logEntry.method
   var meta = logEntry.meta
   var i
@@ -138,7 +139,7 @@ export function processEntry (logEntry) {
     updateSidebar(logEntry, info, $node !== false)
     if ($node) {
       if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-        info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body')
+        info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body > .debug-log.group-body')
       }
       info.$node.append($node)
       $node.attr('data-channel', meta.channel) // using attr so can use [data-channel="xxx"] selector
