@@ -6,7 +6,9 @@ import { DumpObject } from './dumpObject.js'
 var strDump = new StrDump()
 var typeMore = null
 var $span
-var argStringOpts = {}
+var valAttribs = {}
+var valAttribsStack = []
+var valOpts = {} // per-value options
 
 export var Dump = function () {
   this.objectDumper = new DumpObject(this)
@@ -21,12 +23,13 @@ Dump.prototype.dump = function (val, opts, wrap, decodeString) {
   // console.log('dump', JSON.stringify(val))
   var type = this.getType(val)
   var method = 'dump' + type.ucfirst()
-  var k
-  var absAttribs = {}
   var optsDefault = {
     addQuotes: true,
     sanitize: true,
     visualWhiteSpace: true
+  }
+  valAttribs = {
+    class: []
   }
   if (opts === undefined || opts === true) {
     opts = []
@@ -34,38 +37,50 @@ Dump.prototype.dump = function (val, opts, wrap, decodeString) {
   if (wrap === undefined) {
     wrap = true
   }
-  argStringOpts = $.extend(optsDefault, opts)
+  valOpts = $.extend(optsDefault, opts)
   $span = $('<span />')
-  if (typeMore === 'abstraction') {
-    for (k in argStringOpts) {
-      if (val[k] !== undefined) {
-        argStringOpts[k] = val[k]
-      }
-    }
-    absAttribs = val.attribs || {}
-    if (['string', 'bool', 'float', 'int', 'null'].indexOf(type) >= 0) {
-      val = this[method](val.value, val)
-    } else {
-      val = this[method](val)
-    }
-  } else {
-    val = this[method](val)
-  }
+  val = typeMore === 'abstraction'
+    ? this.dumpAbstraction(val)
+    : this[method](val)
   if (wrap) {
-    if (absAttribs.class) {
-      $span.addClass(absAttribs.class)
-      delete absAttribs.class
+    if (valAttribs.class && valAttribs.class.length) {
+      // console.warn('valAttribs', JSON.stringify(valAttribs))
+      $span.addClass(valAttribs.class)
+      delete valAttribs.class
     }
-    $span.attr(absAttribs)
+    $span.attr(valAttribs)
     val = $span.addClass('t_' + type).html(val)[0].outerHTML
   }
   $span = $('<span />')
   return val
 }
 
-Dump.prototype.dumpBool = function (val) {
-  $span.addClass(typeMore)
-  return val ? 'true' : 'false'
+Dump.prototype.dumpAbstraction = function (abs) {
+  var k
+  var method = 'dump' + abs.type.ucfirst()
+  var simpleTypes = [
+    'array',
+    'bool',
+    'float',
+    'int',
+    'null',
+    'string'
+  ]
+  // var method = 'dump' + abs.type.ucfirst()
+  for (k in valOpts) {
+    if (abs[k] !== undefined) {
+      valOpts[k] = abs[k]
+    }
+  }
+  valAttribs = abs.attribs || { class: [] }
+  if (abs.options) {
+    $.extend(valOpts, abs.options)
+  }
+  if (simpleTypes.indexOf(abs.type) > -1) {
+    typeMore = abs.typeMore // likely null
+    return this[method](abs.value, abs)
+  }
+  return this[method](abs)
 }
 
 Dump.prototype.dumpArray = function (array) {
@@ -74,27 +89,45 @@ Dump.prototype.dumpArray = function (array) {
   var length = keys.length
   var key
   var i
+  var opts = $.extend({
+    asFileTree: false,
+    expand: null,
+    showListKeys: true
+  }, valOpts)
+  // console.log('array', JSON.parse(JSON.stringify(array)))
+  if (opts.expand !== null) {
+    valAttribs['data-expand'] = opts.expand
+  }
+  if (opts.asFileTree) {
+    valAttribs.class.push('array-file-tree')
+  }
   if (length === 0) {
-    html = '<span class="t_keyword">array</span>' +
+    return '<span class="t_keyword">array</span>' +
         '<span class="t_punct">(</span>\n' +
         '<span class="t_punct">)</span>'
-  } else {
-    delete array.__debug_key_order__
-    html = '<span class="t_keyword">array</span>' +
-      '<span class="t_punct">(</span>\n' +
-      '<ul class="array-inner list-unstyled">\n'
-    for (i = 0; i < length; i++) {
-      key = keys[i]
-      html += '\t<li>' +
-          '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
-          '<span class="t_operator">=&gt;</span>' +
-          this.dump(array[key], true) +
-        '</li>\n'
-    }
-    html += '</ul>' +
-      '<span class="t_punct">)</span>'
   }
+  delete array.__debug_key_order__
+  valAttribsStack.push(valAttribs)
+  html = '<span class="t_keyword">array</span>' +
+    '<span class="t_punct">(</span>\n' +
+    '<ul class="array-inner list-unstyled">\n'
+  for (i = 0; i < length; i++) {
+    key = keys[i]
+    html += '\t<li>' +
+        '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
+        '<span class="t_operator">=&gt;</span>' +
+        this.dump(array[key], true) +
+      '</li>\n'
+  }
+  html += '</ul>' +
+    '<span class="t_punct">)</span>'
+  valAttribs = valAttribsStack.pop()
   return html
+}
+
+Dump.prototype.dumpBool = function (val) {
+  $span.addClass(typeMore)
+  return val ? 'true' : 'false'
 }
 
 Dump.prototype.dumpCallable = function (abs) {
@@ -130,11 +163,14 @@ Dump.prototype.dumpNull = function () {
 }
 
 Dump.prototype.dumpObject = function (abs) {
-  var val = this.objectDumper.dumpObject(abs)
+  var val
+  valAttribsStack.push(valAttribs)
+  val = this.objectDumper.dumpObject(abs)
   $span.attr('data-accessible', abs.scopeClass === abs.className
     ? 'private'
     : 'public'
   )
+  valAttribs = valAttribsStack.pop()
   return val
 }
 
@@ -161,7 +197,7 @@ Dump.prototype.dumpString = function (val, abs) {
       ? new Uint8Array(base64.decode(val.substr(6)))
       : strDump.encodeUTF16toUTF8(val)
     // console.log('bytes', bytes)
-    if (argStringOpts.sanitize) {
+    if (valOpts.sanitize) {
       val = strDump.dump(bytes, true)
     } else {
       val = strDump.dump(bytes, false)
@@ -169,11 +205,11 @@ Dump.prototype.dumpString = function (val, abs) {
     if (abs && abs.strlen) {
       val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>'
     }
-    if (argStringOpts.visualWhiteSpace) {
+    if (valOpts.visualWhiteSpace) {
       val = visualWhiteSpace(val)
     }
   }
-  if (!argStringOpts.addQuotes) {
+  if (!valOpts.addQuotes) {
     $span.addClass('no-quotes')
   }
   return val

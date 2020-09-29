@@ -13,7 +13,7 @@ export function getNodeInfo (meta) {
   var info
   if ($container.length) {
     $debug = $container.find('.debug')
-    $tab = getTabPane($container, channelNameTop)
+    $tab = getTabPane($container, channelNameTop, meta)
     $node = $tab.data('nodes').slice(-1)[0]
   } else {
     // create
@@ -30,7 +30,7 @@ export function getNodeInfo (meta) {
         '<div class="bg-white card-body collapse debug debug-enhanced-ui">' +
           '<header class="debug-menu-bar hide">' +
             '<nav role="tablist">' +
-              '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
+              '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab"><i class="fa fa-list-ul"></i>Log</a>' +
             '</nav>' +
           '</header>' +
           '<div class="debug-tabs">' +
@@ -76,22 +76,27 @@ export function getNodeInfo (meta) {
   return info
 }
 
-function getTabPane ($container, channelNameTop) {
+function getTabPane ($container, channelNameTop, meta) {
   // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
   var classname = nameToClassname(channelNameTop)
   var $tabPane = $container.find('.debug-tabs > .' + classname)
+  var $link
   if ($tabPane.length) {
     return $tabPane
   }
   // add tab
+  $link = $('<a>', {
+    class: 'nav-link',
+    'data-target': '.' + classname,
+    'data-toggle': 'tab',
+    role: 'tab',
+    html: channelNameTop
+  })
+  if (meta.channelIcon) {
+    $link.prepend(meta.channelIcon)
+  }
   $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
-    $('<a>', {
-      class: 'nav-link',
-      'data-target': '.' + classname,
-      'data-toggle': 'tab',
-      role: 'tab',
-      html: channelNameTop
-    })
+    $link
   )
   $tabPane = $('<div>', {
     class: 'tab-pane ' + classname,
@@ -282,7 +287,7 @@ function addChannel (info, meta) {
 }
 
 function nameToClassname (name) {
-  return 'debug-tab-' + name.toLowerCase().replace(/\W+/, '-')
+  return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
 }
 
 function haveChannel (channelName, channels) {

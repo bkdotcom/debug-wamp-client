@@ -170,7 +170,7 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
   }
   html = '<dt class="properties">' + label + '</dt>'
   html += magicMethodInfo(abs, ['__get', '__set'])
-  $.each(properties, function (k, info) {
+  $.each(properties, function (name, info) {
     // console.info('property info', info)
     var $dd
     var isPrivateAncestor = $.inArray('private', info.visibility) >= 0 && info.inheritedFrom
@@ -182,6 +182,7 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
       excluded: info.isExcluded,
       'private-ancestor': info.isPrivateAncestor
     }
+    name = name.replace('debug.', '')
     if (typeof info.visibility !== 'object') {
       info.visibility = [info.visibility]
     }
@@ -207,7 +208,7 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
           ? ' title="' + info.desc.escapeHtml() + '"'
           : ''
         ) +
-        '>' + k + '</span>' +
+        '>' + name + '</span>' +
       (info.value !== self.dump.UNDEFINED
         ? ' <span class="t_operator">=</span> ' +
           self.dump.dump(info.value)

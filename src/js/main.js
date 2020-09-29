@@ -1515,7 +1515,7 @@
     }
     html = '<dt class="properties">' + label + '</dt>';
     html += magicMethodInfo(abs, ['__get', '__set']);
-    $.each(properties, function (k, info) {
+    $.each(properties, function (name, info) {
       // console.info('property info', info)
       var $dd;
       var isPrivateAncestor = $.inArray('private', info.visibility) >= 0 && info.inheritedFrom;
@@ -1527,6 +1527,7 @@
         excluded: info.isExcluded,
         'private-ancestor': info.isPrivateAncestor
       };
+      name = name.replace('debug.', '');
       if (typeof info.visibility !== 'object') {
         info.visibility = [info.visibility];
       }
@@ -1552,7 +1553,7 @@
             ? ' title="' + info.desc.escapeHtml() + '"'
             : ''
           ) +
-          '>' + k + '</span>' +
+          '>' + name + '</span>' +
         (info.value !== self.dump.UNDEFINED
           ? ' <span class="t_operator">=</span> ' +
             self.dump.dump(info.value)
@@ -1683,7 +1684,9 @@
   var strDump = new StrDump();
   var typeMore = null;
   var $span;
-  var argStringOpts = {};
+  var valAttribs = {};
+  var valAttribsStack = [];
+  var valOpts = {}; // per-value options
 
   var Dump = function () {
     this.objectDumper = new DumpObject(this);
@@ -1698,12 +1701,13 @@
     // console.log('dump', JSON.stringify(val))
     var type = this.getType(val);
     var method = 'dump' + type.ucfirst();
-    var k;
-    var absAttribs = {};
     var optsDefault = {
       addQuotes: true,
       sanitize: true,
       visualWhiteSpace: true
+    };
+    valAttribs = {
+      class: []
     };
     if (opts === undefined || opts === true) {
       opts = [];
@@ -1711,38 +1715,50 @@
     if (wrap === undefined) {
       wrap = true;
     }
-    argStringOpts = $.extend(optsDefault, opts);
+    valOpts = $.extend(optsDefault, opts);
     $span = $('<span />');
-    if (typeMore === 'abstraction') {
-      for (k in argStringOpts) {
-        if (val[k] !== undefined) {
-          argStringOpts[k] = val[k];
-        }
-      }
-      absAttribs = val.attribs || {};
-      if (['string', 'bool', 'float', 'int', 'null'].indexOf(type) >= 0) {
-        val = this[method](val.value, val);
-      } else {
-        val = this[method](val);
-      }
-    } else {
-      val = this[method](val);
-    }
+    val = typeMore === 'abstraction'
+      ? this.dumpAbstraction(val)
+      : this[method](val);
     if (wrap) {
-      if (absAttribs.class) {
-        $span.addClass(absAttribs.class);
-        delete absAttribs.class;
+      if (valAttribs.class && valAttribs.class.length) {
+        // console.warn('valAttribs', JSON.stringify(valAttribs))
+        $span.addClass(valAttribs.class);
+        delete valAttribs.class;
       }
-      $span.attr(absAttribs);
+      $span.attr(valAttribs);
       val = $span.addClass('t_' + type).html(val)[0].outerHTML;
     }
     $span = $('<span />');
     return val
   };
 
-  Dump.prototype.dumpBool = function (val) {
-    $span.addClass(typeMore);
-    return val ? 'true' : 'false'
+  Dump.prototype.dumpAbstraction = function (abs) {
+    var k;
+    var method = 'dump' + abs.type.ucfirst();
+    var simpleTypes = [
+      'array',
+      'bool',
+      'float',
+      'int',
+      'null',
+      'string'
+    ];
+    // var method = 'dump' + abs.type.ucfirst()
+    for (k in valOpts) {
+      if (abs[k] !== undefined) {
+        valOpts[k] = abs[k];
+      }
+    }
+    valAttribs = abs.attribs || { class: [] };
+    if (abs.options) {
+      $.extend(valOpts, abs.options);
+    }
+    if (simpleTypes.indexOf(abs.type) > -1) {
+      typeMore = abs.typeMore; // likely null
+      return this[method](abs.value, abs)
+    }
+    return this[method](abs)
   };
 
   Dump.prototype.dumpArray = function (array) {
@@ -1751,27 +1767,45 @@
     var length = keys.length;
     var key;
     var i;
-    if (length === 0) {
-      html = '<span class="t_keyword">array</span>' +
-          '<span class="t_punct">(</span>\n' +
-          '<span class="t_punct">)</span>';
-    } else {
-      delete array.__debug_key_order__;
-      html = '<span class="t_keyword">array</span>' +
-        '<span class="t_punct">(</span>\n' +
-        '<ul class="array-inner list-unstyled">\n';
-      for (i = 0; i < length; i++) {
-        key = keys[i];
-        html += '\t<li>' +
-            '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
-            '<span class="t_operator">=&gt;</span>' +
-            this.dump(array[key], true) +
-          '</li>\n';
-      }
-      html += '</ul>' +
-        '<span class="t_punct">)</span>';
+    var opts = $.extend({
+      asFileTree: false,
+      expand: null,
+      showListKeys: true
+    }, valOpts);
+    // console.log('array', JSON.parse(JSON.stringify(array)))
+    if (opts.expand !== null) {
+      valAttribs['data-expand'] = opts.expand;
     }
+    if (opts.asFileTree) {
+      valAttribs.class.push('array-file-tree');
+    }
+    if (length === 0) {
+      return '<span class="t_keyword">array</span>' +
+          '<span class="t_punct">(</span>\n' +
+          '<span class="t_punct">)</span>'
+    }
+    delete array.__debug_key_order__;
+    valAttribsStack.push(valAttribs);
+    html = '<span class="t_keyword">array</span>' +
+      '<span class="t_punct">(</span>\n' +
+      '<ul class="array-inner list-unstyled">\n';
+    for (i = 0; i < length; i++) {
+      key = keys[i];
+      html += '\t<li>' +
+          '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
+          '<span class="t_operator">=&gt;</span>' +
+          this.dump(array[key], true) +
+        '</li>\n';
+    }
+    html += '</ul>' +
+      '<span class="t_punct">)</span>';
+    valAttribs = valAttribsStack.pop();
     return html
+  };
+
+  Dump.prototype.dumpBool = function (val) {
+    $span.addClass(typeMore);
+    return val ? 'true' : 'false'
   };
 
   Dump.prototype.dumpCallable = function (abs) {
@@ -1807,11 +1841,14 @@
   };
 
   Dump.prototype.dumpObject = function (abs) {
-    var val = this.objectDumper.dumpObject(abs);
+    var val;
+    valAttribsStack.push(valAttribs);
+    val = this.objectDumper.dumpObject(abs);
     $span.attr('data-accessible', abs.scopeClass === abs.className
       ? 'private'
       : 'public'
     );
+    valAttribs = valAttribsStack.pop();
     return val
   };
 
@@ -1838,7 +1875,7 @@
         ? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
         : strDump.encodeUTF16toUTF8(val);
       // console.log('bytes', bytes)
-      if (argStringOpts.sanitize) {
+      if (valOpts.sanitize) {
         val = strDump.dump(bytes, true);
       } else {
         val = strDump.dump(bytes, false);
@@ -1846,11 +1883,11 @@
       if (abs && abs.strlen) {
         val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
       }
-      if (argStringOpts.visualWhiteSpace) {
+      if (valOpts.visualWhiteSpace) {
         val = visualWhiteSpace(val);
       }
     }
-    if (!argStringOpts.addQuotes) {
+    if (!valOpts.addQuotes) {
       $span.addClass('no-quotes');
     }
     return val
@@ -2616,7 +2653,7 @@
     var info;
     if ($container.length) {
       $debug = $container.find('.debug');
-      $tab = getTabPane($container, channelNameTop);
+      $tab = getTabPane($container, channelNameTop, meta);
       $node = $tab.data('nodes').slice(-1)[0];
     } else {
       // create
@@ -2633,7 +2670,7 @@
           '<div class="bg-white card-body collapse debug debug-enhanced-ui">' +
             '<header class="debug-menu-bar hide">' +
               '<nav role="tablist">' +
-                '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab">Log</a>' +
+                '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab"><i class="fa fa-list-ul"></i>Log</a>' +
               '</nav>' +
             '</header>' +
             '<div class="debug-tabs">' +
@@ -2679,22 +2716,27 @@
     return info
   }
 
-  function getTabPane ($container, channelNameTop) {
+  function getTabPane ($container, channelNameTop, meta) {
     // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
     var classname = nameToClassname(channelNameTop);
     var $tabPane = $container.find('.debug-tabs > .' + classname);
+    var $link;
     if ($tabPane.length) {
       return $tabPane
     }
     // add tab
+    $link = $('<a>', {
+      class: 'nav-link',
+      'data-target': '.' + classname,
+      'data-toggle': 'tab',
+      role: 'tab',
+      html: channelNameTop
+    });
+    if (meta.channelIcon) {
+      $link.prepend(meta.channelIcon);
+    }
     $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
-      $('<a>', {
-        class: 'nav-link',
-        'data-target': '.' + classname,
-        'data-toggle': 'tab',
-        role: 'tab',
-        html: channelNameTop
-      })
+      $link
     );
     $tabPane = $('<div>', {
       class: 'tab-pane ' + classname,
@@ -2885,7 +2927,7 @@
   }
 
   function nameToClassname (name) {
-    return 'debug-tab-' + name.toLowerCase().replace(/\W+/, '-')
+    return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
   }
 
   function haveChannel (channelName, channels) {
