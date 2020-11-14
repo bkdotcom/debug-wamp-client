@@ -5,13 +5,14 @@ import { updateCssProperty } from './Css.js'
 var classCollapsed = 'fa-chevron-right'
 var classExpanded = 'fa-chevron-down'
 var timeoutHandler
-var navbarHeight = $('.navbar-collapse').outerHeight()
+var navbarHeight // = $('.navbar-collapse').outerHeight()
 
 export function init (config) {
   updateCssProperty('wampClientCss', '.debug', 'font-size', 'inherit')
   updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'))
 
   configModal.init(config)
+  navbarHeight = $('.navbar-collapse').outerHeight()
 
   $('.clear').on('click', function () {
     $('#body > .card').not('.working').remove()
@@ -37,7 +38,11 @@ export function init (config) {
     var $icon = $(this).closest('.card').find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded)
     $icon.toggleClass(classExpanded + ' ' + classCollapsed)
     if (e.type === 'shown') {
-      $(this).find('.m_groupSummary > .group-body, .debug-log').debugEnhance()
+      // $(this).find('.m_alert, .m_groupSummary > .group-body, .debug-log').debugEnhance()
+      console.group('card shown -> enhance')
+      //  > *:not(.filter-hidden, .enhanced)
+      $(this).find('.m_alert, .group-body:visible').debugEnhance()
+      console.groupEnd()
     }
   })
 
@@ -97,6 +102,7 @@ function onBodyClick (e) {
 }
 
 function positionSidebar (transition) {
+  // var navbarHeight = $('.navbar-collapse').outerHeight()
   var scrollTop = $(window).scrollTop() + navbarHeight
   var windowHeight = $(window).height()
   var $sidebar = $('.debug-sidebar.show')
@@ -137,7 +143,6 @@ function positionSidebar (transition) {
   // $sidebarTab.attr('style', '')
   if (panelOffset < scrollTop) {
     // console.log('top scrolled above view', $sidebar.is('.show'))
-    // if ($sidebar.is('.show')) {
     $sidebar.css({
       position: 'fixed',
       marginTop: 0,

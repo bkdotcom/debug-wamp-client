@@ -93,7 +93,11 @@ function getTabPane ($container, channelNameTop, meta) {
     html: channelNameTop
   })
   if (meta.channelIcon) {
-    $link.prepend(meta.channelIcon)
+    $link.prepend(
+      meta.channelIcon.match('<')
+        ? $(meta.channelIcon)
+        : $('<i>').addClass(meta.channelIcon)
+    )
   }
   $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
     $link

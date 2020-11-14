@@ -44,10 +44,9 @@ Dump.prototype.dump = function (val, opts, wrap, decodeString) {
     : this[method](val)
   if (wrap) {
     if (valAttribs.class && valAttribs.class.length) {
-      // console.warn('valAttribs', JSON.stringify(valAttribs))
       $span.addClass(valAttribs.class)
-      delete valAttribs.class
     }
+    delete valAttribs.class
     $span.attr(valAttribs)
     val = $span.addClass('t_' + type).html(val)[0].outerHTML
   }
@@ -193,7 +192,7 @@ Dump.prototype.dumpString = function (val, abs) {
       $span.addClass('timestamp').attr('title', date)
     }
   } else {
-    bytes = val.indexOf('_b64_:') === 0
+    bytes = val.substr(0, 6) === '_b64_:'
       ? new Uint8Array(base64.decode(val.substr(6)))
       : strDump.encodeUTF16toUTF8(val)
     // console.log('bytes', bytes)

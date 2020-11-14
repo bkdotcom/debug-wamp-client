@@ -161,13 +161,14 @@
   var classCollapsed = 'fa-chevron-right';
   var classExpanded = 'fa-chevron-down';
   var timeoutHandler;
-  var navbarHeight = $('.navbar-collapse').outerHeight();
+  var navbarHeight; // = $('.navbar-collapse').outerHeight()
 
   function init$1 (config) {
     updateCssProperty('wampClientCss', '.debug', 'font-size', 'inherit');
     updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'));
 
     init(config);
+    navbarHeight = $('.navbar-collapse').outerHeight();
 
     $('.clear').on('click', function () {
       $('#body > .card').not('.working').remove();
@@ -193,7 +194,11 @@
       var $icon = $(this).closest('.card').find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded);
       $icon.toggleClass(classExpanded + ' ' + classCollapsed);
       if (e.type === 'shown') {
-        $(this).find('.m_groupSummary > .group-body, .debug-log').debugEnhance();
+        // $(this).find('.m_alert, .m_groupSummary > .group-body, .debug-log').debugEnhance()
+        console.group('card shown -> enhance');
+        //  > *:not(.filter-hidden, .enhanced)
+        $(this).find('.m_alert, .group-body:visible').debugEnhance();
+        console.groupEnd();
       }
     });
 
@@ -253,6 +258,7 @@
   }
 
   function positionSidebar (transition) {
+    // var navbarHeight = $('.navbar-collapse').outerHeight()
     var scrollTop = $(window).scrollTop() + navbarHeight;
     var windowHeight = $(window).height();
     var $sidebar = $('.debug-sidebar.show');
@@ -293,7 +299,6 @@
     // $sidebarTab.attr('style', '')
     if (panelOffset < scrollTop) {
       // console.log('top scrolled above view', $sidebar.is('.show'))
-      // if ($sidebar.is('.show')) {
       $sidebar.css({
         position: 'fixed',
         marginTop: 0,
@@ -364,7 +369,9 @@
     }
     meta = $.extend({
       caption: '',
-      columns: []
+      columns: [],
+      columnNames: {},
+      safeKeys: false
     }, meta);
     if (meta.caption === null) {
       meta.caption = '';
@@ -411,6 +418,9 @@
         rows = propsNew;
       }
     }
+    if (meta.safeKeys) {
+      rows = unsafeKeys(rows);
+    }
     colKeys = meta.columns.length ? meta.columns : this.getTableKeys(rows);
     // remove __key if it's a thing
     i = colKeys.indexOf('__key');
@@ -424,6 +434,36 @@
     addRowObjInfo();
     return $table
   };
+
+  function unsafeKeys (rows) {
+    var k;
+    var k2;
+    var row;
+    var rowNew;
+    var rowsNew = {};
+    var val;
+    for (k in rows) {
+      row = rows[k];
+      rowNew = {};
+      if (typeof row === 'object') {
+        for (k2 in row) {
+          val = row[k2];
+          console.log('k2', k2, val);
+          if (k2.substr(0, 6) === '_b64_:') {
+            k2 = base64.decode(k2.substr(6));
+          }
+          rowNew[k2] = val;
+        }
+      } else {
+        rowNew = row;
+      }
+      if (k.substr(0, 6) === '_b64_:') {
+        k = base64.decode(k.substr(6));
+      }
+      rowsNew[k] = rowNew;
+    }
+    return rowsNew
+  }
 
   Table.prototype.buildHead = function () {
     var i;
@@ -1722,10 +1762,9 @@
       : this[method](val);
     if (wrap) {
       if (valAttribs.class && valAttribs.class.length) {
-        // console.warn('valAttribs', JSON.stringify(valAttribs))
         $span.addClass(valAttribs.class);
-        delete valAttribs.class;
       }
+      delete valAttribs.class;
       $span.attr(valAttribs);
       val = $span.addClass('t_' + type).html(val)[0].outerHTML;
     }
@@ -1871,7 +1910,7 @@
         $span.addClass('timestamp').attr('title', date);
       }
     } else {
-      bytes = val.indexOf('_b64_:') === 0
+      bytes = val.substr(0, 6) === '_b64_:'
         ? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
         : strDump.encodeUTF16toUTF8(val);
       // console.log('bytes', bytes)
@@ -2035,7 +2074,14 @@
   var methods = {
     alert: function (logEntry, info) {
       // console.log('logEntry', logEntry)
-      var message = logEntry.args[0];
+      var message = dump.dump(
+        logEntry.args[0],
+        {
+          sanitize: logEntry.meta.sanitizeFirst !== false,
+          visualWhiteSpace: false
+        },
+        false // don't wrap in span
+      );
       var level = logEntry.meta.level || logEntry.meta.class;
       var dismissible = logEntry.meta.dismissible;
       var $node = $('<div class="m_alert"></div>').addClass('alert-' + level)
@@ -2166,7 +2212,7 @@
     },
     group: function (logEntry, info) {
       var $group = $('<li>', {
-        class: 'm_group empty'
+        class: 'empty expanded m_group'
       });
       var $groupHeader = groupHeader(logEntry);
       var $groupBody = $('<ul>', {
@@ -2193,7 +2239,7 @@
       return $group
     },
     groupCollapsed: function (logEntry, info) {
-      return this.group(logEntry, info)
+      return this.group(logEntry, info).removeClass('expanded')
     },
     groupSummary: function (logEntry, info) {
       // see if priority already exists
@@ -2263,8 +2309,8 @@
       }
     },
     groupUncollapse: function (logEntry, info) {
-      var $toggleNodes = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).prev();
-      $toggleNodes.removeClass('collapsed').addClass('expanded');
+      var $groups = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).filter('.m_group');
+      $groups.addClass('expanded');
     },
     meta: function (logEntry, info) {
       /*
@@ -2278,7 +2324,7 @@
       info.$container.data('options', {
         drawer: meta.drawer
       });
-      // info.$container.find('.card-header .card-header-body .pull-right').remove()
+      // info.$container.find('.card-header .card-header-body .float-right').remove()
       if (meta.interface) {
         info.$container.find('.card-header').attr('data-interface', meta.interface);
       }
@@ -2298,7 +2344,7 @@
         var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '');
         info.$container
           .find('.card-header .card-header-body')
-          .prepend('<span class="pull-right">' + date + '</span>');
+          .prepend('<span class="float-right">' + date + '</span>');
       }
     },
     profileEnd: function (logEntry, info) {
@@ -2385,6 +2431,9 @@
           }
           // $container.removeClass('bg-default')
         }
+      }
+      if (meta.uncollapse === false) {
+        attribs['data-uncollapse'] = 'false';
       }
       if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
         processSubstitutions(logEntry);
@@ -2519,9 +2568,6 @@
     var argsAsParams = typeof logEntry.meta.argsAsParams !== 'undefined'
       ? logEntry.meta.argsAsParams
       : true;
-    var collapsedClass = logEntry.method === 'groupCollapsed'
-      ? 'collapsed'
-      : 'expanded';
     var label = logEntry.args.shift();
     for (i = 0; i < logEntry.args.length; i++) {
       logEntry.args[i] = dump.dump(logEntry.args[i]);
@@ -2540,7 +2586,7 @@
         argStr;
       argStr = argStr.replace(/:<\/span> $/, '</span>');
     }
-    $header = $('<div class="group-header ' + collapsedClass + '">' +
+    $header = $('<div class="group-header">' +
       argStr +
       '</div>');
     if (typeof logEntry.meta.boldLabel === 'undefined' || logEntry.meta.boldLabel) {
@@ -2733,7 +2779,11 @@
       html: channelNameTop
     });
     if (meta.channelIcon) {
-      $link.prepend(meta.channelIcon);
+      $link.prepend(
+        meta.channelIcon.match('<')
+          ? $(meta.channelIcon)
+          : $('<i>').addClass(meta.channelIcon)
+      );
     }
     $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
       $link

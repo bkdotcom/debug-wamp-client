@@ -18,12 +18,15 @@ Table.prototype.build = function (rows, meta, classname, onBuildRow) {
   var propsNew = {}
   var property
   var $caption
+  var rowsTemp
   if (classname === undefined) {
     classname = 'table-bordered'
   }
   meta = $.extend({
     caption: '',
-    columns: []
+    columns: [],
+    columnNames: {},
+    safeKeys: false
   }, meta)
   if (meta.caption === null) {
     meta.caption = ''
@@ -70,6 +73,9 @@ Table.prototype.build = function (rows, meta, classname, onBuildRow) {
       rows = propsNew
     }
   }
+  if (meta.safeKeys) {
+    rows = unsafeKeys(rows)
+  }
   colKeys = meta.columns.length ? meta.columns : this.getTableKeys(rows)
   // remove __key if it's a thing
   i = colKeys.indexOf('__key')
@@ -82,6 +88,36 @@ Table.prototype.build = function (rows, meta, classname, onBuildRow) {
   this.addColObjInfo()
   addRowObjInfo()
   return $table
+}
+
+function unsafeKeys (rows) {
+  var k
+  var k2
+  var row
+  var rowNew
+  var rowsNew = {}
+  var val
+  for (k in rows) {
+    row = rows[k]
+    rowNew = {}
+    if (typeof row === 'object') {
+      for (k2 in row) {
+        val = row[k2]
+        console.log('k2', k2, val)
+        if (k2.substr(0, 6) === '_b64_:') {
+          k2 = base64.decode(k2.substr(6))
+        }
+        rowNew[k2] = val
+      }
+    } else {
+      rowNew = row
+    }
+    if (k.substr(0, 6) === '_b64_:') {
+      k = base64.decode(k.substr(6))
+    }
+    rowsNew[k] = rowNew
+  }
+  return rowsNew
 }
 
 Table.prototype.buildHead = function () {

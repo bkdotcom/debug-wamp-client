@@ -8,7 +8,14 @@ var table = new Table(dump)
 export var methods = {
   alert: function (logEntry, info) {
     // console.log('logEntry', logEntry)
-    var message = logEntry.args[0]
+    var message = dump.dump(
+      logEntry.args[0],
+      {
+        sanitize: logEntry.meta.sanitizeFirst !== false,
+        visualWhiteSpace: false
+      },
+      false // don't wrap in span
+    )
     var level = logEntry.meta.level || logEntry.meta.class
     var dismissible = logEntry.meta.dismissible
     var $node = $('<div class="m_alert"></div>').addClass('alert-' + level)
@@ -139,7 +146,7 @@ export var methods = {
   },
   group: function (logEntry, info) {
     var $group = $('<li>', {
-      class: 'm_group empty'
+      class: 'empty expanded m_group'
     })
     var $groupHeader = groupHeader(logEntry)
     var $groupBody = $('<ul>', {
@@ -166,7 +173,7 @@ export var methods = {
     return $group
   },
   groupCollapsed: function (logEntry, info) {
-    return this.group(logEntry, info)
+    return this.group(logEntry, info).removeClass('expanded')
   },
   groupSummary: function (logEntry, info) {
     // see if priority already exists
@@ -239,8 +246,8 @@ export var methods = {
     }
   },
   groupUncollapse: function (logEntry, info) {
-    var $toggleNodes = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).prev()
-    $toggleNodes.removeClass('collapsed').addClass('expanded')
+    var $groups = info.$node.parentsUntil('.debug-log-summary, .debug-log').add(info.$node).filter('.m_group')
+    $groups.addClass('expanded')
   },
   meta: function (logEntry, info) {
     /*
@@ -254,7 +261,7 @@ export var methods = {
     info.$container.data('options', {
       drawer: meta.drawer
     })
-    // info.$container.find('.card-header .card-header-body .pull-right').remove()
+    // info.$container.find('.card-header .card-header-body .float-right').remove()
     if (meta.interface) {
       info.$container.find('.card-header').attr('data-interface', meta.interface)
     }
@@ -274,7 +281,7 @@ export var methods = {
       var date = (new Date(metaVals.REQUEST_TIME * 1000)).toString().replace(/[A-Z]{3}-\d+/, '')
       info.$container
         .find('.card-header .card-header-body')
-        .prepend('<span class="pull-right">' + date + '</span>')
+        .prepend('<span class="float-right">' + date + '</span>')
     }
   },
   profileEnd: function (logEntry, info) {
@@ -361,6 +368,9 @@ export var methods = {
         }
         // $container.removeClass('bg-default')
       }
+    }
+    if (meta.uncollapse === false) {
+      attribs['data-uncollapse'] = 'false';
     }
     if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
       processSubstitutions(logEntry)
@@ -495,9 +505,6 @@ function groupHeader (logEntry) {
   var argsAsParams = typeof logEntry.meta.argsAsParams !== 'undefined'
     ? logEntry.meta.argsAsParams
     : true
-  var collapsedClass = logEntry.method === 'groupCollapsed'
-    ? 'collapsed'
-    : 'expanded'
   var label = logEntry.args.shift()
   for (i = 0; i < logEntry.args.length; i++) {
     logEntry.args[i] = dump.dump(logEntry.args[i])
@@ -516,7 +523,7 @@ function groupHeader (logEntry) {
       argStr
     argStr = argStr.replace(/:<\/span> $/, '</span>')
   }
-  $header = $('<div class="group-header ' + collapsedClass + '">' +
+  $header = $('<div class="group-header">' +
     argStr +
     '</div>')
   if (typeof logEntry.meta.boldLabel === 'undefined' || logEntry.meta.boldLabel) {
