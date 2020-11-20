@@ -19,7 +19,7 @@ Dump.prototype.NOT_INSPECTED = '\x00notInspected\x00'.parseHex()
 Dump.prototype.RECURSION = '\x00recursion\x00'.parseHex()
 Dump.prototype.UNDEFINED = '\x00undefined\x00'.parseHex()
 
-Dump.prototype.dump = function (val, opts, wrap, decodeString) {
+Dump.prototype.dump = function (val, opts, wrap) {
   // console.log('dump', JSON.stringify(val))
   var type = this.getType(val)
   var method = 'dump' + type.ucfirst()

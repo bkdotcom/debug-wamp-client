@@ -346,44 +346,27 @@
     */
   }
 
-  var colKeys = [];
-  var colClasses = {};
-  var rowObjInfo = [];
-  var totals = {};
   var $table;
 
   function Table (dump) {
     this.dump = dump;
   }
 
-  Table.prototype.build = function (rows, meta, classname, onBuildRow) {
+  Table.prototype.build = function (rows, meta, onBuildRow) {
     // console.warn('Table.build', meta, classname)
-    var i;
-    var length;
-    var propName;
-    var propsNew = {};
-    var property;
-    var $caption;
-    if (classname === undefined) {
-      classname = 'table-bordered';
-    }
     meta = $.extend({
+      attribs: {
+        class: [
+          'table-bordered',
+          meta.sortable ? 'sortable' : null,
+          meta.inclContext ? 'trace-context' : null
+        ]
+      },
       caption: '',
-      columns: [],
-      columnNames: {},
-      safeKeys: false
+      tableInfo: {}
     }, meta);
     if (meta.caption === null) {
       meta.caption = '';
-    }
-    colKeys = [];
-    colClasses = {};
-    rowObjInfo = [];
-    totals = {};
-    if (meta.totalCols) {
-      for (i = 0, length = meta.totalCols.length; i < length; i++) {
-        totals[meta.totalCols[i]] = null;
-      }
     }
     $table = $('<table>' +
       '<caption>' + meta.caption.escapeHtml() + '</caption>' +
@@ -391,200 +374,131 @@
       '<tbody></tbody>' +
       '</table>'
     )
-      .addClass(classname);
-    if (this.isAbstraction(rows)) {
-      if (rows.type === 'object') {
-        // reusing classname var
-        classname = this.dump.markupIdentifier(rows.className, {
-          title: rows.phpDoc.summary
-        });
-        $caption = $table.find('caption');
-        if ($caption.text().length) {
-          $caption.append(' (' + classname + ')');
-        } else {
-          $caption.html(classname);
-        }
-      }
-      if (Object.keys(rows.traverseValues).length) {
-        rows = rows.traverseValues;
-      } else {
-        for (propName in rows.properties) {
-          property = rows.properties[propName];
-          if (['private', 'protected'].indexOf(property.visibility) > -1) {
-            continue
-          }
-          propsNew[propName] = property.value;
-        }
-        rows = propsNew;
-      }
-    }
-    if (meta.safeKeys) {
-      rows = unsafeKeys(rows);
-    }
-    colKeys = meta.columns.length ? meta.columns : this.getTableKeys(rows);
-    // remove __key if it's a thing
-    i = colKeys.indexOf('__key');
-    if (i > -1) {
-      colKeys.splice(i, 1);
-    }
-    this.buildHead();
-    this.buildBody(rows, meta, onBuildRow);
-    this.addTotals();
-    this.addColObjInfo();
-    addRowObjInfo();
+      .addClass(meta.attribs.class.join(' '));
+    this.buildHeader(meta.tableInfo);
+    this.buildBody(rows, meta.tableInfo, onBuildRow);
+    this.buildFooter(meta.tableInfo);
     return $table
   };
 
+  /*
   function unsafeKeys (rows) {
-    var k;
-    var k2;
-    var row;
-    var rowNew;
-    var rowsNew = {};
-    var val;
+    var k
+    var k2
+    var row
+    var rowNew
+    var rowsNew = {}
+    var val
     for (k in rows) {
-      row = rows[k];
-      rowNew = {};
+      row = rows[k]
+      rowNew = {}
       if (typeof row === 'object') {
         for (k2 in row) {
-          val = row[k2];
-          console.log('k2', k2, val);
+          val = row[k2]
+          console.log('k2', k2, val)
           if (k2.substr(0, 6) === '_b64_:') {
-            k2 = base64.decode(k2.substr(6));
+            k2 = base64.decode(k2.substr(6))
           }
-          rowNew[k2] = val;
+          rowNew[k2] = val
         }
       } else {
-        rowNew = row;
+        rowNew = row
       }
       if (k.substr(0, 6) === '_b64_:') {
-        k = base64.decode(k.substr(6));
+        k = base64.decode(k.substr(6))
       }
-      rowsNew[k] = rowNew;
+      rowsNew[k] = rowNew
     }
     return rowsNew
   }
+  */
 
-  Table.prototype.buildHead = function () {
-    var i;
-    var length;
-    var colKey;
-    var $theadTr = $table.find('thead tr');
-    for (i = 0, length = colKeys.length; i < length; i++) {
-      colKey = colKeys[i];
-      if (colKey === '') {
-        colKey = 'value';
-      }
-      colClasses[colKey] = null; // initialize
-      $theadTr.append(
-        '<th scope="col">' + this.dump.dump(colKey, true, false, false) + '</th>'
-      );
-    }
-  };
-
-  Table.prototype.buildBody = function (rows, meta, onBuildRow) {
+  Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     var i;
     var length;
     var i2;
     var length2;
-    var classAndInner;
-    var classname;
-    var rowKeys = [];
+    var parsed;
+    var rowKeys = rows.__debug_key_order__ || Object.keys(rows);
     var rowKey;
+    var key;
     var row;
+    var rowInfo;
     var $tbody = $table.find('> tbody');
     var $tr;
-    var values;
-    rowKeys = rows.__debug_key_order__ || Object.keys(rows);
     delete rows.__debug_key_order__;
     for (i = 0, length = rowKeys.length; i < length; i++) {
       rowKey = rowKeys[i];
       row = rows[rowKey];
-      if (row.__key) {
-        rowKey = row.__key;
+      rowInfo = typeof tableInfo.rows[rowKey] !== 'undefined'
+        ? tableInfo.rows[rowKey]
+        : {};
+      if (rowInfo.key) {
+        rowKey = rowInfo.key;
       }
       // using for in, so every key will be a string
       //  check if actually an integer
       if (typeof rowKey === 'string' && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
         rowKey = parseInt(rowKey, 10);
       }
-      classAndInner = parseAttribString(this.dump.dump(rowKey, true, true, false));
-      classname = /^\d+$/.test(rowKey) ? 't_int' : classAndInner.class;
-      $tr = $('<tr><th scope="row" class="t_key ' + classname + ' text-right">' + classAndInner.innerhtml + '</th></tr>');
-      values = this.getValues(row);
-      for (i2 = 0, length2 = values.length; i2 < length2; i2++) {
-        if (totals[colKeys[i2]] !== undefined) {
-          totals[colKeys[i2]] += values[i2];
-        }
-        classAndInner = parseAttribString(this.dump.dump(values[i2], true));
-        $tr.append('<td class="' + classAndInner.class + '">' + classAndInner.innerhtml + '</td>');
+      parsed = parseTag(this.dump.dump(rowKey, true, true, false));
+      $tr = $('<tr></tr>')
+        .append(
+          $('<th scope="row" class="t_key text-right"></th>')
+            .addClass(/^\d+$/.test(rowKey) ? 't_int' : parsed.attribs.class)
+            .html(parsed.innerhtml)
+        );
+
+      if (tableInfo.haveObjRow) {
+        $tr.append(
+          rowInfo.class
+            ? $(this.dump.markupIdentifier(rowInfo.class, {}, 'td'))
+              .attr('title', rowInfo.summary)
+            : '<td class="t_undefined"></td>'
+        );
+      }
+      for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
+        key = tableInfo.columns[i2].key;
+        parsed = parseTag(this.dump.dump(row[key], true));
+        $tr.append(
+          $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
+        );
       }
       if (onBuildRow) {
-        $tr = onBuildRow($tr, row, rowKey);
+        $tr = onBuildRow($tr, row, rowInfo, rowKey);
       }
       $tbody.append($tr);
     }
   };
 
-  Table.prototype.addColObjInfo = function () {
-    var colKey;
-    var classname;
-    var self = this;
-    for (colKey in colClasses) {
-      if (!colClasses[colKey]) {
-        continue
-      }
-      $table.find('thead tr th').each(function () {
-        if ($(this).text() === colKey) {
-          classname = colClasses[colKey];
-          $(this).append(' ' + self.dump.markupIdentifier(classname));
-          return false
-        }
-      });
-    }
-  };
-
-  function addRowObjInfo () {
-    var i, length, $trs;
-    if (rowObjInfo.filter(function (val) {
-      return val !== null
-    }).length) {
-      $table.find('thead tr > :first-child, tfoot tr > :first-child').after('<th>&nbsp;</th>');
-      $trs = $table.find('tbody > tr');
-      for (i = 0, length = rowObjInfo.length; i < length; i++) {
-        $trs.eq(i).find(':first-child').after(rowObjInfo[i]);
-      }
-    }
-  }
-
   /*
     Add totals (tfoot)
   */
-  Table.prototype.addTotals = function () {
-    var i;
-    var length;
-    var cell = '';
+  Table.prototype.buildFooter = function (tableInfo) {
+    var $cell;
     var cells = [];
-    var classAndInner;
-    var colHasTotal = false;
-    var colKey;
+    var colHasTotal;
     var haveTotal = false;
-    var total;
-    for (i = 0, length = colKeys.length; i < length; i++) {
-      colKey = colKeys[i];
-      colHasTotal = totals[colKey] !== undefined && totals[colKey] !== null;
+    var i;
+    var info;
+    var length = tableInfo.columns.length;
+    var parsed;
+    for (i = 0; i < length; i++) {
+      info = tableInfo.columns[i];
+      colHasTotal = typeof info.total !== 'undefined';
       haveTotal = haveTotal || colHasTotal;
-      cell = '<td></td>';
+      $cell = $('<td></td>');
       if (colHasTotal) {
-        total = parseFloat(totals[colKey].toFixed(6), 10);
-        classAndInner = parseAttribString(this.dump.dump(total, true));
-        cell = '<td class="' + classAndInner.class + '">' + classAndInner.innerhtml + '</td>';
+        info.total = parseFloat(info.total.toFixed(6), 10);
+        parsed = parseTag(this.dump.dump(info.total, true));
+        $cell.html(parsed.innerhtml).attr(parsed.attribs);
       }
-      cells.push(cell);
+      cells.push($cell[0].outerHTML);
     }
     if (haveTotal) {
       $table.append('<tfoot>' +
         '<tr><td>&nbsp;</td>' +
+          (tableInfo.haveObjRow ? '<td>&nbsp;</td>' : '') +
           cells.join('') +
         '</tr>' +
         '</tfoot>'
@@ -592,161 +506,40 @@
     }
   };
 
-  Table.prototype.isAbstraction = function (val) {
-    return val &&
-      typeof val === 'object' &&
-      typeof val.debug === 'string' &&
-      val.debug === this.dump.ABSTRACTION
-  };
-
-  Table.prototype.getTableKeys = function (obj) {
+  Table.prototype.buildHeader = function (tableInfo) {
     var i;
-    var key;
-    var isAbs;
-    var vis;
-    var isPublic = false;
-    var keys = [];
-    var row = {};
-    for (i in obj) {
-      if (i === '__debug_key_order__') {
-        continue
-      }
-      row = obj[i];
-      isAbs = this.isAbstraction(row);
-      if (isAbs) {
-        // abstraction
-        if (row.type === 'object') {
-          if (typeof row.traverseValues !== 'undefined' && Object.keys(row.traverseValues).length) {
-            row = row.traverseValues;
-          } else if (typeof row.values !== 'undefined' && Object.keys(row.values).length) {
-            // pre 2.1
-            row = row.values;
-          } else if (row.stringified && row.stringified.length) {
-            row = null;
-          } else if (typeof row.methods.__toString !== 'undefined') {
-            row = null;
-          } else {
-            row = row.properties;
-            for (key in row) {
-              vis = row[key].visibility;
-              isPublic = typeof vis === 'string'
-                ? vis === 'public'
-                : vis.indexOf('public') > -1;
-              if (!isPublic) {
-                delete row[key];
-              }
-            }
-          }
-        } else {
-          // ie callable or resource
-          row = null;
-        }
-      }
-      if (typeof row !== 'object') {
-        row = { '': null };
-      }
-      for (key in row) {
-        if (keys.indexOf(key) < 0) {
-          keys.push(key);
-        }
-      }
-    }
-    return keys
-  };
-
-  Table.prototype.getValues = function (row) {
-    var isAbs = this.isAbstraction(row);
-    var type = isAbs ? row.type : 'array';
-    var i, k, length;
     var info;
-    var values = [];
-    var value;
-    var vis;
-    var isPublic;
-    var isStringified;
-    var objInfo = null;
-    if (isAbs) {
-      if (type === 'object') {
-        isStringified = (row.stringified && row.stringified.length) || typeof row.methods.__toString !== 'undefined';
-        if (!isStringified && row.className !== 'Closure') {
-          // haveObj = true
-          objInfo = this.dump.markupIdentifier(row.className, {
-            title: row.phpDoc.summary ? row.phpDoc.summary : null
-          }, 'td');
-        }
-        if (typeof row.traverseValues && Object.keys(row.traverseValues).length) {
-          row = row.traverseValues;
-        } else if (typeof row.values !== 'undefined' && Object.keys(row.values).length) {
-          // pre 2.1
-          row = row.values;
-        } else if (row.stringified && row.stringified.length) {
-          row = row.stringified;
-        } else if (typeof row.methods.__toString !== 'undefined') {
-          row = row.methods.__toString.returnValue;
-        } else if (row.className === 'Closure') {
-          row = { '': row };
-        } else {
-          for (k in row.properties) {
-            info = row.properties[k];
-            vis = info.visibility;
-            isPublic = typeof vis === 'string'
-              ? vis === 'public'
-              : vis.indexOf('public') > -1;
-            if (!isPublic) {
-              delete row.properties[k];
-            } else {
-              row.properties[k] = info.value;
-            }
-          }
-          row = row.properties;
-        }
-      } else {
-        row = { '': row };
+    var label;
+    var length = tableInfo.columns.length;
+    var $theadTr = $table.find('thead tr');
+    if (tableInfo.haveObjRow) {
+      $theadTr.append('<th>&nbsp;</th>');
+    }
+    for (i = 0; i < length; i++) {
+      info = tableInfo.columns[i];
+      label = info.key;
+      if (typeof info.class !== 'undefined') {
+        label += ' ' + this.dump.markupIdentifier(info.class);
       }
+      $theadTr.append(
+        '<th scope="col">' + this.dump.dump(label, true, false) + '</th>'
+      );
     }
-    rowObjInfo.push(objInfo);
-    if (row === null || typeof row !== 'object') {
-      row = { '': row };
-    }
-
-    for (i = 0, length = colKeys.length; i < length; i++) {
-      k = colKeys[i];
-      value = typeof row[k] !== 'undefined'
-        ? row[k]
-        : this.dump.UNDEFINED;
-      if (this.dump.getType(value) === 'object') {
-        if (value.stringified && value.stringified.length) {
-          colClasses[k] = colClasses[k] === null || colClasses[k] === value.className
-            ? value.className
-            : false;
-          value = value.stringified;
-        } else if (typeof value.methods.__toString !== 'undefined') {
-          colClasses[k] = colClasses[k] === null || colClasses[k] === value.className
-            ? value.className
-            : false;
-          value = value.methods.__toString.returnValue;
-        }
-      } else if (value !== this.dump.UNDEFINED && value !== null) {
-        colClasses[k] = false;
-      }
-      values.push(value);
-    }
-    return values
   };
 
-  function parseAttribString (html) {
-    // console.log('parseAttribString', html)
-    var regEx = /^<span class="([^"]+)">([^]*)<\/span>$/;
-    var matches = html.match(regEx);
-    return matches
-      ? {
-        class: matches[1],
-        innerhtml: matches[2]
+  function parseTag (html) {
+    var $node = $(html);
+    var parsed = {
+      tag: $node[0].tagName.toLowerCase(),
+      attribs: {},
+      innerhtml: $node[0].innerHTML
+    };
+    $.each($node[0].attributes, function () {
+      if (this.specified) {
+        parsed.attribs[this.name] = this.value;
       }
-      : {
-        class: null,
-        innerhtml: html
-      }
+    });
+    return parsed
   }
 
   var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
@@ -1737,7 +1530,7 @@
   Dump.prototype.RECURSION = '\x00recursion\x00'.parseHex();
   Dump.prototype.UNDEFINED = '\x00undefined\x00'.parseHex();
 
-  Dump.prototype.dump = function (val, opts, wrap, decodeString) {
+  Dump.prototype.dump = function (val, opts, wrap) {
     // console.log('dump', JSON.stringify(val))
     var type = this.getType(val);
     var method = 'dump' + type.ucfirst();
@@ -2348,21 +2141,36 @@
       }
     },
     profileEnd: function (logEntry, info) {
-      var $node = this.table(logEntry, info);
-      return $node.removeClass('m_log').addClass('m_profileEnd')
+      // var $node = this.table(logEntry, info)
+      // return $node.removeClass('m_log').addClass('m_profileEnd')
+      return this.table(logEntry, info)
     },
     table: function (logEntry, info) {
-      var $table;
+      var $table = table.build(
+        logEntry.args[0],
+        logEntry.meta,
+        // 'table-bordered'
+        logEntry.meta.inclContext
+          ? tableAddContextRow
+          : null
+      );
+      /*
+      if (logEntry.meta.sortable) {
+        $table.addClass('sortable')
+      }
+      */
+      return $('<li>', { class: 'm_' + logEntry.method }).append($table)
       // console.warn('table', logEntry.meta.caption, logEntry)
+      /*
       if (typeof logEntry.args[0] === 'object' && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
-        $table = table.build(logEntry.args[0], logEntry.meta, 'table-bordered');
+        $table = table.build(logEntry.args[0], logEntry.meta, 'table-bordered')
         if (logEntry.meta.sortable) {
-          $table.addClass('sortable');
+          $table.addClass('sortable')
         }
         return $('<li>', { class: 'm_' + logEntry.method }).append($table)
       } else {
         if (logEntry.meta.caption) {
-          logEntry.args.unshift(logEntry.meta.caption);
+          logEntry.args.unshift(logEntry.meta.caption)
         }
         return methods.default({
           method: 'log',
@@ -2370,28 +2178,27 @@
           meta: logEntry.meta
         }, info)
       }
+      */
     },
     trace: function (logEntry, info) {
-      var $table;
-      logEntry.meta = $.extend({
-        caption: 'trace',
-        columns: ['file', 'line', 'function']
-      }, logEntry.meta);
-      $table = table.build(
+      /*
+      var $table = table.build(
         logEntry.args[0],
         logEntry.meta,
-        'table-bordered',
+        // 'table-bordered',
         logEntry.meta.inclContext
           ? tableAddContextRow
           : null
-      );
+      )
       if (logEntry.meta.inclContext) {
-        $table.addClass('trace-context');
+        $table.addClass('trace-context')
       }
       if (logEntry.meta.sortable) {
-        $table.addClass('sortable');
+        $table.addClass('sortable')
       }
       return $('<li class="m_trace"></li>').append($table)
+      */
+      return this.table(logEntry, info)
     },
     default: function (logEntry, info) {
       // var arg
@@ -2481,10 +2288,10 @@
     )
   }
 
-  function tableAddContextRow ($tr, row, i) {
+  function tableAddContextRow ($tr, row, rowInfo, i) {
     // var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
     // var start = Math.min.apply(null, keys)
-    if (!row.context) {
+    if (!rowInfo.context) {
       return $tr
     }
     i = parseInt(i, 10);
@@ -2504,8 +2311,8 @@
           colspan: 4
         }).append(
           [
-            buildContext(row.context, row.line),
-            row.args.length
+            buildContext(rowInfo.context, row.line),
+            rowInfo.args.length
               ? '<hr />Arguments = ' + dump.dump(row.args)
               : ''
           ]
@@ -2762,46 +2569,6 @@
     return info
   }
 
-  function getTabPane ($container, channelNameTop, meta) {
-    // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
-    var classname = nameToClassname(channelNameTop);
-    var $tabPane = $container.find('.debug-tabs > .' + classname);
-    var $link;
-    if ($tabPane.length) {
-      return $tabPane
-    }
-    // add tab
-    $link = $('<a>', {
-      class: 'nav-link',
-      'data-target': '.' + classname,
-      'data-toggle': 'tab',
-      role: 'tab',
-      html: channelNameTop
-    });
-    if (meta.channelIcon) {
-      $link.prepend(
-        meta.channelIcon.match('<')
-          ? $(meta.channelIcon)
-          : $('<i>').addClass(meta.channelIcon)
-      );
-    }
-    $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
-      $link
-    );
-    $tabPane = $('<div>', {
-      class: 'tab-pane ' + classname,
-      role: 'tabpanel'
-    })
-      .append($('<div>', {
-        class: 'tab-body',
-        html: '<ul class="debug-log-summary group-body"></ul>' +
-          '<ul class="debug-log group-body"></ul>'
-      }));
-    $tabPane.data('nodes', [$tabPane.find('.debug-log')]);
-    $container.find('.debug-tabs').append($tabPane);
-    return $tabPane
-  }
-
   function processEntry (logEntry) {
     // console.log(JSON.parse(JSON.stringify(logEntry)));
     var method = logEntry.method;
@@ -2887,46 +2654,6 @@
     }
   }
 
-  function updateSidebar (logEntry, info, haveNode) {
-    var filterVal = null;
-    var method = logEntry.method;
-    var $filters = info.$container.find('.debug-sidebar .debug-filters');
-    /*
-      Update channel filter
-    */
-    if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
-      return
-    }
-    /*
-      Update error filters
-    */
-    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
-      addError(logEntry, info);
-      return
-    }
-    /*
-      Update method filter
-    */
-    if (['alert', 'error', 'warn', 'info'].indexOf(method) > -1) {
-      filterVal = method;
-    } else if (method === 'group' && logEntry.meta.level) {
-      filterVal = logEntry.meta.level;
-    } else if (haveNode) {
-      filterVal = 'other';
-    }
-    if (filterVal) {
-      $filters.find('input[data-toggle=method][value=' + filterVal + ']')
-        .closest('label')
-        .removeClass('disabled');
-    }
-    /*
-      Show "Expand All Groups" button
-    */
-    if (method === 'group' && info.$tab.find('.m_group').length > 2) {
-      info.$container.find('.debug-sidebar .expand-all').show();
-    }
-  }
-
   function addChannel (info, meta) {
     var $container = info.$container;
     var $channels = $container.find('.channels');
@@ -2976,24 +2703,6 @@
     return true
   }
 
-  function nameToClassname (name) {
-    return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
-  }
-
-  function haveChannel (channelName, channels) {
-    // channels.indexOf(channelName) > -1
-    var i;
-    var len = channels.length;
-    var channel;
-    for (i = 0; i < len; i++) {
-      channel = channels[i];
-      if (channel.name === channelName) {
-        return true
-      }
-    }
-    return false
-  }
-
   function addError (logEntry, info) {
     // console.log('addError', logEntry)
     var $filters = info.$container.find('.debug-sidebar .debug-filters');
@@ -3038,6 +2747,132 @@
         $ul.append(rows[i]); // append each row in order (which moves)
       }
     }
+  }
+
+  function addTab ($container, $link) {
+    // console.warn('insertTab', $link.text(), $link.data('sort'))
+    var $navLinks = $container.find('.debug-menu-bar').removeClass('hide').find('.nav-link');
+    var length = $navLinks.length;
+    var sort = $link.data('sort');
+    var text = $link.text().trim();
+    $navLinks.each(function (i, node) {
+      var $navLink = $(this);
+      var curSort = $navLink.data('sort');
+      var curText = $navLink.text().trim();
+      var cmp = (function () {
+        if (curSort === undefined || sort < curSort) {
+          // place somewhere after cur
+          return -1 // continue
+        }
+        if (sort > curSort) {
+          return 1
+        }
+        return curText.localeCompare(text)
+      })();
+      if (cmp > 0) {
+        $(this).before($link);
+        return false // break
+      }
+      if (i + 1 === length) {
+        // we're on last tab..  insert now or never
+        $(this).after($link);
+      }
+    });
+  }
+
+  function getTabPane ($container, channelNameTop, meta) {
+    // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
+    var classname = nameToClassname(channelNameTop);
+    var $tabPane = $container.find('.debug-tabs > .' + classname);
+    var $link;
+    if ($tabPane.length) {
+      return $tabPane
+    }
+    meta.channelSort = meta.channelSort || 0;
+    $link = $('<a>', {
+      class: 'nav-link',
+      'data-sort': meta.channelSort,
+      'data-target': '.' + classname,
+      'data-toggle': 'tab',
+      role: 'tab',
+      html: channelNameTop
+    });
+    if (meta.channelIcon) {
+      $link.prepend(
+        meta.channelIcon.match('<')
+          ? $(meta.channelIcon)
+          : $('<i>').addClass(meta.channelIcon)
+      );
+    }
+    addTab($container, $link);
+    $tabPane = $('<div>', {
+      class: 'tab-pane ' + classname,
+      role: 'tabpanel'
+    })
+      .append($('<div>', {
+        class: 'tab-body',
+        html: '<ul class="debug-log-summary group-body"></ul>' +
+          '<ul class="debug-log group-body"></ul>'
+      }));
+    $tabPane.data('nodes', [$tabPane.find('.debug-log')]);
+    $container.find('.debug-tabs').append($tabPane);
+    return $tabPane
+  }
+
+  function updateSidebar (logEntry, info, haveNode) {
+    var filterVal = null;
+    var method = logEntry.method;
+    var $filters = info.$container.find('.debug-sidebar .debug-filters');
+
+    if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
+      return
+    }
+    /*
+      Update error filters
+    */
+    if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
+      addError(logEntry, info);
+      return
+    }
+    /*
+      Update method filter
+    */
+    if (['alert', 'error', 'warn', 'info'].indexOf(method) > -1) {
+      filterVal = method;
+    } else if (method === 'group' && logEntry.meta.level) {
+      filterVal = logEntry.meta.level;
+    } else if (haveNode) {
+      filterVal = 'other';
+    }
+    if (filterVal) {
+      $filters.find('input[data-toggle=method][value=' + filterVal + ']')
+        .closest('label')
+        .removeClass('disabled');
+    }
+    /*
+      Show "Expand All Groups" button
+    */
+    if (method === 'group' && info.$tab.find('.m_group').length > 2) {
+      info.$container.find('.debug-sidebar .expand-all').show();
+    }
+  }
+
+  function nameToClassname (name) {
+    return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
+  }
+
+  function haveChannel (channelName, channels) {
+    // channels.indexOf(channelName) > -1
+    var i;
+    var len = channels.length;
+    var channel;
+    for (i = 0; i < len; i++) {
+      channel = channels[i];
+      if (channel.name === channelName) {
+        return true
+      }
+    }
+    return false
   }
 
   /**

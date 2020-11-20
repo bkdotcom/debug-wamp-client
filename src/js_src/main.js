@@ -2,7 +2,7 @@ import $ from 'jquery' // external global
 import PubSub from './PubSub.js'
 import './prototypeMethods.js' // import for side-effects only
 import * as ui from './ui/ui.js'
-import * as logger from './logger/logger.js'
+import * as logger from './Logger/Logger.js'
 import { Config } from './Config.js'
 import { SocketWorker } from './wamp/SocketWorker.js'
 

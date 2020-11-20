@@ -44,7 +44,10 @@ a.card-header {
 }
 */
 .card-header * { font-size:inherit; }
-.card-header > i { float:left; }
+.card-header > i {
+	float:left;
+	line-height: 1.5em;
+}
 .card-header .label { padding: .1em .6em .2em; }
 .card-header .http-host { opacity: 0.6; }
 .card-header-body {

@@ -285,12 +285,27 @@ export var methods = {
     }
   },
   profileEnd: function (logEntry, info) {
-    var $node = this.table(logEntry, info)
-    return $node.removeClass('m_log').addClass('m_profileEnd')
+    // var $node = this.table(logEntry, info)
+    // return $node.removeClass('m_log').addClass('m_profileEnd')
+    return this.table(logEntry, info)
   },
   table: function (logEntry, info) {
-    var $table
+    var $table = table.build(
+      logEntry.args[0],
+      logEntry.meta,
+      // 'table-bordered'
+      logEntry.meta.inclContext
+        ? tableAddContextRow
+        : null
+    )
+    /*
+    if (logEntry.meta.sortable) {
+      $table.addClass('sortable')
+    }
+    */
+    return $('<li>', { class: 'm_' + logEntry.method }).append($table)
     // console.warn('table', logEntry.meta.caption, logEntry)
+    /*
     if (typeof logEntry.args[0] === 'object' && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
       $table = table.build(logEntry.args[0], logEntry.meta, 'table-bordered')
       if (logEntry.meta.sortable) {
@@ -307,17 +322,14 @@ export var methods = {
         meta: logEntry.meta
       }, info)
     }
+    */
   },
   trace: function (logEntry, info) {
-    var $table
-    logEntry.meta = $.extend({
-      caption: 'trace',
-      columns: ['file', 'line', 'function']
-    }, logEntry.meta)
-    $table = table.build(
+    /*
+    var $table = table.build(
       logEntry.args[0],
       logEntry.meta,
-      'table-bordered',
+      // 'table-bordered',
       logEntry.meta.inclContext
         ? tableAddContextRow
         : null
@@ -329,6 +341,8 @@ export var methods = {
       $table.addClass('sortable')
     }
     return $('<li class="m_trace"></li>').append($table)
+    */
+    return this.table(logEntry, info)
   },
   default: function (logEntry, info) {
     // var arg
@@ -370,7 +384,7 @@ export var methods = {
       }
     }
     if (meta.uncollapse === false) {
-      attribs['data-uncollapse'] = 'false';
+      attribs['data-uncollapse'] = 'false'
     }
     if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
       processSubstitutions(logEntry)
@@ -418,10 +432,10 @@ function buildContext (context, lineNumber) {
   )
 }
 
-function tableAddContextRow ($tr, row, i) {
+function tableAddContextRow ($tr, row, rowInfo, i) {
   // var keys = Object.keys(row.context || {}) // .map(function(val){return parseInt(val)}),
   // var start = Math.min.apply(null, keys)
-  if (!row.context) {
+  if (!rowInfo.context) {
     return $tr
   }
   i = parseInt(i, 10)
@@ -441,8 +455,8 @@ function tableAddContextRow ($tr, row, i) {
         colspan: 4
       }).append(
         [
-          buildContext(row.context, row.line),
-          row.args.length
+          buildContext(rowInfo.context, row.line),
+          rowInfo.args.length
             ? '<hr />Arguments = ' + dump.dump(row.args)
             : ''
         ]

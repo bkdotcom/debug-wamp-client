@@ -1,5 +1,5 @@
 import $ from 'jquery' // external global
-import * as methods from './methods.js'
+import * as methods from './Methods.js'
 
 export function getNodeInfo (meta) {
   var $node
@@ -74,46 +74,6 @@ export function getNodeInfo (meta) {
   }
   addChannel(info, meta)
   return info
-}
-
-function getTabPane ($container, channelNameTop, meta) {
-  // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
-  var classname = nameToClassname(channelNameTop)
-  var $tabPane = $container.find('.debug-tabs > .' + classname)
-  var $link
-  if ($tabPane.length) {
-    return $tabPane
-  }
-  // add tab
-  $link = $('<a>', {
-    class: 'nav-link',
-    'data-target': '.' + classname,
-    'data-toggle': 'tab',
-    role: 'tab',
-    html: channelNameTop
-  })
-  if (meta.channelIcon) {
-    $link.prepend(
-      meta.channelIcon.match('<')
-        ? $(meta.channelIcon)
-        : $('<i>').addClass(meta.channelIcon)
-    )
-  }
-  $container.find('.debug-menu-bar').removeClass('hide').find('nav').append(
-    $link
-  )
-  $tabPane = $('<div>', {
-    class: 'tab-pane ' + classname,
-    role: 'tabpanel'
-  })
-    .append($('<div>', {
-      class: 'tab-body',
-      html: '<ul class="debug-log-summary group-body"></ul>' +
-        '<ul class="debug-log group-body"></ul>'
-    }))
-  $tabPane.data('nodes', [$tabPane.find('.debug-log')])
-  $container.find('.debug-tabs').append($tabPane)
-  return $tabPane
 }
 
 export function processEntry (logEntry) {
@@ -201,46 +161,6 @@ export function processEntry (logEntry) {
   }
 }
 
-function updateSidebar (logEntry, info, haveNode) {
-  var filterVal = null
-  var method = logEntry.method
-  var $filters = info.$container.find('.debug-sidebar .debug-filters')
-  /*
-    Update channel filter
-  */
-  if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
-    return
-  }
-  /*
-    Update error filters
-  */
-  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
-    addError(logEntry, info)
-    return
-  }
-  /*
-    Update method filter
-  */
-  if (['alert', 'error', 'warn', 'info'].indexOf(method) > -1) {
-    filterVal = method
-  } else if (method === 'group' && logEntry.meta.level) {
-    filterVal = logEntry.meta.level
-  } else if (haveNode) {
-    filterVal = 'other'
-  }
-  if (filterVal) {
-    $filters.find('input[data-toggle=method][value=' + filterVal + ']')
-      .closest('label')
-      .removeClass('disabled')
-  }
-  /*
-    Show "Expand All Groups" button
-  */
-  if (method === 'group' && info.$tab.find('.m_group').length > 2) {
-    info.$container.find('.debug-sidebar .expand-all').show()
-  }
-}
-
 function addChannel (info, meta) {
   var $container = info.$container
   var $channels = $container.find('.channels')
@@ -290,24 +210,6 @@ function addChannel (info, meta) {
   return true
 }
 
-function nameToClassname (name) {
-  return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
-}
-
-function haveChannel (channelName, channels) {
-  // channels.indexOf(channelName) > -1
-  var i
-  var len = channels.length
-  var channel
-  for (i = 0; i < len; i++) {
-    channel = channels[i]
-    if (channel.name === channelName) {
-      return true
-    }
-  }
-  return false
-}
-
 function addError (logEntry, info) {
   // console.log('addError', logEntry)
   var $filters = info.$container.find('.debug-sidebar .debug-filters')
@@ -352,4 +254,130 @@ function addError (logEntry, info) {
       $ul.append(rows[i]) // append each row in order (which moves)
     }
   }
+}
+
+function addTab ($container, $link) {
+  // console.warn('insertTab', $link.text(), $link.data('sort'))
+  var $navLinks = $container.find('.debug-menu-bar').removeClass('hide').find('.nav-link')
+  var length = $navLinks.length
+  var sort = $link.data('sort')
+  var text = $link.text().trim()
+  $navLinks.each(function (i, node) {
+    var $navLink = $(this)
+    var curSort = $navLink.data('sort')
+    var curText = $navLink.text().trim()
+    var cmp = (function () {
+      if (curSort === undefined || sort < curSort) {
+        // place somewhere after cur
+        return -1 // continue
+      }
+      if (sort > curSort) {
+        return 1
+      }
+      return curText.localeCompare(text)
+    })()
+    if (cmp > 0) {
+      $(this).before($link)
+      return false // break
+    }
+    if (i + 1 === length) {
+      // we're on last tab..  insert now or never
+      $(this).after($link)
+    }
+  })
+}
+
+function getTabPane ($container, channelNameTop, meta) {
+  // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
+  var classname = nameToClassname(channelNameTop)
+  var $tabPane = $container.find('.debug-tabs > .' + classname)
+  var $link
+  if ($tabPane.length) {
+    return $tabPane
+  }
+  meta.channelSort = meta.channelSort || 0
+  $link = $('<a>', {
+    class: 'nav-link',
+    'data-sort': meta.channelSort,
+    'data-target': '.' + classname,
+    'data-toggle': 'tab',
+    role: 'tab',
+    html: channelNameTop
+  })
+  if (meta.channelIcon) {
+    $link.prepend(
+      meta.channelIcon.match('<')
+        ? $(meta.channelIcon)
+        : $('<i>').addClass(meta.channelIcon)
+    )
+  }
+  addTab($container, $link)
+  $tabPane = $('<div>', {
+    class: 'tab-pane ' + classname,
+    role: 'tabpanel'
+  })
+    .append($('<div>', {
+      class: 'tab-body',
+      html: '<ul class="debug-log-summary group-body"></ul>' +
+        '<ul class="debug-log group-body"></ul>'
+    }))
+  $tabPane.data('nodes', [$tabPane.find('.debug-log')])
+  $container.find('.debug-tabs').append($tabPane)
+  return $tabPane
+}
+
+function updateSidebar (logEntry, info, haveNode) {
+  var filterVal = null
+  var method = logEntry.method
+  var $filters = info.$container.find('.debug-sidebar .debug-filters')
+
+  if (['groupSummary', 'groupEnd'].indexOf(method) > -1) {
+    return
+  }
+  /*
+    Update error filters
+  */
+  if (['error', 'warn'].indexOf(method) > -1 && logEntry.meta.channel === info.channelNameRoot + '.phpError') {
+    addError(logEntry, info)
+    return
+  }
+  /*
+    Update method filter
+  */
+  if (['alert', 'error', 'warn', 'info'].indexOf(method) > -1) {
+    filterVal = method
+  } else if (method === 'group' && logEntry.meta.level) {
+    filterVal = logEntry.meta.level
+  } else if (haveNode) {
+    filterVal = 'other'
+  }
+  if (filterVal) {
+    $filters.find('input[data-toggle=method][value=' + filterVal + ']')
+      .closest('label')
+      .removeClass('disabled')
+  }
+  /*
+    Show "Expand All Groups" button
+  */
+  if (method === 'group' && info.$tab.find('.m_group').length > 2) {
+    info.$container.find('.debug-sidebar .expand-all').show()
+  }
+}
+
+function nameToClassname (name) {
+  return 'debug-tab-' + name.toLowerCase().replace(/\W+/g, '-')
+}
+
+function haveChannel (channelName, channels) {
+  // channels.indexOf(channelName) > -1
+  var i
+  var len = channels.length
+  var channel
+  for (i = 0; i < len; i++) {
+    channel = channels[i]
+    if (channel.name === channelName) {
+      return true
+    }
+  }
+  return false
 }
