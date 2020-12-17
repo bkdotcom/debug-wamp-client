@@ -298,31 +298,7 @@ export var methods = {
         ? tableAddContextRow
         : null
     )
-    /*
-    if (logEntry.meta.sortable) {
-      $table.addClass('sortable')
-    }
-    */
     return $('<li>', { class: 'm_' + logEntry.method }).append($table)
-    // console.warn('table', logEntry.meta.caption, logEntry)
-    /*
-    if (typeof logEntry.args[0] === 'object' && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
-      $table = table.build(logEntry.args[0], logEntry.meta, 'table-bordered')
-      if (logEntry.meta.sortable) {
-        $table.addClass('sortable')
-      }
-      return $('<li>', { class: 'm_' + logEntry.method }).append($table)
-    } else {
-      if (logEntry.meta.caption) {
-        logEntry.args.unshift(logEntry.meta.caption)
-      }
-      return methods.default({
-        method: 'log',
-        args: logEntry.args,
-        meta: logEntry.meta
-      }, info)
-    }
-    */
   },
   trace: function (logEntry, info) {
     /*
@@ -392,14 +368,13 @@ export var methods = {
     $node = buildEntryNode(logEntry)
     $node.attr(attribs)
     if (method === 'error') {
-      if (meta.backtrace && meta.backtrace.length > 1) {
+      if (meta.trace && meta.trace.length > 1) {
         $node.append(
-          $('<ul>', { class: 'list-unstyled' }).append(
+          $('<ul>', { class: 'list-unstyled no-indent' }).append(
             methods.trace({
-              args: [meta.backtrace],
-              meta: {
-                inclContext: true
-              }
+              method: 'trace',
+              args: [meta.trace],
+              meta: meta
             }).attr('data-detect-files', 'true')
           )
         )

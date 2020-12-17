@@ -168,6 +168,8 @@
     updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'));
 
     init(config);
+
+    // note:  navbar may not yet be at final height
     navbarHeight = $('.navbar-collapse').outerHeight();
 
     $('.clear').on('click', function () {
@@ -229,8 +231,9 @@
     });
 
     $('body').on('click', '.card-header[data-toggle=collapse]', function () {
-      // data-target selector doesn't seem to work like it dit in bootstrap 3
+      // data-target selector doesn't seem to work like it did in bootstrap 3
       var $target = $($(this).data('target'));
+      navbarHeight = $('.navbar-collapse').outerHeight();
       $target.collapse('toggle');
     });
 
@@ -1189,8 +1192,8 @@
     var strClassName = this.dump.markupIdentifier(abs.className, {
       title: title.length ? title : null
     });
-    var OUTPUT_CONSTANTS = 4;
     var OUTPUT_METHODS = 8;
+
     if (abs.isRecursion) {
       html = strClassName +
         ' <span class="t_recursion">*RECURSION*</span>';
@@ -1212,10 +1215,8 @@
                 '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
               : ''
             ) +
-            (abs.flags & OUTPUT_CONSTANTS
-              ? this.dumpConstants(abs.constants)
-              : ''
-            ) +
+            this.dumpAttributes(abs) +
+            this.dumpConstants(abs) +
             this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
             (abs.flags & OUTPUT_METHODS
               ? this.dumpMethods(abs)
@@ -1268,17 +1269,61 @@
       '</span> '
   };
 
-  DumpObject.prototype.dumpConstants = function (constants) {
+  DumpObject.prototype.dumpAttributes = function (abs) {
+    var html = '';
+    var self = this;
+    var args = [];
+    if (abs.attributes === undefined) {
+      return ''
+    }
+    if (abs.flags & OUTPUT_ATTRIBUTES_OBJ !== OUTPUT_ATTRIBUTES_OBJ) {
+      return ''
+    }
+    // var $dd
+    $.each(abs.attributes, function (key, attribute) {
+      args = [];
+      html += '<dd class="attribute">';
+      html += self.dump.markupIdentifier(attribute.name);
+      if (Object.keys(attribute.arguments).length) {
+        $.each(attribute.arguments, function (i, val) {
+          args.push(
+            (i.match(/^\d+$/) === null
+              ? '<span class="t_parameter-name">' + i + '</span><span class="t_punct">:</span>'
+              : '')
+            + self.dump.dump(val)
+          );
+        });
+        html += '<span class="t_punct">(</span>' +
+          args.join('<span class="t_punct">,</span> ') +
+          '<span class="t_punct">)</span>';
+      }
+      html += '</dd>';
+    });
+    return html.length
+      ? '<dt class="attributes">attributes</dt>' + html
+      : ''
+  };
+
+  DumpObject.prototype.dumpConstants = function (abs) {
     var html = Object.keys(constants).length
       ? '<dt class="constants">constants</dt>'
       : '';
     var self = this;
-    $.each(constants, function (key, value) {
-      html += '<dd class="constant">' +
-        '<span class="t_identifier">' + key + '</span>' +
-        ' <span class="t_operator">=</span> ' +
-        self.dump.dump(value, true) +
-        '</dd>';
+    var $dd;
+    if (abs.flags & OUTPUT_CONSTANTS !== OUTPUT_CONSTANTS) {
+      return '';
+    }
+    $.each(abs.constants, function (key, info) {
+      $dd = $('<dd class="constant ' + info.visibility + '">' +
+        '<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span> ' +
+        '<span class="t_identifier">' + key + '</span> ' +
+        '<span class="t_operator">=</span> ' +
+        self.dump.dump(info.value, true) +
+        '</dd>');
+      if ((abs.flags && OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      html += $dd[0].outerHTML;
     });
     return html
   };
@@ -1394,6 +1439,9 @@
         ) +
         '</dd>'
       );
+      if ((abs.flags && OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
+      }
       $.each(classes, function (classname, useClass) {
         if (useClass) {
           $dd.addClass(classname);
@@ -1408,14 +1456,16 @@
     var label = Object.keys(abs.methods).length
       ? 'methods'
       : 'no methods';
-    var html = '<dt class="methods">' + label + '</dt>';
+    var html = '<dt class="methods">' + label + '</dt>' +
+      magicMethodInfo(abs, ['__call', '__callStatic']);
     var self = this;
-    html += magicMethodInfo(abs, ['__call', '__callStatic']);
     $.each(abs.methods, function (k, info) {
-      var paramStr = self.dumpMethodParams(info.params);
-      var modifiers = [];
-      var returnType = '';
       var $dd;
+      var modifiers = [];
+      var paramStr = self.dumpMethodParams(info.params, {
+        outputAttributes: abs.flags && OUTPUT_ATTRIBUTES_PARAM
+      });
+      var returnType = '';
       if (info.isFinal) {
         modifiers.push('<span class="t_modifier_final">final</span>');
       }
@@ -1448,8 +1498,8 @@
         '</dd>'
       );
       $dd.addClass(info.visibility);
-      if (info.isDeprecated) {
-        $dd.addClass('deprecated');
+      if ((abs.flags && OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
       }
       if (info.implements && info.implements.length) {
         $dd.attr('data-implements', info.implements);
@@ -1457,36 +1507,48 @@
       if (info.inheritedFrom) {
         $dd.addClass('inherited');
       }
+      if (info.isDeprecated) {
+        $dd.addClass('deprecated');
+      }
       html += $dd[0].outerHTML;
     });
     return html
   };
 
-  DumpObject.prototype.dumpMethodParams = function (params) {
-    var html = '';
+  DumpObject.prototype.dumpMethodParams = function (params, opts) {
+    var $param;
     var defaultValue;
-    // var title
+    var html = '';
     var self = this;
     $.each(params, function (i, info) {
-      html += '<span class="parameter">';
-      if (typeof info.type === 'string') {
-        html += '<span class="t_type">' + info.type + '</span> ';
+      $param = $('<span />', {
+        class: 'parameter',
+      });
+      if (info.isPromoted) {
+        $param.addClass('isPromoted');
       }
-      html += '<span class="t_parameter-name"' +
+      if (opts.outputAttributes && info.attributes && info.attributes.length) {
+        $param.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      if (typeof info.type === 'string') {
+        $param.append('<span class="t_type">' + info.type + '</span> ');
+      }
+      $param.append('<span class="t_parameter-name"' +
         (info.desc !== null
           ? ' title="' + info.desc.escapeHtml().replace('\n', ' ') + '"'
           : ''
-        ) + '>' + info.name.escapeHtml() + '</span>';
+        ) + '>' + info.name.escapeHtml() + '</span>');
       if (info.defaultValue !== self.dump.UNDEFINED) {
         defaultValue = info.defaultValue;
         if (typeof defaultValue === 'string') {
           defaultValue = defaultValue.replace('\n', ' ');
         }
-        html += ' <span class="t_operator">=</span> ';
-        html += $(self.dump.dump(defaultValue, true, true, false))
-          .addClass('t_parameter-default')[0].outerHTML;
+        $param.append(' <span class="t_operator">=</span> '
+         + $(self.dump.dump(defaultValue, true, true, false))
+          .addClass('t_parameter-default')[0].outerHTML
+        );
       }
-      html += '</span>, '; // end .parameter
+      html += $param[0].outerHTML + ', ';
     });
     if (html.length) {
       html = html.substr(0, html.length - 2); // remove ', '
@@ -2154,31 +2216,7 @@
           ? tableAddContextRow
           : null
       );
-      /*
-      if (logEntry.meta.sortable) {
-        $table.addClass('sortable')
-      }
-      */
       return $('<li>', { class: 'm_' + logEntry.method }).append($table)
-      // console.warn('table', logEntry.meta.caption, logEntry)
-      /*
-      if (typeof logEntry.args[0] === 'object' && logEntry.args[0] !== null && Object.keys(logEntry.args[0]).length) {
-        $table = table.build(logEntry.args[0], logEntry.meta, 'table-bordered')
-        if (logEntry.meta.sortable) {
-          $table.addClass('sortable')
-        }
-        return $('<li>', { class: 'm_' + logEntry.method }).append($table)
-      } else {
-        if (logEntry.meta.caption) {
-          logEntry.args.unshift(logEntry.meta.caption)
-        }
-        return methods.default({
-          method: 'log',
-          args: logEntry.args,
-          meta: logEntry.meta
-        }, info)
-      }
-      */
     },
     trace: function (logEntry, info) {
       /*
@@ -2248,14 +2286,13 @@
       $node = buildEntryNode(logEntry);
       $node.attr(attribs);
       if (method === 'error') {
-        if (meta.backtrace && meta.backtrace.length > 1) {
+        if (meta.trace && meta.trace.length > 1) {
           $node.append(
-            $('<ul>', { class: 'list-unstyled' }).append(
+            $('<ul>', { class: 'list-unstyled no-indent' }).append(
               methods.trace({
-                args: [meta.backtrace],
-                meta: {
-                  inclContext: true
-                }
+                method: 'trace',
+                args: [meta.trace],
+                meta: meta
               }).attr('data-detect-files', 'true')
             )
           );
@@ -3773,7 +3810,10 @@
     var hasConnected = false;
 
     init$1(config);
-    $('body').debugEnhance('init', {
+    /*
+      init on #body vs body so we can stop event propagation before bubbles to body  (ie clipboard.js)
+    */
+    $('#body').debugEnhance('init', {
       sidebar: true,
       useLocalStorage: false
     });

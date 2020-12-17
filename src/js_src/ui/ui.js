@@ -12,6 +12,8 @@ export function init (config) {
   updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'))
 
   configModal.init(config)
+
+  // note:  navbar may not yet be at final height
   navbarHeight = $('.navbar-collapse').outerHeight()
 
   $('.clear').on('click', function () {
@@ -73,8 +75,9 @@ export function init (config) {
   })
 
   $('body').on('click', '.card-header[data-toggle=collapse]', function () {
-    // data-target selector doesn't seem to work like it dit in bootstrap 3
+    // data-target selector doesn't seem to work like it did in bootstrap 3
     var $target = $($(this).data('target'))
+    navbarHeight = $('.navbar-collapse').outerHeight()
     $target.collapse('toggle')
   })
 

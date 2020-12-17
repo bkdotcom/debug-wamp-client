@@ -27,7 +27,10 @@ $(function () {
   var hasConnected = false
 
   ui.init(config)
-  $('body').debugEnhance('init', {
+  /*
+    init on #body vs body so we can stop event propagation before bubbles to body  (ie clipboard.js)
+  */
+  $('#body').debugEnhance('init', {
     sidebar: true,
     useLocalStorage: false
   })
