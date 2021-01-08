@@ -184,6 +184,13 @@ Dump.prototype.dumpResource = function (abs) {
 Dump.prototype.dumpString = function (val, abs) {
   var bytes
   var date
+  var parsed
+  /*
+  console.warn({
+    val: val,
+    typeMore: typeMore,
+  })
+  */
   // var sanitize = true
   if ($.isNumeric(val)) {
     $span.addClass('numeric')
@@ -201,8 +208,16 @@ Dump.prototype.dumpString = function (val, abs) {
     } else {
       val = strDump.dump(bytes, false)
     }
-    if (abs && abs.strlen) {
-      val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>'
+    if (abs) {
+      if (abs.typeMore === 'classname') {
+        val = this.markupIdentifier(val)
+        parsed = this.parseTag(val)
+        $.extend(valAttribs, parsed.attribs)
+        val = parsed.innerhtml
+      }
+      if (abs.strlen) {
+        val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>'
+      }
     }
     if (valOpts.visualWhiteSpace) {
       val = visualWhiteSpace(val)
@@ -311,6 +326,24 @@ Dump.prototype.markupIdentifier = function (val, attribs, tag) {
     operator = ''
   }
   return classname + operator + identifier
+}
+
+Dump.prototype.parseTag = function parseTag (html) {
+  var $node = $(html)
+  var parsed = {
+    tag: $node[0].tagName.toLowerCase(),
+    attribs: {},
+    innerhtml: $node[0].innerHTML
+  }
+  $.each($node[0].attributes, function () {
+    if (this.specified) {
+      parsed.attribs[this.name] = this.value
+    }
+  })
+  if (parsed.attribs.class) {
+    parsed.attribs.class = parsed.attribs.class.split(' ')
+  }
+  return parsed
 }
 
 function checkTimestamp (val) {

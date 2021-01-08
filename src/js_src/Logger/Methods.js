@@ -321,19 +321,14 @@ export var methods = {
     return this.table(logEntry, info)
   },
   default: function (logEntry, info) {
-    // var arg
     var attribs = {
       class: 'm_' + logEntry.method
     }
     var $container = info.$container
-    // var i
     var $node
     var method = logEntry.method
-    // var args = logEntry.args,
     var meta = logEntry.meta
-    // var numArgs = args.length
-    // var hasSubs = false
-    if (meta.file && meta.channel !== 'general.phpError') {
+    if (meta.file && meta.channel !== info.channelNameRoot + '.phpError') {
       attribs = $.extend({
         'data-file': meta.file,
         'data-line': meta.line

@@ -2,6 +2,14 @@ import $ from 'jquery' // external global
 
 export function DumpObject (dump) {
   this.dump = dump
+  this.OUTPUT_CONSTANTS = 4
+  this.OUTPUT_METHODS = 8
+  this.OUTPUT_METHOD_DESC = 16
+  this.OUTPUT_ATTRIBUTES_OBJ = 64
+  this.OUTPUT_ATTRIBUTES_CONST = 256
+  this.OUTPUT_ATTRIBUTES_PROP = 1024
+  this.OUTPUT_ATTRIBUTES_METHOD = 4096
+  this.OUTPUT_ATTRIBUTES_PARAM = 16384
 }
 
 DumpObject.prototype.dumpObject = function (abs) {
@@ -11,48 +19,39 @@ DumpObject.prototype.dumpObject = function (abs) {
   var strClassName = this.dump.markupIdentifier(abs.className, {
     title: title.length ? title : null
   })
-  var OUTPUT_CONSTANTS = 4
-  var OUTPUT_METHODS = 8
-  var OUTPUT_METHOD_DESC = 16;
-  var OUTPUT_ATTRIBUTES_OBJ = 64;
-  var OUTPUT_ATTRIBUTES_CONST = 256;
-  var OUTPUT_ATTRIBUTES_PROP = 1024;
-  var OUTPUT_ATTRIBUTES_METHOD = 4096;
-  var OUTPUT_ATTRIBUTES_PARAM = 16384;
 
   if (abs.isRecursion) {
-    html = strClassName +
+    return strClassName +
       ' <span class="t_recursion">*RECURSION*</span>'
   } else if (abs.isExcluded) {
-    html = strClassName +
+    return strClassName +
       ' <span class="excluded">(not inspected)</span>'
-  } else {
-    try {
-      html = this.dumpToString(abs) +
-        strClassName +
-        '<dl class="object-inner">' +
-          (abs.extends.length
-            ? '<dt>extends</dt>' +
-              '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
-            : ''
-          ) +
-          (abs.implements.length
-            ? '<dt>implements</dt>' +
-              '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
-            : ''
-          ) +
-          this.dumpAttributes(abs) +
-          this.dumpConstants(abs) +
-          this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
-          (abs.flags & OUTPUT_METHODS
-            ? this.dumpMethods(abs)
-            : ''
-          ) +
-          this.dumpPhpDoc(abs) +
-        '</dl>'
-    } catch (e) {
-      console.warn('e', e)
-    }
+  }
+  try {
+    html = this.dumpToString(abs) +
+      strClassName +
+      '<dl class="object-inner">' +
+        (abs.extends.length
+          ? '<dt>extends</dt>' +
+            '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
+          : ''
+        ) +
+        (abs.implements.length
+          ? '<dt>implements</dt>' +
+            '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
+          : ''
+        ) +
+        this.dumpAttributes(abs) +
+        this.dumpConstants(abs) +
+        this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
+        (abs.flags & this.OUTPUT_METHODS
+          ? this.dumpMethods(abs)
+          : ''
+        ) +
+        this.dumpPhpDoc(abs) +
+      '</dl>'
+  } catch (e) {
+    console.warn('e', e)
   }
   return html
 }
@@ -102,7 +101,7 @@ DumpObject.prototype.dumpAttributes = function (abs) {
   if (abs.attributes === undefined) {
     return ''
   }
-  if (abs.flags & OUTPUT_ATTRIBUTES_OBJ !== OUTPUT_ATTRIBUTES_OBJ) {
+  if ((abs.flags & this.OUTPUT_ATTRIBUTES_OBJ) !== this.OUTPUT_ATTRIBUTES_OBJ) {
     return ''
   }
   // var $dd
@@ -115,8 +114,8 @@ DumpObject.prototype.dumpAttributes = function (abs) {
         args.push(
           (i.match(/^\d+$/) === null
             ? '<span class="t_parameter-name">' + i + '</span><span class="t_punct">:</span>'
-            : '')
-          + self.dump.dump(val)
+            : '') +
+          self.dump.dump(val)
         )
       })
       html += '<span class="t_punct">(</span>' +
@@ -131,13 +130,13 @@ DumpObject.prototype.dumpAttributes = function (abs) {
 }
 
 DumpObject.prototype.dumpConstants = function (abs) {
-  var html = Object.keys(constants).length
+  var html = Object.keys(abs.constants).length
     ? '<dt class="constants">constants</dt>'
     : ''
   var self = this
   var $dd
-  if (abs.flags & OUTPUT_CONSTANTS !== OUTPUT_CONSTANTS) {
-    return '';
+  if ((abs.flags & this.OUTPUT_CONSTANTS) !== this.OUTPUT_CONSTANTS) {
+    return ''
   }
   $.each(abs.constants, function (key, info) {
     $dd = $('<dd class="constant ' + info.visibility + '">' +
@@ -146,7 +145,7 @@ DumpObject.prototype.dumpConstants = function (abs) {
       '<span class="t_operator">=</span> ' +
       self.dump.dump(info.value, true) +
       '</dd>')
-    if ((abs.flags && OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
+    if ((abs.flags & this.OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
     }
     html += $dd[0].outerHTML
@@ -265,7 +264,7 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
       ) +
       '</dd>'
     )
-    if ((abs.flags && OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
+    if ((abs.flags & this.OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
     }
     $.each(classes, function (classname, useClass) {
@@ -289,7 +288,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
     var $dd
     var modifiers = []
     var paramStr = self.dumpMethodParams(info.params, {
-      outputAttributes: abs.flags && OUTPUT_ATTRIBUTES_PARAM
+      outputAttributes: abs.flags & this.OUTPUT_ATTRIBUTES_PARAM
     })
     var returnType = ''
     if (info.isFinal) {
@@ -324,7 +323,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
       '</dd>'
     )
     $dd.addClass(info.visibility)
-    if ((abs.flags && OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
+    if ((abs.flags & this.OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
     }
     if (info.implements && info.implements.length) {
@@ -348,7 +347,7 @@ DumpObject.prototype.dumpMethodParams = function (params, opts) {
   var self = this
   $.each(params, function (i, info) {
     $param = $('<span />', {
-      class: 'parameter',
+      class: 'parameter'
     })
     if (info.isPromoted) {
       $param.addClass('isPromoted')
@@ -369,9 +368,9 @@ DumpObject.prototype.dumpMethodParams = function (params, opts) {
       if (typeof defaultValue === 'string') {
         defaultValue = defaultValue.replace('\n', ' ')
       }
-      $param.append(' <span class="t_operator">=</span> '
-       + $(self.dump.dump(defaultValue, true, true, false))
-        .addClass('t_parameter-default')[0].outerHTML
+      $param.append(' <span class="t_operator">=</span> ' +
+        $(self.dump.dump(defaultValue, true, true, false))
+          .addClass('t_parameter-default')[0].outerHTML
       )
     }
     html += $param[0].outerHTML + ', '

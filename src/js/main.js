@@ -444,7 +444,7 @@
       if (typeof rowKey === 'string' && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
         rowKey = parseInt(rowKey, 10);
       }
-      parsed = parseTag(this.dump.dump(rowKey, true, true, false));
+      parsed = this.dump.parseTag(this.dump.dump(rowKey, true, true, false));
       $tr = $('<tr></tr>')
         .append(
           $('<th scope="row" class="t_key text-right"></th>')
@@ -462,7 +462,7 @@
       }
       for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
         key = tableInfo.columns[i2].key;
-        parsed = parseTag(this.dump.dump(row[key], true));
+        parsed = this.dump.parseTag(this.dump.dump(row[key], true));
         $tr.append(
           $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
         );
@@ -493,7 +493,7 @@
       $cell = $('<td></td>');
       if (colHasTotal) {
         info.total = parseFloat(info.total.toFixed(6), 10);
-        parsed = parseTag(this.dump.dump(info.total, true));
+        parsed = this.dump.parseTag(this.dump.dump(info.total, true));
         $cell.html(parsed.innerhtml).attr(parsed.attribs);
       }
       cells.push($cell[0].outerHTML);
@@ -529,21 +529,6 @@
       );
     }
   };
-
-  function parseTag (html) {
-    var $node = $(html);
-    var parsed = {
-      tag: $node[0].tagName.toLowerCase(),
-      attribs: {},
-      innerhtml: $node[0].innerHTML
-    };
-    $.each($node[0].attributes, function () {
-      if (this.specified) {
-        parsed.attribs[this.name] = this.value;
-      }
-    });
-    return parsed
-  }
 
   var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -1183,6 +1168,14 @@
 
   function DumpObject (dump) {
     this.dump = dump;
+    this.OUTPUT_CONSTANTS = 4;
+    this.OUTPUT_METHODS = 8;
+    this.OUTPUT_METHOD_DESC = 16;
+    this.OUTPUT_ATTRIBUTES_OBJ = 64;
+    this.OUTPUT_ATTRIBUTES_CONST = 256;
+    this.OUTPUT_ATTRIBUTES_PROP = 1024;
+    this.OUTPUT_ATTRIBUTES_METHOD = 4096;
+    this.OUTPUT_ATTRIBUTES_PARAM = 16384;
   }
 
   DumpObject.prototype.dumpObject = function (abs) {
@@ -1192,41 +1185,39 @@
     var strClassName = this.dump.markupIdentifier(abs.className, {
       title: title.length ? title : null
     });
-    var OUTPUT_METHODS = 8;
 
     if (abs.isRecursion) {
-      html = strClassName +
-        ' <span class="t_recursion">*RECURSION*</span>';
+      return strClassName +
+        ' <span class="t_recursion">*RECURSION*</span>'
     } else if (abs.isExcluded) {
-      html = strClassName +
-        ' <span class="excluded">(not inspected)</span>';
-    } else {
-      try {
-        html = this.dumpToString(abs) +
-          strClassName +
-          '<dl class="object-inner">' +
-            (abs.extends.length
-              ? '<dt>extends</dt>' +
-                '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
-              : ''
-            ) +
-            (abs.implements.length
-              ? '<dt>implements</dt>' +
-                '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
-              : ''
-            ) +
-            this.dumpAttributes(abs) +
-            this.dumpConstants(abs) +
-            this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
-            (abs.flags & OUTPUT_METHODS
-              ? this.dumpMethods(abs)
-              : ''
-            ) +
-            this.dumpPhpDoc(abs) +
-          '</dl>';
-      } catch (e) {
-        console.warn('e', e);
-      }
+      return strClassName +
+        ' <span class="excluded">(not inspected)</span>'
+    }
+    try {
+      html = this.dumpToString(abs) +
+        strClassName +
+        '<dl class="object-inner">' +
+          (abs.extends.length
+            ? '<dt>extends</dt>' +
+              '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
+            : ''
+          ) +
+          (abs.implements.length
+            ? '<dt>implements</dt>' +
+              '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
+            : ''
+          ) +
+          this.dumpAttributes(abs) +
+          this.dumpConstants(abs) +
+          this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
+          (abs.flags & this.OUTPUT_METHODS
+            ? this.dumpMethods(abs)
+            : ''
+          ) +
+          this.dumpPhpDoc(abs) +
+        '</dl>';
+    } catch (e) {
+      console.warn('e', e);
     }
     return html
   };
@@ -1276,7 +1267,7 @@
     if (abs.attributes === undefined) {
       return ''
     }
-    if (abs.flags & OUTPUT_ATTRIBUTES_OBJ !== OUTPUT_ATTRIBUTES_OBJ) {
+    if ((abs.flags & this.OUTPUT_ATTRIBUTES_OBJ) !== this.OUTPUT_ATTRIBUTES_OBJ) {
       return ''
     }
     // var $dd
@@ -1289,8 +1280,8 @@
           args.push(
             (i.match(/^\d+$/) === null
               ? '<span class="t_parameter-name">' + i + '</span><span class="t_punct">:</span>'
-              : '')
-            + self.dump.dump(val)
+              : '') +
+            self.dump.dump(val)
           );
         });
         html += '<span class="t_punct">(</span>' +
@@ -1305,13 +1296,13 @@
   };
 
   DumpObject.prototype.dumpConstants = function (abs) {
-    var html = Object.keys(constants).length
+    var html = Object.keys(abs.constants).length
       ? '<dt class="constants">constants</dt>'
       : '';
     var self = this;
     var $dd;
-    if (abs.flags & OUTPUT_CONSTANTS !== OUTPUT_CONSTANTS) {
-      return '';
+    if ((abs.flags & this.OUTPUT_CONSTANTS) !== this.OUTPUT_CONSTANTS) {
+      return ''
     }
     $.each(abs.constants, function (key, info) {
       $dd = $('<dd class="constant ' + info.visibility + '">' +
@@ -1320,7 +1311,7 @@
         '<span class="t_operator">=</span> ' +
         self.dump.dump(info.value, true) +
         '</dd>');
-      if ((abs.flags && OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
         $dd.attr('data-attributes', JSON.stringify(info.attributes));
       }
       html += $dd[0].outerHTML;
@@ -1439,7 +1430,7 @@
         ) +
         '</dd>'
       );
-      if ((abs.flags && OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
         $dd.attr('data-attributes', JSON.stringify(info.attributes));
       }
       $.each(classes, function (classname, useClass) {
@@ -1463,7 +1454,7 @@
       var $dd;
       var modifiers = [];
       var paramStr = self.dumpMethodParams(info.params, {
-        outputAttributes: abs.flags && OUTPUT_ATTRIBUTES_PARAM
+        outputAttributes: abs.flags & this.OUTPUT_ATTRIBUTES_PARAM
       });
       var returnType = '';
       if (info.isFinal) {
@@ -1498,7 +1489,7 @@
         '</dd>'
       );
       $dd.addClass(info.visibility);
-      if ((abs.flags && OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
         $dd.attr('data-attributes', JSON.stringify(info.attributes));
       }
       if (info.implements && info.implements.length) {
@@ -1522,7 +1513,7 @@
     var self = this;
     $.each(params, function (i, info) {
       $param = $('<span />', {
-        class: 'parameter',
+        class: 'parameter'
       });
       if (info.isPromoted) {
         $param.addClass('isPromoted');
@@ -1543,9 +1534,9 @@
         if (typeof defaultValue === 'string') {
           defaultValue = defaultValue.replace('\n', ' ');
         }
-        $param.append(' <span class="t_operator">=</span> '
-         + $(self.dump.dump(defaultValue, true, true, false))
-          .addClass('t_parameter-default')[0].outerHTML
+        $param.append(' <span class="t_operator">=</span> ' +
+          $(self.dump.dump(defaultValue, true, true, false))
+            .addClass('t_parameter-default')[0].outerHTML
         );
       }
       html += $param[0].outerHTML + ', ';
@@ -1757,6 +1748,13 @@
   Dump.prototype.dumpString = function (val, abs) {
     var bytes;
     var date;
+    var parsed;
+    /*
+    console.warn({
+      val: val,
+      typeMore: typeMore,
+    })
+    */
     // var sanitize = true
     if ($.isNumeric(val)) {
       $span.addClass('numeric');
@@ -1774,8 +1772,16 @@
       } else {
         val = strDump.dump(bytes, false);
       }
-      if (abs && abs.strlen) {
-        val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
+      if (abs) {
+        if (abs.typeMore === 'classname') {
+          val = this.markupIdentifier(val);
+          parsed = this.parseTag(val);
+          $.extend(valAttribs, parsed.attribs);
+          val = parsed.innerhtml;
+        }
+        if (abs.strlen) {
+          val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
+        }
       }
       if (valOpts.visualWhiteSpace) {
         val = visualWhiteSpace(val);
@@ -1884,6 +1890,24 @@
       operator = '';
     }
     return classname + operator + identifier
+  };
+
+  Dump.prototype.parseTag = function parseTag (html) {
+    var $node = $(html);
+    var parsed = {
+      tag: $node[0].tagName.toLowerCase(),
+      attribs: {},
+      innerhtml: $node[0].innerHTML
+    };
+    $.each($node[0].attributes, function () {
+      if (this.specified) {
+        parsed.attribs[this.name] = this.value;
+      }
+    });
+    if (parsed.attribs.class) {
+      parsed.attribs.class = parsed.attribs.class.split(' ');
+    }
+    return parsed
   };
 
   function checkTimestamp (val) {
@@ -2239,19 +2263,14 @@
       return this.table(logEntry, info)
     },
     default: function (logEntry, info) {
-      // var arg
       var attribs = {
         class: 'm_' + logEntry.method
       };
       var $container = info.$container;
-      // var i
       var $node;
       var method = logEntry.method;
-      // var args = logEntry.args,
       var meta = logEntry.meta;
-      // var numArgs = args.length
-      // var hasSubs = false
-      if (meta.file && meta.channel !== 'general.phpError') {
+      if (meta.file && meta.channel !== info.channelNameRoot + '.phpError') {
         attribs = $.extend({
           'data-file': meta.file,
           'data-line': meta.line
@@ -2700,6 +2719,13 @@
     if (info.channelName === info.channelNameRoot + '.phpError' || haveChannel(info.channelName, info.channels)) {
       return false
     }
+    /*
+    console.warn('adding channel', {
+      name: info.channelName,
+      icon: meta.channelIcon,
+      show: meta.channelShow
+    })
+    */
     info.channels.push({
       name: info.channelName,
       icon: meta.channelIcon,

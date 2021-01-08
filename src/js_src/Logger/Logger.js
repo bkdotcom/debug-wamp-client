@@ -170,6 +170,13 @@ function addChannel (info, meta) {
   if (info.channelName === info.channelNameRoot + '.phpError' || haveChannel(info.channelName, info.channels)) {
     return false
   }
+  /*
+  console.warn('adding channel', {
+    name: info.channelName,
+    icon: meta.channelIcon,
+    show: meta.channelShow
+  })
+  */
   info.channels.push({
     name: info.channelName,
     icon: meta.channelIcon,

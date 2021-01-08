@@ -95,7 +95,7 @@ Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     if (typeof rowKey === 'string' && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
       rowKey = parseInt(rowKey, 10)
     }
-    parsed = parseTag(this.dump.dump(rowKey, true, true, false))
+    parsed = this.dump.parseTag(this.dump.dump(rowKey, true, true, false))
     $tr = $('<tr></tr>')
       .append(
         $('<th scope="row" class="t_key text-right"></th>')
@@ -113,7 +113,7 @@ Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     }
     for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
       key = tableInfo.columns[i2].key
-      parsed = parseTag(this.dump.dump(row[key], true))
+      parsed = this.dump.parseTag(this.dump.dump(row[key], true))
       $tr.append(
         $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
       )
@@ -144,7 +144,7 @@ Table.prototype.buildFooter = function (tableInfo) {
     $cell = $('<td></td>')
     if (colHasTotal) {
       info.total = parseFloat(info.total.toFixed(6), 10)
-      parsed = parseTag(this.dump.dump(info.total, true))
+      parsed = this.dump.parseTag(this.dump.dump(info.total, true))
       $cell.html(parsed.innerhtml).attr(parsed.attribs)
     }
     cells.push($cell[0].outerHTML)
@@ -179,19 +179,4 @@ Table.prototype.buildHeader = function (tableInfo) {
       '<th scope="col">' + this.dump.dump(label, true, false) + '</th>'
     )
   }
-}
-
-function parseTag (html) {
-  var $node = $(html)
-  var parsed = {
-    tag: $node[0].tagName.toLowerCase(),
-    attribs: {},
-    innerhtml: $node[0].innerHTML
-  }
-  $.each($node[0].attributes, function () {
-    if (this.specified) {
-      parsed.attribs[this.name] = this.value
-    }
-  })
-  return parsed
 }
