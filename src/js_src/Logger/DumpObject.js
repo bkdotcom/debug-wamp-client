@@ -31,6 +31,10 @@ DumpObject.prototype.dumpObject = function (abs) {
     html = this.dumpToString(abs) +
       strClassName +
       '<dl class="object-inner">' +
+        (abs.isFinal
+          ? '<dt class="t_modifier_final">final</dt>'
+          : ''
+        ) +
         (abs.extends.length
           ? '<dt>extends</dt>' +
             '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
@@ -226,8 +230,9 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
     var classes = {
       'debuginfo-value': info.valueFrom === 'debugInfo',
       'debug-value': info.valueFrom === 'debug',
-      forceShow: info.forceShow,
       excluded: info.isExcluded,
+      forceShow: info.forceShow,
+      inherited: typeof info.inheritedFrom === 'string',
       'private-ancestor': info.isPrivateAncestor
     }
     name = name.replace('debug.', '')
@@ -267,6 +272,9 @@ DumpObject.prototype.dumpProperties = function (abs, meta) {
     if ((abs.flags & this.OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
     }
+    if (info.inheritedFrom) {
+      $dd.attr('data-inherited-from', info.inheritedFrom)
+    }
     $.each(classes, function (classname, useClass) {
       if (useClass) {
         $dd.addClass(classname)
@@ -285,13 +293,14 @@ DumpObject.prototype.dumpMethods = function (abs) {
     magicMethodInfo(abs, ['__call', '__callStatic'])
   var self = this
   $.each(abs.methods, function (k, info) {
-    var $dd
+    var $dd = $('<dd class="method"></dd>').addClass(info.visibility)
     var modifiers = []
     var paramStr = self.dumpMethodParams(info.params, {
       outputAttributes: abs.flags & this.OUTPUT_ATTRIBUTES_PARAM
     })
     var returnType = ''
     if (info.isFinal) {
+      $dd.addClass('final')
       modifiers.push('<span class="t_modifier_final">final</span>')
     }
     modifiers.push('<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span>')
@@ -306,7 +315,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
         ) +
         '>' + info.return.type + '</span>'
     }
-    $dd = $('<dd class="method">' +
+    $dd.html(
       modifiers.join(' ') +
       returnType +
       ' <span class="t_identifier"' +
@@ -322,12 +331,17 @@ DumpObject.prototype.dumpMethods = function (abs) {
       ) +
       '</dd>'
     )
-    $dd.addClass(info.visibility)
     if ((abs.flags & this.OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
     }
     if (info.implements && info.implements.length) {
       $dd.attr('data-implements', info.implements)
+    }
+    if (info.inheritedFrom) {
+      $dd.attr('data-inherited-from', info.inheritedFrom)
+    }
+    if (info.phpDoc.deprecated) {
+      $dd.attr('data-deprecated-desc', info.phpDoc.deprecated[0].desc)
     }
     if (info.inheritedFrom) {
       $dd.addClass('inherited')
