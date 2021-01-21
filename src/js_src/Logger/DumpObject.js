@@ -357,7 +357,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
 DumpObject.prototype.dumpMethodParams = function (params, opts) {
   var $param
   var defaultValue
-  var html = ''
+  // var html = ''
   var self = this
   $.each(params, function (i, info) {
     $param = $('<span />', {
@@ -387,12 +387,14 @@ DumpObject.prototype.dumpMethodParams = function (params, opts) {
           .addClass('t_parameter-default')[0].outerHTML
       )
     }
-    html += $param[0].outerHTML + ', '
+    params[i] = $param[0].outerHTML
   })
+  /*
   if (html.length) {
     html = html.substr(0, html.length - 2) // remove ', '
   }
-  return html
+  */
+  return params.join('<span class="t_punct">,</span> ')
 }
 
 function magicMethodInfo (abs, methods) {

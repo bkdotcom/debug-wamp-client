@@ -1523,7 +1523,7 @@
   DumpObject.prototype.dumpMethodParams = function (params, opts) {
     var $param;
     var defaultValue;
-    var html = '';
+    // var html = ''
     var self = this;
     $.each(params, function (i, info) {
       $param = $('<span />', {
@@ -1553,12 +1553,14 @@
             .addClass('t_parameter-default')[0].outerHTML
         );
       }
-      html += $param[0].outerHTML + ', ';
+      params[i] = $param[0].outerHTML;
     });
+    /*
     if (html.length) {
-      html = html.substr(0, html.length - 2); // remove ', '
+      html = html.substr(0, html.length - 2) // remove ', '
     }
-    return html
+    */
+    return params.join('<span class="t_punct">,</span> ')
   };
 
   function magicMethodInfo (abs, methods) {
@@ -2467,7 +2469,7 @@
       argStr +
       '</div>');
     if (typeof logEntry.meta.boldLabel === 'undefined' || logEntry.meta.boldLabel) {
-      $header.find('.group-label').addClass('group-label-bold');
+      $header.find('.group-label').addClass('font-weight-bold');
     }
     return $header
   }

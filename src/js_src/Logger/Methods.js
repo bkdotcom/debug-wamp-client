@@ -511,7 +511,7 @@ function groupHeader (logEntry) {
     argStr +
     '</div>')
   if (typeof logEntry.meta.boldLabel === 'undefined' || logEntry.meta.boldLabel) {
-    $header.find('.group-label').addClass('group-label-bold')
+    $header.find('.group-label').addClass('font-weight-bold')
   }
   return $header
 }
