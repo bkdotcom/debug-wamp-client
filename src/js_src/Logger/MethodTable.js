@@ -95,11 +95,11 @@ Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     if (typeof rowKey === 'string' && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
       rowKey = parseInt(rowKey, 10)
     }
-    parsed = this.dump.parseTag(this.dump.dump(rowKey, true, true, false))
+    parsed = this.dump.parseTag(this.dump.dump(rowKey))
     $tr = $('<tr></tr>')
       .append(
         $('<th scope="row" class="t_key text-right"></th>')
-          .addClass(/^\d+$/.test(rowKey) ? 't_int' : parsed.attribs.class)
+          .addClass(/^\d+$/.test(rowKey) ? 't_int' : parsed.attribs.class.join(' '))
           .html(parsed.innerhtml)
       )
 
@@ -114,6 +114,7 @@ Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
       key = tableInfo.columns[i2].key
       parsed = this.dump.parseTag(this.dump.dump(row[key], true))
+      parsed.attribs.class = parsed.attribs.class.join(' ')
       $tr.append(
         $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
       )

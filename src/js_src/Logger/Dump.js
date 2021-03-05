@@ -1,60 +1,120 @@
 import $ from 'jquery' // external global
-import base64 from 'base64-arraybuffer'
-import { StrDump } from './StrDump.js'
 import { DumpObject } from './dumpObject.js'
+import { DumpString } from './dumpString.js'
 
-var strDump = new StrDump()
-var typeMore = null
-var $span
-var valAttribs = {}
-var valAttribsStack = []
-var valOpts = {} // per-value options
+var dumpOptStack = [
+  /*
+  {
+    attribs
+    opts
+    postDump
+    tagName
+    type
+    typeMore
+  }
+  */
+]
 
 export var Dump = function () {
   this.objectDumper = new DumpObject(this)
+  this.stringDumper = new DumpString(this)
+  this.ABSTRACTION = '\x00debug\x00'.parseHex()
+  this.NOT_INSPECTED = '\x00notInspected\x00'.parseHex()
+  this.RECURSION = '\x00recursion\x00'.parseHex()
+  this.UNDEFINED = '\x00undefined\x00'.parseHex()
 }
 
-Dump.prototype.ABSTRACTION = '\x00debug\x00'.parseHex()
-Dump.prototype.NOT_INSPECTED = '\x00notInspected\x00'.parseHex()
-Dump.prototype.RECURSION = '\x00recursion\x00'.parseHex()
-Dump.prototype.UNDEFINED = '\x00undefined\x00'.parseHex()
+Dump.prototype.checkTimestamp = function (val) {
+  var secs = 86400 * 90 // 90 days worth o seconds
+  var tsNow = Date.now() / 1000
+  var date
+  var dumpOpts
+  val = parseFloat(val, 10)
+  if (val > tsNow - secs && val < tsNow + secs) {
+    date = (new Date(val * 1000)).toString()
+    dumpOpts = this.getDumpOpts()
+    dumpOpts.postDump = function (val, dumpOpts) {
+      return $('<span />', {
+        class: 'timestamp value-container',
+        'data-type': dumpOpts.type,
+        title: date
+      }).html(val)
+    }
+  }
+}
 
-Dump.prototype.dump = function (val, opts, wrap) {
-  // console.log('dump', JSON.stringify(val))
-  var type = this.getType(val)
-  var method = 'dump' + type.ucfirst()
+Dump.prototype.dump = function (val, opts) {
+  var $wrap
+  var dumpOpts = $.extend({
+    addQuotes: true,
+    attribs: {
+      class: []
+    },
+    postDump: null, // set to function
+    sanitize: true,
+    tagName: '__default__',
+    type: null,
+    typeMore: null,
+    visualWhiteSpace: true
+  }, opts || {})
+  var tagName
+  var type // = this.getType(val)
+  var method // = 'dump' + type[0].ucfirst()
+  /*
   var optsDefault = {
     addQuotes: true,
     sanitize: true,
     visualWhiteSpace: true
   }
-  valAttribs = {
-    class: []
+  // console.warn('dump', type, JSON.stringify(val))
+  if (opts === undefined) {
+    opts = {}
   }
-  if (opts === undefined || opts === true) {
-    opts = []
+  if (tagName === undefined) {
+    tagName =
   }
-  if (wrap === undefined) {
-    wrap = true
+  */
+  if (dumpOpts.type === null) {
+    type = this.getType(val)
+    dumpOpts.type = type[0]
+    dumpOpts.typeMore = type[1]
   }
-  valOpts = $.extend(optsDefault, opts)
-  $span = $('<span />')
-  val = typeMore === 'abstraction'
+  dumpOptStack.push(dumpOpts)
+  method = 'dump' + dumpOpts.type.ucfirst()
+  val = dumpOpts.typeMore === 'abstraction'
     ? this.dumpAbstraction(val)
     : this[method](val)
-  if (wrap) {
-    if (valAttribs.class && valAttribs.class.length) {
-      $span.addClass(valAttribs.class)
+  dumpOpts = dumpOptStack.pop()
+  tagName = dumpOpts.tagName
+  if (tagName === '__default__') {
+    tagName = 'span'
+    if (dumpOpts.type === 'object') {
+      tagName = 'div'
     }
-    delete valAttribs.class
-    $span.attr(valAttribs)
-    val = $span.addClass('t_' + type).html(val)[0].outerHTML
+    dumpOpts.tagName = tagName
   }
-  $span = $('<span />')
+  if (tagName) {
+    dumpOpts.attribs.class.push('t_' + dumpOpts.type)
+    if (dumpOpts.typeMore !== null && dumpOpts.typeMore !== 'maxLen') {
+      dumpOpts.attribs.class.push(dumpOpts.typeMore)
+    }
+    $wrap = $('<' + tagName + ' />')
+      .addClass(dumpOpts.attribs.class.join(' '))
+    delete dumpOpts.attribs.class
+    $wrap.attr(dumpOpts.attribs)
+    val = $wrap.html(val)[0].outerHTML
+  }
+  if (dumpOpts.postDump) {
+    val = dumpOpts.postDump(val, dumpOpts)
+    if (typeof val === 'object') {
+      val = val[0].outerHTML
+    }
+  }
   return val
 }
 
 Dump.prototype.dumpAbstraction = function (abs) {
+  var dumpOpts = this.getDumpOpts()
   var k
   var method = 'dump' + abs.type.ucfirst()
   var simpleTypes = [
@@ -65,18 +125,20 @@ Dump.prototype.dumpAbstraction = function (abs) {
     'null',
     'string'
   ]
-  // var method = 'dump' + abs.type.ucfirst()
-  for (k in valOpts) {
+  dumpOpts.attribs = abs.attribs || { }
+  if (dumpOpts.attribs.class === undefined) {
+    dumpOpts.attribs.class = []
+  }
+  for (k in dumpOpts) {
     if (abs[k] !== undefined) {
-      valOpts[k] = abs[k]
+      dumpOpts[k] = abs[k]
     }
   }
-  valAttribs = abs.attribs || { class: [] }
   if (abs.options) {
-    $.extend(valOpts, abs.options)
+    $.extend(dumpOpts, abs.options)
   }
   if (simpleTypes.indexOf(abs.type) > -1) {
-    typeMore = abs.typeMore // likely null
+    dumpOpts.typeMore = abs.typeMore // likely null
     return this[method](abs.value, abs)
   }
   return this[method](abs)
@@ -88,17 +150,17 @@ Dump.prototype.dumpArray = function (array) {
   var length = keys.length
   var key
   var i
-  var opts = $.extend({
+  var dumpOpts = $.extend({
     asFileTree: false,
     expand: null,
     showListKeys: true
-  }, valOpts)
+  }, this.getDumpOpts())
   // console.log('array', JSON.parse(JSON.stringify(array)))
-  if (opts.expand !== null) {
-    valAttribs['data-expand'] = opts.expand
+  if (dumpOpts.expand !== null) {
+    dumpOpts.attribs['data-expand'] = dumpOpts.expand
   }
-  if (opts.asFileTree) {
-    valAttribs.class.push('array-file-tree')
+  if (dumpOpts.asFileTree) {
+    dumpOpts.attribs.class.push('array-file-tree')
   }
   if (length === 0) {
     return '<span class="t_keyword">array</span>' +
@@ -106,7 +168,6 @@ Dump.prototype.dumpArray = function (array) {
         '<span class="t_punct">)</span>'
   }
   delete array.__debug_key_order__
-  valAttribsStack.push(valAttribs)
   html = '<span class="t_keyword">array</span>' +
     '<span class="t_punct">(</span>\n' +
     '<ul class="array-inner list-unstyled">\n'
@@ -115,17 +176,15 @@ Dump.prototype.dumpArray = function (array) {
     html += '\t<li>' +
         '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
         '<span class="t_operator">=&gt;</span>' +
-        this.dump(array[key], true) +
+        this.dump(array[key]) +
       '</li>\n'
   }
   html += '</ul>' +
     '<span class="t_punct">)</span>'
-  valAttribs = valAttribsStack.pop()
   return html
 }
 
 Dump.prototype.dumpBool = function (val) {
-  $span.addClass(typeMore)
   return val ? 'true' : 'false'
 }
 
@@ -135,17 +194,15 @@ Dump.prototype.dumpCallable = function (abs) {
 }
 
 Dump.prototype.dumpConst = function (abs) {
-  $span.attr('title', abs.value
+  var dumpOpts = this.getDumpOpts()
+  dumpOpts.attribs.title = abs.value
     ? 'value: ' + this.dump(abs.value)
-    : null)
+    : null
   return this.markupIdentifier(abs.name)
 }
 
 Dump.prototype.dumpFloat = function (val) {
-  var date = checkTimestamp(val)
-  if (date) {
-    $span.addClass('timestamp').attr('title', date)
-  }
+  this.checkTimestamp(val)
   return val
 }
 
@@ -162,15 +219,11 @@ Dump.prototype.dumpNull = function () {
 }
 
 Dump.prototype.dumpObject = function (abs) {
-  var val
-  valAttribsStack.push(valAttribs)
-  val = this.objectDumper.dumpObject(abs)
-  $span.attr('data-accessible', abs.scopeClass === abs.className
+  var dumpOpts = this.getDumpOpts()
+  dumpOpts.attribs['data-accessible'] = abs.scopeClass === abs.className
     ? 'private'
     : 'public'
-  )
-  valAttribs = valAttribsStack.pop()
-  return val
+  return this.objectDumper.dumpObject(abs)
 }
 
 Dump.prototype.dumpRecursion = function () {
@@ -182,105 +235,62 @@ Dump.prototype.dumpResource = function (abs) {
 }
 
 Dump.prototype.dumpString = function (val, abs) {
-  var bytes
-  var date
-  var parsed
-  /*
-  console.warn({
-    val: val,
-    typeMore: typeMore,
-  })
-  */
-  // var sanitize = true
-  if ($.isNumeric(val)) {
-    $span.addClass('numeric')
-    date = checkTimestamp(val)
-    if (date) {
-      $span.addClass('timestamp').attr('title', date)
-    }
-  } else {
-    bytes = val.substr(0, 6) === '_b64_:'
-      ? new Uint8Array(base64.decode(val.substr(6)))
-      : strDump.encodeUTF16toUTF8(val)
-    // console.log('bytes', bytes)
-    if (valOpts.sanitize) {
-      val = strDump.dump(bytes, true)
-    } else {
-      val = strDump.dump(bytes, false)
-    }
-    if (abs) {
-      if (abs.typeMore === 'classname') {
-        val = this.markupIdentifier(val)
-        parsed = this.parseTag(val)
-        $.extend(valAttribs, parsed.attribs)
-        val = parsed.innerhtml
-      }
-      if (abs.strlen) {
-        val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>'
-      }
-    }
-    if (valOpts.visualWhiteSpace) {
-      val = visualWhiteSpace(val)
-    }
-  }
-  if (!valOpts.addQuotes) {
-    $span.addClass('no-quotes')
-  }
-  return val
+  return this.stringDumper.dump(val, abs)
 }
 
 Dump.prototype.dumpUndefined = function () {
   return ''
 }
 
+Dump.prototype.getDumpOpts = function () {
+  return dumpOptStack[dumpOptStack.length - 1]
+}
+
 Dump.prototype.getType = function (val) {
-  var type
-  typeMore = null
   if (val === null) {
-    return 'null'
+    return ['null', null]
   }
   if (typeof val === 'boolean') {
-    typeMore = val ? 'true' : 'false'
-    return 'bool'
+    return ['bool', val ? 'true' : 'false']
   }
   if (typeof val === 'string') {
     if (val === this.NOT_INSPECTED) {
-      return 'notInspected'
+      return ['notInspected', null]
     }
     if (val === this.RECURSION) {
-      return 'recursion'
+      return ['recursion', null]
     }
     if (val === this.UNDEFINED) {
-      return 'undefined'
+      return ['undefined', null]
     }
-    return 'string'
+    if ($.isNumeric(val)) {
+      return ['string', 'numeric']
+    }
+    return ['string', null]
   }
   if (typeof val === 'number') {
     if (Number.isInteger(val)) {
-      return 'int'
+      return ['int', null]
     }
-    return 'float'
+    return ['float', null]
   }
   if (typeof val === 'object') { // already checked for null
-    type = 'array'
     if (val.debug === this.ABSTRACTION) {
-      type = val.type
-      typeMore = 'abstraction'
+      return [val.type, 'abstraction']
     }
-    return type
+    return ['array', null]
   }
   if (typeof val === 'undefined') {
-    return 'undefined'
+    return ['undefined', null]
   }
 }
 
 Dump.prototype.markupIdentifier = function (val, attribs, tag) {
   var classname = ''
-  var operator = '::'
   var identifier = ''
-  var regex = /^(.+)(::|->)(.+)$/
   var matches = [] // str.match()
-  // var opMethod = ''
+  var operator = '::'
+  var regex = /^(.+)(::|->)(.+)$/
   var split = []
   attribs = attribs || {}
   tag = tag || 'span'
@@ -340,45 +350,8 @@ Dump.prototype.parseTag = function parseTag (html) {
       parsed.attribs[this.name] = this.value
     }
   })
-  if (parsed.attribs.class) {
-    parsed.attribs.class = parsed.attribs.class.split(' ')
-  }
+  parsed.attribs.class = parsed.attribs.class
+    ? parsed.attribs.class.split(' ')
+    : []
   return parsed
-}
-
-function checkTimestamp (val) {
-  var secs = 86400 * 90 // 90 days worth o seconds
-  var tsNow = Date.now() / 1000
-  val = parseFloat(val, 10)
-  if (val > tsNow - secs && val < tsNow + secs) {
-    return (new Date(val * 1000)).toString()
-  }
-  return false
-}
-
-/**
- * Add whitespace markup
- *
- * @param string str string which to add whitespace html markup
- *
- * @return string
- */
-function visualWhiteSpace (str) {
-  // display \r, \n, & \t
-  var strBr = ''
-  var searchReplacePairs = [
-    [/\r/g, '<span class="ws_r"></span>'],
-    [/\n/g, '<span class="ws_n"></span>' + strBr + '\n']
-  ]
-  var i = 0
-  var length = searchReplacePairs.length
-  str = str.replace(/(\r\n|\r|\n)/g, function (match) {
-    for (i = 0; i < length; i++) {
-      match = match.replace(searchReplacePairs[i][0], searchReplacePairs[i][1])
-    }
-    return match
-  })
-    .replace(/(<br \/>)?\n$/g, '')
-    .replace(/\t/g, '<span class="ws_t">\t</span>')
-  return str
 }

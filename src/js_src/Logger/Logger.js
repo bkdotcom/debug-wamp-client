@@ -9,7 +9,7 @@ export function getNodeInfo (meta) {
   var channelNameRoot = $container.data('channelNameRoot') || 'general'
   var channelName = meta.channel || channelNameRoot
   var channelSplit = channelName.split('.')
-  var channelNameTop = channelSplit.shift()
+  var channelNameTop = channelSplit.shift() // ie channelName of tab
   var info
   if ($container.length) {
     $debug = $container.find('.debug')
@@ -33,7 +33,7 @@ export function getNodeInfo (meta) {
               '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab"><i class="fa fa-list-ul"></i>Log</a>' +
             '</nav>' +
           '</header>' +
-          '<div class="debug-tabs">' +
+          '<div class="tab-panes">' +
             '<div class="active ' + nameToClassname(channelNameRoot) + ' tab-pane tab-primary" role="tabpanel">' +
               '<div class="sidebar-trigger"></div>' +
               '<div class="tab-body">' +
@@ -108,7 +108,7 @@ export function processEntry (logEntry) {
     updateSidebar(logEntry, info, $node !== false)
     if ($node) {
       if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-        info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body > .debug-log.group-body')
+        info.$node = info.$container.find('> .card-body > .tab-panes > .tab-primary > .tab-body > .debug-log.group-body')
       }
       info.$node.append($node)
       $node.attr('data-channel', meta.channel) // using attr so can use [data-channel="xxx"] selector
@@ -297,7 +297,7 @@ function addTab ($container, $link) {
 function getTabPane ($container, channelNameTop, meta) {
   // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
   var classname = nameToClassname(channelNameTop)
-  var $tabPane = $container.find('.debug-tabs > .' + classname)
+  var $tabPane = $container.find('> .card-body > .tab-panes > .' + classname)
   var $link
   if ($tabPane.length) {
     return $tabPane
@@ -329,7 +329,7 @@ function getTabPane ($container, channelNameTop, meta) {
         '<ul class="debug-log group-body"></ul>'
     }))
   $tabPane.data('nodes', [$tabPane.find('.debug-log')])
-  $container.find('.debug-tabs').append($tabPane)
+  $container.find('> .card-body > .tab-panes').append($tabPane)
   return $tabPane
 }
 

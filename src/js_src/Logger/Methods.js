@@ -7,20 +7,18 @@ var table = new Table(dump)
 
 export var methods = {
   alert: function (logEntry, info) {
-    // console.log('logEntry', logEntry)
-    var message = dump.dump(
-      logEntry.args[0],
-      {
-        sanitize: logEntry.meta.sanitizeFirst !== false,
-        visualWhiteSpace: false
-      },
-      false // don't wrap in span
-    )
+    var message
     var level = logEntry.meta.level || logEntry.meta.class
     var dismissible = logEntry.meta.dismissible
-    var $node = $('<div class="m_alert"></div>').addClass('alert-' + level)
-      .html(message)
+    var $node = $('<div class="m_alert"></div>')
+      .addClass('alert-' + level)
+      // .html(message)
       .attr('data-channel', logEntry.meta.channel) // using attr so can use [data-channel="xxx"] selector
+    if (logEntry.args.length > 1) {
+      processSubstitutions(logEntry)
+    }
+    message = logEntry.args[0]
+    $node.html(message)
     if (dismissible) {
       $node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
         '<span aria-hidden="true">&times;</span>' +
@@ -358,6 +356,16 @@ export var methods = {
       attribs['data-uncollapse'] = 'false'
     }
     if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
+      /*
+        update tab
+      */
+      if (method === 'error') {
+        getTab(info).addClass('has-error')
+      } else if (method === 'warn') {
+        getTab(info).addClass('has-warn')
+      } else if (method === 'assert') {
+        getTab(info).addClass('has-assert')
+      }
       processSubstitutions(logEntry)
     }
     $node = buildEntryNode(logEntry)
@@ -445,6 +453,8 @@ function buildEntryNode (logEntry) {
     sanitize: true,
     sanitizeFirst: null
   }, logEntry.meta)
+  var typeInfo
+  var typeMore
   if (meta.sanitizeFirst === null) {
     meta.sanitizeFirst = meta.sanitize
   }
@@ -458,11 +468,17 @@ function buildEntryNode (logEntry) {
     }
   }
   for (i = 0; i < numArgs; i++) {
+    typeInfo = dump.getType(args[i])
+    typeMore = typeInfo[1] !== 'abstraction'
+      ? typeInfo[1]
+      : args[i].typeMore
     args[i] = dump.dump(args[i], {
+      addQuotes: i !== 0 || typeMore === 'numeric',
       sanitize: i === 0
         ? meta.sanitizeFirst
         : meta.sanitize,
-      addQuotes: i !== 0,
+      type: typeInfo[0],
+      typeMore: typeInfo[1],
       visualWhiteSpace: i !== 0
     })
   }
@@ -471,6 +487,13 @@ function buildEntryNode (logEntry) {
   } else {
     return $('<li>').html(args.join(glue))
   }
+}
+
+function getTab (info) {
+  var classname = 'debug-tab-' + info.channelNameTop.toLowerCase().replace(/\W+/g, '-')
+  return classname === 'debug-tab-general'
+    ? $()
+    : info.$container.find('.debug-menu-bar .nav-link[data-toggle=tab][data-target=".' + classname + '"]')
 }
 
 /**
@@ -594,16 +617,16 @@ function processSubstitutions (logEntry, opts) {
  */
 function substitutionAsString (val) {
   var type = dump.getType(val)
-  if (type === 'string') {
-    val = dump.dump(val, true, false)
-  } else if (type === 'array') {
-    delete val.__debug_key_order__
-    val = '<span class="t_keyword">array</span>' +
-      '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>'
-  } else if (type === 'object') {
-    val = dump.markupIdentifier(val.className)
-  } else {
-    val = dump.dump(val)
+  if (type[0] === 'string') {
+    return dump.stringDumper.dumpAsSubstitution(val)
   }
-  return val
+  if (type[0] === 'array') {
+    delete val.__debug_key_order__
+    return '<span class="t_keyword">array</span>' +
+      '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>'
+  }
+  if (type[0] === 'object') {
+    return dump.markupIdentifier(val.className)
+  }
+  return dump.dump(val)
 }

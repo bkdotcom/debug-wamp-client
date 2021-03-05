@@ -41,10 +41,10 @@ export function init (config) {
     $icon.toggleClass(classExpanded + ' ' + classCollapsed)
     if (e.type === 'shown') {
       // $(this).find('.m_alert, .m_groupSummary > .group-body, .debug-log').debugEnhance()
-      console.group('card shown -> enhance')
+      // console.group('card shown -> enhance')
       //  > *:not(.filter-hidden, .enhanced)
       $(this).find('.m_alert, .group-body:visible').debugEnhance()
-      console.groupEnd()
+      // console.groupEnd()
     }
   })
 
@@ -60,7 +60,7 @@ export function init (config) {
     var sidebarContentHeight = $(e.target).find('.sidebar-content').height()
     var $card = $(e.target).closest('.card')
     var minHeight = Math.max(sidebarContentHeight + 8, 200)
-    $card.find('.card-body .tab-pane.active').css({
+    $card.find('.card-body > .tab-panes > .tab-pane.active').css({
       minHeight: minHeight + 'px'
     })
     $('body').on('click', onBodyClick)

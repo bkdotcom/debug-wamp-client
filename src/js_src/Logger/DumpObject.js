@@ -147,7 +147,7 @@ DumpObject.prototype.dumpConstants = function (abs) {
       '<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span> ' +
       '<span class="t_identifier">' + key + '</span> ' +
       '<span class="t_operator">=</span> ' +
-      self.dump.dump(info.value, true) +
+      self.dump.dump(info.value) +
       '</dd>')
     if ((abs.flags & this.OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
       $dd.attr('data-attributes', JSON.stringify(info.attributes))
@@ -326,7 +326,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
         '>' + k + '</span>' +
       '<span class="t_punct">(</span>' + paramStr + '<span class="t_punct">)</span>' +
       (k === '__toString'
-        ? '<br />' + self.dump.dump(info.returnValue, true)
+        ? '<br />' + self.dump.dump(info.returnValue)
         : ''
       ) +
       '</dd>'
@@ -383,7 +383,7 @@ DumpObject.prototype.dumpMethodParams = function (params, opts) {
         defaultValue = defaultValue.replace('\n', ' ')
       }
       $param.append(' <span class="t_operator">=</span> ' +
-        $(self.dump.dump(defaultValue, true, true, false))
+        $(self.dump.dump(defaultValue))
           .addClass('t_parameter-default')[0].outerHTML
       )
     }

@@ -197,10 +197,10 @@
       $icon.toggleClass(classExpanded + ' ' + classCollapsed);
       if (e.type === 'shown') {
         // $(this).find('.m_alert, .m_groupSummary > .group-body, .debug-log').debugEnhance()
-        console.group('card shown -> enhance');
+        // console.group('card shown -> enhance')
         //  > *:not(.filter-hidden, .enhanced)
         $(this).find('.m_alert, .group-body:visible').debugEnhance();
-        console.groupEnd();
+        // console.groupEnd()
       }
     });
 
@@ -216,7 +216,7 @@
       var sidebarContentHeight = $(e.target).find('.sidebar-content').height();
       var $card = $(e.target).closest('.card');
       var minHeight = Math.max(sidebarContentHeight + 8, 200);
-      $card.find('.card-body .tab-pane.active').css({
+      $card.find('.card-body > .tab-panes > .tab-pane.active').css({
         minHeight: minHeight + 'px'
       });
       $('body').on('click', onBodyClick);
@@ -444,11 +444,11 @@
       if (typeof rowKey === 'string' && rowKey.match(/^\d+$/) && Number.isSafeInteger(rowKey)) {
         rowKey = parseInt(rowKey, 10);
       }
-      parsed = this.dump.parseTag(this.dump.dump(rowKey, true, true, false));
+      parsed = this.dump.parseTag(this.dump.dump(rowKey));
       $tr = $('<tr></tr>')
         .append(
           $('<th scope="row" class="t_key text-right"></th>')
-            .addClass(/^\d+$/.test(rowKey) ? 't_int' : parsed.attribs.class)
+            .addClass(/^\d+$/.test(rowKey) ? 't_int' : parsed.attribs.class.join(' '))
             .html(parsed.innerhtml)
         );
 
@@ -463,6 +463,7 @@
       for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
         key = tableInfo.columns[i2].key;
         parsed = this.dump.parseTag(this.dump.dump(row[key], true));
+        parsed.attribs.class = parsed.attribs.class.join(' ');
         $tr.append(
           $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
         );
@@ -529,6 +530,423 @@
       );
     }
   };
+
+  function DumpObject (dump) {
+    this.dump = dump;
+    this.OUTPUT_CONSTANTS = 4;
+    this.OUTPUT_METHODS = 8;
+    this.OUTPUT_METHOD_DESC = 16;
+    this.OUTPUT_ATTRIBUTES_OBJ = 64;
+    this.OUTPUT_ATTRIBUTES_CONST = 256;
+    this.OUTPUT_ATTRIBUTES_PROP = 1024;
+    this.OUTPUT_ATTRIBUTES_METHOD = 4096;
+    this.OUTPUT_ATTRIBUTES_PARAM = 16384;
+  }
+
+  DumpObject.prototype.dumpObject = function (abs) {
+    // console.info('dumpObject', abs)
+    var html = '';
+    var title = ((abs.phpDoc.summary || '') + '\n\n' + (abs.phpDoc.description || '')).trim();
+    var strClassName = this.dump.markupIdentifier(abs.className, {
+      title: title.length ? title : null
+    });
+
+    if (abs.isRecursion) {
+      return strClassName +
+        ' <span class="t_recursion">*RECURSION*</span>'
+    } else if (abs.isExcluded) {
+      return strClassName +
+        ' <span class="excluded">(not inspected)</span>'
+    }
+    try {
+      html = this.dumpToString(abs) +
+        strClassName +
+        '<dl class="object-inner">' +
+          (abs.isFinal
+            ? '<dt class="t_modifier_final">final</dt>'
+            : ''
+          ) +
+          (abs.extends.length
+            ? '<dt>extends</dt>' +
+              '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
+            : ''
+          ) +
+          (abs.implements.length
+            ? '<dt>implements</dt>' +
+              '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
+            : ''
+          ) +
+          this.dumpAttributes(abs) +
+          this.dumpConstants(abs) +
+          this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
+          (abs.flags & this.OUTPUT_METHODS
+            ? this.dumpMethods(abs)
+            : ''
+          ) +
+          this.dumpPhpDoc(abs) +
+        '</dl>';
+    } catch (e) {
+      console.warn('e', e);
+    }
+    return html
+  };
+
+  DumpObject.prototype.dumpToString = function (abs) {
+    // var objToString = ''
+    var val = '';
+    var len;
+    var title;
+    var valAppend = '';
+    var $toStringDump;
+    if (abs.stringified !== null) {
+      val = abs.stringified;
+    } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
+      val = abs.methods.__toString.returnValue;
+    }
+    if (typeof val === 'object') {
+      len = val.strlen;
+      val = val.value;
+    } else {
+      len = val.length;
+    }
+    if (len === 0) {
+      return ''
+    }
+    if (len > 100) {
+      val = val.substring(0, 100);
+      valAppend = '&hellip; <i>(' + (len - 100) + ' more bytes)</i>';
+    }
+    $toStringDump = $(this.dump.dump(val));
+    title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title');
+    if (title === '__toString() : ') {
+      title = '__toString()';
+    }
+    return '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
+      (title.length ? 'title="' + title + '"' : '') +
+      '>' +
+      $toStringDump.html() +
+      valAppend +
+      '</span> '
+  };
+
+  DumpObject.prototype.dumpAttributes = function (abs) {
+    var html = '';
+    var self = this;
+    var args = [];
+    if (abs.attributes === undefined) {
+      return ''
+    }
+    if ((abs.flags & this.OUTPUT_ATTRIBUTES_OBJ) !== this.OUTPUT_ATTRIBUTES_OBJ) {
+      return ''
+    }
+    // var $dd
+    $.each(abs.attributes, function (key, attribute) {
+      args = [];
+      html += '<dd class="attribute">';
+      html += self.dump.markupIdentifier(attribute.name);
+      if (Object.keys(attribute.arguments).length) {
+        $.each(attribute.arguments, function (i, val) {
+          args.push(
+            (i.match(/^\d+$/) === null
+              ? '<span class="t_parameter-name">' + i + '</span><span class="t_punct">:</span>'
+              : '') +
+            self.dump.dump(val)
+          );
+        });
+        html += '<span class="t_punct">(</span>' +
+          args.join('<span class="t_punct">,</span> ') +
+          '<span class="t_punct">)</span>';
+      }
+      html += '</dd>';
+    });
+    return html.length
+      ? '<dt class="attributes">attributes</dt>' + html
+      : ''
+  };
+
+  DumpObject.prototype.dumpConstants = function (abs) {
+    var html = Object.keys(abs.constants).length
+      ? '<dt class="constants">constants</dt>'
+      : '';
+    var self = this;
+    var $dd;
+    if ((abs.flags & this.OUTPUT_CONSTANTS) !== this.OUTPUT_CONSTANTS) {
+      return ''
+    }
+    $.each(abs.constants, function (key, info) {
+      $dd = $('<dd class="constant ' + info.visibility + '">' +
+        '<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span> ' +
+        '<span class="t_identifier">' + key + '</span> ' +
+        '<span class="t_operator">=</span> ' +
+        self.dump.dump(info.value) +
+        '</dd>');
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      html += $dd[0].outerHTML;
+    });
+    return html
+  };
+
+  DumpObject.prototype.dumpPhpDoc = function (abs) {
+    var count;
+    var html = '';
+    var i;
+    var i2;
+    var info;
+    var key;
+    var tagEntries;
+    var value;
+    for (key in abs.phpDoc) {
+      tagEntries = abs.phpDoc[key];
+      if (!Array.isArray(tagEntries)) {
+        continue
+      }
+      for (i = 0, count = tagEntries.length; i < count; i++) {
+        info = tagEntries[i];
+        if (key === 'author') {
+          value = info.name;
+          if (info.email) {
+            value += ' &lt;<a href="mailto:' + info.email + '">' + info.email + '</a>&gt;';
+          }
+          if (info.desc) {
+            value += ' ' + info.desc.escapeHtml();
+          }
+        } else if (key === 'link') {
+          value = '<a href="' + info.uri + '" target="_blank">' +
+            (info.desc || info.uri).escapeHtml() +
+            '</a>';
+        } else if (key === 'see' && info.uri) {
+          value = '<a href="' + info.uri + '" target="_blank">' +
+            (info.desc || info.uri).escapeHtml() +
+            '</a>';
+        } else {
+          value = '';
+          for (i2 in info) {
+            value += info[i2] === null
+              ? ''
+              : info[i2].escapeHtml() + ' ';
+          }
+        }
+        html += '<dd class="phpDoc phpdoc-' + key + '">' +
+          '<span class="phpdoc-tag">' + key + '</span>' +
+          '<span class="t_operator">:</span> ' +
+          value +
+          '</dd>';
+      }
+    }
+    if (html.length) {
+      html = '<dt>phpDoc</dt>' + html;
+    }
+    return html
+  };
+
+  DumpObject.prototype.dumpProperties = function (abs, meta) {
+    var html = '';
+    var properties = abs.properties;
+    var label = Object.keys(properties).length
+      ? 'properties'
+      : 'no properties';
+    var self = this;
+    if (meta.viaDebugInfo) {
+      label += ' <span class="text-muted">(via __debugInfo)</span>';
+    }
+    html = '<dt class="properties">' + label + '</dt>';
+    html += magicMethodInfo(abs, ['__get', '__set']);
+    $.each(properties, function (name, info) {
+      // console.info('property info', info)
+      var $dd;
+      var isPrivateAncestor = $.inArray('private', info.visibility) >= 0 && info.inheritedFrom;
+      var modifiers = '';
+      var classes = {
+        'debuginfo-value': info.valueFrom === 'debugInfo',
+        'debug-value': info.valueFrom === 'debug',
+        excluded: info.isExcluded,
+        forceShow: info.forceShow,
+        inherited: typeof info.inheritedFrom === 'string',
+        'private-ancestor': info.isPrivateAncestor
+      };
+      name = name.replace('debug.', '');
+      if (typeof info.visibility !== 'object') {
+        info.visibility = [info.visibility];
+      }
+      classes[info.visibility.join(' ')] = $.inArray('debug', info.visibility) < 0;
+      $.each(info.visibility, function (i, vis) {
+        modifiers += '<span class="t_modifier_' + vis + '">' + vis + '</span> ';
+      });
+      if (info.isStatic) {
+        modifiers += '<span class="t_modifier_static">static</span> ';
+      }
+      $dd = $('<dd class="property">' +
+        modifiers +
+        (isPrivateAncestor
+          ? ' (<i>' + info.inheritedFrom + '</i>)'
+          : ''
+        ) +
+        (info.type
+          ? ' <span class="t_type">' + info.type + '</span>'
+          : ''
+        ) +
+        ' <span class="t_identifier"' +
+          (info.desc
+            ? ' title="' + info.desc.escapeHtml() + '"'
+            : ''
+          ) +
+          '>' + name + '</span>' +
+        (info.value !== self.dump.UNDEFINED
+          ? ' <span class="t_operator">=</span> ' +
+            self.dump.dump(info.value)
+          : ''
+        ) +
+        '</dd>'
+      );
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      if (info.inheritedFrom) {
+        $dd.attr('data-inherited-from', info.inheritedFrom);
+      }
+      $.each(classes, function (classname, useClass) {
+        if (useClass) {
+          $dd.addClass(classname);
+        }
+      });
+      html += $dd[0].outerHTML;
+    });
+    return html
+  };
+
+  DumpObject.prototype.dumpMethods = function (abs) {
+    var label = Object.keys(abs.methods).length
+      ? 'methods'
+      : 'no methods';
+    var html = '<dt class="methods">' + label + '</dt>' +
+      magicMethodInfo(abs, ['__call', '__callStatic']);
+    var self = this;
+    $.each(abs.methods, function (k, info) {
+      var $dd = $('<dd class="method"></dd>').addClass(info.visibility);
+      var modifiers = [];
+      var paramStr = self.dumpMethodParams(info.params, {
+        outputAttributes: abs.flags & this.OUTPUT_ATTRIBUTES_PARAM
+      });
+      var returnType = '';
+      if (info.isFinal) {
+        $dd.addClass('final');
+        modifiers.push('<span class="t_modifier_final">final</span>');
+      }
+      modifiers.push('<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span>');
+      if (info.isStatic) {
+        modifiers.push('<span class="t_modifier_static">static</span>');
+      }
+      if (info.return && info.return.type) {
+        returnType = ' <span class="t_type"' +
+          (info.return.desc !== null
+            ? ' title="' + info.return.desc.escapeHtml() + '"'
+            : ''
+          ) +
+          '>' + info.return.type + '</span>';
+      }
+      $dd.html(
+        modifiers.join(' ') +
+        returnType +
+        ' <span class="t_identifier"' +
+          (info.phpDoc && info.phpDoc.summary !== null
+            ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
+            : ''
+          ) +
+          '>' + k + '</span>' +
+        '<span class="t_punct">(</span>' + paramStr + '<span class="t_punct">)</span>' +
+        (k === '__toString'
+          ? '<br />' + self.dump.dump(info.returnValue)
+          : ''
+        ) +
+        '</dd>'
+      );
+      if ((abs.flags & this.OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
+        $dd.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      if (info.implements && info.implements.length) {
+        $dd.attr('data-implements', info.implements);
+      }
+      if (info.inheritedFrom) {
+        $dd.attr('data-inherited-from', info.inheritedFrom);
+      }
+      if (info.phpDoc.deprecated) {
+        $dd.attr('data-deprecated-desc', info.phpDoc.deprecated[0].desc);
+      }
+      if (info.inheritedFrom) {
+        $dd.addClass('inherited');
+      }
+      if (info.isDeprecated) {
+        $dd.addClass('deprecated');
+      }
+      html += $dd[0].outerHTML;
+    });
+    return html
+  };
+
+  DumpObject.prototype.dumpMethodParams = function (params, opts) {
+    var $param;
+    var defaultValue;
+    // var html = ''
+    var self = this;
+    $.each(params, function (i, info) {
+      $param = $('<span />', {
+        class: 'parameter'
+      });
+      if (info.isPromoted) {
+        $param.addClass('isPromoted');
+      }
+      if (opts.outputAttributes && info.attributes && info.attributes.length) {
+        $param.attr('data-attributes', JSON.stringify(info.attributes));
+      }
+      if (typeof info.type === 'string') {
+        $param.append('<span class="t_type">' + info.type + '</span> ');
+      }
+      $param.append('<span class="t_parameter-name"' +
+        (info.desc !== null
+          ? ' title="' + info.desc.escapeHtml().replace('\n', ' ') + '"'
+          : ''
+        ) + '>' + info.name.escapeHtml() + '</span>');
+      if (info.defaultValue !== self.dump.UNDEFINED) {
+        defaultValue = info.defaultValue;
+        if (typeof defaultValue === 'string') {
+          defaultValue = defaultValue.replace('\n', ' ');
+        }
+        $param.append(' <span class="t_operator">=</span> ' +
+          $(self.dump.dump(defaultValue))
+            .addClass('t_parameter-default')[0].outerHTML
+        );
+      }
+      params[i] = $param[0].outerHTML;
+    });
+    /*
+    if (html.length) {
+      html = html.substr(0, html.length - 2) // remove ', '
+    }
+    */
+    return params.join('<span class="t_punct">,</span> ')
+  };
+
+  function magicMethodInfo (abs, methods) {
+    var i = 0;
+    var methodsHave = [];
+    var method;
+    for (i = 0; i < methods.length; i++) {
+      method = methods[i];
+      if (abs.methods[method]) {
+        methodsHave.push('<code>' + method + '</code>');
+      }
+    }
+    if (methodsHave.length < 1) {
+      return ''
+    }
+    methods = methodsHave.join(' and ');
+    methods = methodsHave.length === 1
+      ? 'a ' + methods + ' method'
+      : methods + ' methods';
+    return '<dd class="magic info">This object has ' + methods + '</dd>'
+  }
 
   var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -1166,475 +1584,296 @@
   }())
   */
 
-  function DumpObject (dump) {
-    this.dump = dump;
-    this.OUTPUT_CONSTANTS = 4;
-    this.OUTPUT_METHODS = 8;
-    this.OUTPUT_METHOD_DESC = 16;
-    this.OUTPUT_ATTRIBUTES_OBJ = 64;
-    this.OUTPUT_ATTRIBUTES_CONST = 256;
-    this.OUTPUT_ATTRIBUTES_PROP = 1024;
-    this.OUTPUT_ATTRIBUTES_METHOD = 4096;
-    this.OUTPUT_ATTRIBUTES_PARAM = 16384;
+  var strDump = new StrDump();
+
+  function DumpString (dump) {
+    this.dumper = dump;
   }
 
-  DumpObject.prototype.dumpObject = function (abs) {
-    // console.info('dumpObject', abs)
-    var html = '';
-    var title = ((abs.phpDoc.summary || '') + '\n\n' + (abs.phpDoc.description || '')).trim();
-    var strClassName = this.dump.markupIdentifier(abs.className, {
-      title: title.length ? title : null
-    });
-
-    if (abs.isRecursion) {
-      return strClassName +
-        ' <span class="t_recursion">*RECURSION*</span>'
-    } else if (abs.isExcluded) {
-      return strClassName +
-        ' <span class="excluded">(not inspected)</span>'
+  DumpString.prototype.dump = function (val, abs) {
+    var dumpOpts = this.dumper.getDumpOpts();
+    if ($.isNumeric(val)) {
+      dumpOpts.attribs.class.push('numeric');
+      this.dumper.checkTimestamp(val);
     }
-    try {
-      html = this.dumpToString(abs) +
-        strClassName +
-        '<dl class="object-inner">' +
-          (abs.isFinal
-            ? '<dt class="t_modifier_final">final</dt>'
-            : ''
-          ) +
-          (abs.extends.length
-            ? '<dt>extends</dt>' +
-              '<dd class="extends">' + abs.extends.join('</dd><dd class="extends">') + '</dd>'
-            : ''
-          ) +
-          (abs.implements.length
-            ? '<dt>implements</dt>' +
-              '<dd class="interface">' + abs.implements.join('</dd><dd class="interface">') + '</dd>'
-            : ''
-          ) +
-          this.dumpAttributes(abs) +
-          this.dumpConstants(abs) +
-          this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
-          (abs.flags & this.OUTPUT_METHODS
-            ? this.dumpMethods(abs)
-            : ''
-          ) +
-          this.dumpPhpDoc(abs) +
-        '</dl>';
-    } catch (e) {
-      console.warn('e', e);
+    if (!dumpOpts.addQuotes) {
+      dumpOpts.attribs.class.push('no-quotes');
     }
-    return html
+    if (abs) {
+      return this.dumpAbs(abs)
+    }
+    return val
   };
 
-  DumpObject.prototype.dumpToString = function (abs) {
-    // var objToString = ''
-    var val = '';
-    var len;
-    var title;
-    var valAppend = '';
-    var $toStringDump;
-    if (abs.stringified !== null) {
-      val = abs.stringified;
-    } else if (typeof abs.methods.__toString !== 'undefined' && abs.methods.__toString.returnValue) {
-      val = abs.methods.__toString.returnValue;
+  DumpString.prototype.dumpAbs = function (abs) {
+    // console.log('dumpAbs', JSON.parse(JSON.stringify(abs)))
+    var dumpOpts = this.dumper.getDumpOpts();
+    var parsed;
+    var val;
+    if (abs.typeMore === 'classname') {
+      val = this.dumper.markupIdentifier(abs.value);
+      parsed = this.dumper.parseTag(val);
+      $.extend(dumpOpts.attribs, parsed.attribs);
+      return parsed.innerhtml
     }
-    if (typeof val === 'object') {
-      len = val.strlen;
-      val = val.value;
-    } else {
-      len = val.length;
+    val = this.helper(abs.value);
+    if (['base64', 'json', 'serialized'].indexOf(abs.typeMore) > -1) {
+      return this.dumpEncoded(val, abs)
     }
-    if (len === 0) {
-      return ''
+    if (abs.typeMore === 'binary') {
+      return this.dumpBinary(abs)
     }
-    if (len > 100) {
-      val = val.substring(0, 100);
-      valAppend = '&hellip; <i>(' + (len - 100) + ' more bytes)</i>';
+    if (abs.strlen) {
+      val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
     }
-    $toStringDump = $(this.dump.dump(val));
-    title = (!abs.stringified ? '__toString() : ' : '') + $toStringDump.prop('title');
-    if (title === '__toString() : ') {
-      title = '__toString()';
-    }
-    return '<span class="' + $toStringDump.prop('class') + ' t_stringified" ' +
-      (title.length ? 'title="' + title + '"' : '') +
-      '>' +
-      $toStringDump.html() +
-      valAppend +
-      '</span> '
-  };
-
-  DumpObject.prototype.dumpAttributes = function (abs) {
-    var html = '';
-    var self = this;
-    var args = [];
-    if (abs.attributes === undefined) {
-      return ''
-    }
-    if ((abs.flags & this.OUTPUT_ATTRIBUTES_OBJ) !== this.OUTPUT_ATTRIBUTES_OBJ) {
-      return ''
-    }
-    // var $dd
-    $.each(abs.attributes, function (key, attribute) {
-      args = [];
-      html += '<dd class="attribute">';
-      html += self.dump.markupIdentifier(attribute.name);
-      if (Object.keys(attribute.arguments).length) {
-        $.each(attribute.arguments, function (i, val) {
-          args.push(
-            (i.match(/^\d+$/) === null
-              ? '<span class="t_parameter-name">' + i + '</span><span class="t_punct">:</span>'
-              : '') +
-            self.dump.dump(val)
-          );
-        });
-        html += '<span class="t_punct">(</span>' +
-          args.join('<span class="t_punct">,</span> ') +
-          '<span class="t_punct">)</span>';
-      }
-      html += '</dd>';
-    });
-    return html.length
-      ? '<dt class="attributes">attributes</dt>' + html
-      : ''
-  };
-
-  DumpObject.prototype.dumpConstants = function (abs) {
-    var html = Object.keys(abs.constants).length
-      ? '<dt class="constants">constants</dt>'
-      : '';
-    var self = this;
-    var $dd;
-    if ((abs.flags & this.OUTPUT_CONSTANTS) !== this.OUTPUT_CONSTANTS) {
-      return ''
-    }
-    $.each(abs.constants, function (key, info) {
-      $dd = $('<dd class="constant ' + info.visibility + '">' +
-        '<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span> ' +
-        '<span class="t_identifier">' + key + '</span> ' +
-        '<span class="t_operator">=</span> ' +
-        self.dump.dump(info.value, true) +
-        '</dd>');
-      if ((abs.flags & this.OUTPUT_ATTRIBUTES_CONST) && info.attributes && info.attributes.length) {
-        $dd.attr('data-attributes', JSON.stringify(info.attributes));
-      }
-      html += $dd[0].outerHTML;
-    });
-    return html
-  };
-
-  DumpObject.prototype.dumpPhpDoc = function (abs) {
-    var count;
-    var html = '';
-    var i;
-    var i2;
-    var info;
-    var key;
-    var tagEntries;
-    var value;
-    for (key in abs.phpDoc) {
-      tagEntries = abs.phpDoc[key];
-      if (!Array.isArray(tagEntries)) {
-        continue
-      }
-      for (i = 0, count = tagEntries.length; i < count; i++) {
-        info = tagEntries[i];
-        if (key === 'author') {
-          value = info.name;
-          if (info.email) {
-            value += ' &lt;<a href="mailto:' + info.email + '">' + info.email + '</a>&gt;';
-          }
-          if (info.desc) {
-            value += ' ' + info.desc.escapeHtml();
-          }
-        } else if (key === 'link') {
-          value = '<a href="' + info.uri + '" target="_blank">' +
-            (info.desc || info.uri).escapeHtml() +
-            '</a>';
-        } else if (key === 'see' && info.uri) {
-          value = '<a href="' + info.uri + '" target="_blank">' +
-            (info.desc || info.uri).escapeHtml() +
-            '</a>';
-        } else {
-          value = '';
-          for (i2 in info) {
-            value += info[i2] === null
-              ? ''
-              : info[i2].escapeHtml() + ' ';
-          }
-        }
-        html += '<dd class="phpDoc phpdoc-' + key + '">' +
-          '<span class="phpdoc-tag">' + key + '</span>' +
-          '<span class="t_operator">:</span> ' +
-          value +
-          '</dd>';
-      }
-    }
-    if (html.length) {
-      html = '<dt>phpDoc</dt>' + html;
-    }
-    return html
-  };
-
-  DumpObject.prototype.dumpProperties = function (abs, meta) {
-    var html = '';
-    var properties = abs.properties;
-    var label = Object.keys(properties).length
-      ? 'properties'
-      : 'no properties';
-    var self = this;
-    if (meta.viaDebugInfo) {
-      label += ' <span class="text-muted">(via __debugInfo)</span>';
-    }
-    html = '<dt class="properties">' + label + '</dt>';
-    html += magicMethodInfo(abs, ['__get', '__set']);
-    $.each(properties, function (name, info) {
-      // console.info('property info', info)
-      var $dd;
-      var isPrivateAncestor = $.inArray('private', info.visibility) >= 0 && info.inheritedFrom;
-      var modifiers = '';
-      var classes = {
-        'debuginfo-value': info.valueFrom === 'debugInfo',
-        'debug-value': info.valueFrom === 'debug',
-        excluded: info.isExcluded,
-        forceShow: info.forceShow,
-        inherited: typeof info.inheritedFrom === 'string',
-        'private-ancestor': info.isPrivateAncestor
+    if (abs.prettifiedTag) {
+      dumpOpts.postDump = function (val, dumpOpts) {
+        return $('<span />', {
+          class: 'value-container',
+          'data-type': dumpOpts.type,
+          html: '<span class="prettified">(prettified)</span> '
+        }).append(val)
       };
-      name = name.replace('debug.', '');
-      if (typeof info.visibility !== 'object') {
-        info.visibility = [info.visibility];
-      }
-      classes[info.visibility.join(' ')] = $.inArray('debug', info.visibility) < 0;
-      $.each(info.visibility, function (i, vis) {
-        modifiers += '<span class="t_modifier_' + vis + '">' + vis + '</span> ';
-      });
-      if (info.isStatic) {
-        modifiers += '<span class="t_modifier_static">static</span> ';
-      }
-      $dd = $('<dd class="property">' +
-        modifiers +
-        (isPrivateAncestor
-          ? ' (<i>' + info.inheritedFrom + '</i>)'
-          : ''
-        ) +
-        (info.type
-          ? ' <span class="t_type">' + info.type + '</span>'
-          : ''
-        ) +
-        ' <span class="t_identifier"' +
-          (info.desc
-            ? ' title="' + info.desc.escapeHtml() + '"'
-            : ''
-          ) +
-          '>' + name + '</span>' +
-        (info.value !== self.dump.UNDEFINED
-          ? ' <span class="t_operator">=</span> ' +
-            self.dump.dump(info.value)
-          : ''
-        ) +
-        '</dd>'
-      );
-      if ((abs.flags & this.OUTPUT_ATTRIBUTES_PROP) && info.attributes && info.attributes.length) {
-        $dd.attr('data-attributes', JSON.stringify(info.attributes));
-      }
-      if (info.inheritedFrom) {
-        $dd.attr('data-inherited-from', info.inheritedFrom);
-      }
-      $.each(classes, function (classname, useClass) {
-        if (useClass) {
-          $dd.addClass(classname);
-        }
-      });
-      html += $dd[0].outerHTML;
-    });
-    return html
+    }
+    return val
   };
 
-  DumpObject.prototype.dumpMethods = function (abs) {
-    var label = Object.keys(abs.methods).length
-      ? 'methods'
-      : 'no methods';
-    var html = '<dt class="methods">' + label + '</dt>' +
-      magicMethodInfo(abs, ['__call', '__callStatic']);
-    var self = this;
-    $.each(abs.methods, function (k, info) {
-      var $dd = $('<dd class="method"></dd>').addClass(info.visibility);
-      var modifiers = [];
-      var paramStr = self.dumpMethodParams(info.params, {
-        outputAttributes: abs.flags & this.OUTPUT_ATTRIBUTES_PARAM
-      });
-      var returnType = '';
-      if (info.isFinal) {
-        $dd.addClass('final');
-        modifiers.push('<span class="t_modifier_final">final</span>');
+  DumpString.prototype.dumpAsSubstitution = function (val) {
+    // console.warn('dumpAsSubstitution', val)
+    var ret = '';
+    var diff;
+    if (typeof val === 'object') {
+      if (val.typeMore === 'binary') {
+        if (!val.value.length) {
+          return 'Binary data not collected'
+        }
+        ret = this.dumper.parseTag(this.helper(val.value)).innerhtml;
+        diff = val.strlen - ret.split(' ').length;
+        if (diff) {
+          ret += '[' + diff + ' more bytes (not logged)]';
+        }
+        return ret
       }
-      modifiers.push('<span class="t_modifier_' + info.visibility + '">' + info.visibility + '</span>');
-      if (info.isStatic) {
-        modifiers.push('<span class="t_modifier_static">static</span>');
-      }
-      if (info.return && info.return.type) {
-        returnType = ' <span class="t_type"' +
-          (info.return.desc !== null
-            ? ' title="' + info.return.desc.escapeHtml() + '"'
-            : ''
-          ) +
-          '>' + info.return.type + '</span>';
-      }
-      $dd.html(
-        modifiers.join(' ') +
-        returnType +
-        ' <span class="t_identifier"' +
-          (info.phpDoc && info.phpDoc.summary !== null
-            ? ' title="' + info.phpDoc.summary.escapeHtml() + '"'
-            : ''
-          ) +
-          '>' + k + '</span>' +
-        '<span class="t_punct">(</span>' + paramStr + '<span class="t_punct">)</span>' +
-        (k === '__toString'
-          ? '<br />' + self.dump.dump(info.returnValue, true)
-          : ''
-        ) +
-        '</dd>'
-      );
-      if ((abs.flags & this.OUTPUT_ATTRIBUTES_METHOD) && info.attributes && info.attributes.length) {
-        $dd.attr('data-attributes', JSON.stringify(info.attributes));
-      }
-      if (info.implements && info.implements.length) {
-        $dd.attr('data-implements', info.implements);
-      }
-      if (info.inheritedFrom) {
-        $dd.attr('data-inherited-from', info.inheritedFrom);
-      }
-      if (info.phpDoc.deprecated) {
-        $dd.attr('data-deprecated-desc', info.phpDoc.deprecated[0].desc);
-      }
-      if (info.inheritedFrom) {
-        $dd.addClass('inherited');
-      }
-      if (info.isDeprecated) {
-        $dd.addClass('deprecated');
-      }
-      html += $dd[0].outerHTML;
-    });
-    return html
+    }
+    // we do NOT wrap in <span>...  log('<a href="%s">link</a>', $url);
+    return this.dumper.dump(val, {}, null)
   };
 
-  DumpObject.prototype.dumpMethodParams = function (params, opts) {
-    var $param;
-    var defaultValue;
-    // var html = ''
-    var self = this;
-    $.each(params, function (i, info) {
-      $param = $('<span />', {
-        class: 'parameter'
-      });
-      if (info.isPromoted) {
-        $param.addClass('isPromoted');
+  DumpString.prototype.dumpBinary = function (abs) {
+    var dumpOpts = this.dumper.getDumpOpts();
+    var lis = [];
+    var val = abs.value
+      ? this.helper(abs.value)
+      : '';
+    var strLenDiff = abs.strlen - abs.strlenValue;
+    // console.warn('dumpBinary', abs)
+    dumpOpts.tagName = null;
+    if (val.length && strLenDiff) {
+      val += '<span class="maxlen">&hellip; ' + strLenDiff + ' more bytes (not logged)</span>';
+    }
+    if (abs.contentType) {
+      lis.push('<li>mime type = <span class="t_string">' + abs.contentType + '</span></li>');
+    }
+    lis.push('<li>size = <span class="t_int">' + abs.strlen + '</span></li>');
+    lis.push(abs.value.length
+      ? '<li class="t_string"><span class="binary">' + val + '</span></li>'
+      : '<li>Binary data not collected</li>');
+    return '<span class="t_type">binary string</span>' +
+      '<ul class="list-unstyled value-container" data-type="' + abs.type + '">' +
+         lis.join('') +
+      '</ul>'
+  };
+
+  DumpString.prototype.dumpEncoded = function (val, abs) {
+    var dumpOpts = this.dumper.getDumpOpts();
+    var $span = $(
+      '<span class="string-encoded tabs-container">' +
+        '<nav role="tablist">' +
+          '<a class="nav-link" data-target=".string-raw" data-toggle="tab" role="tab"></a>' +
+          '<a class="active nav-link" data-target=".string-decoded" data-toggle="tab" role="tab">decoded</a>' +
+        '</nav>' +
+        '<div class="string-raw tab-pane" role="tabpanel"></div>' +
+        '<div class="active string-decoded tab-pane" role="tabpanel"></div>' +
+      '</span>'
+    );
+    // console.group('dumpEncoded', abs.typeMore)
+    dumpOpts.tagName = null;
+    if (abs.typeMore === 'base64') {
+      $span.find('.nav-link').eq(0).html('base64');
+      if (val.length && abs.strlen) {
+        val += '<span class="maxlen">&hellip; ' + (abs.strlen - val.length) + ' more bytes (not logged)</span>';
       }
-      if (opts.outputAttributes && info.attributes && info.attributes.length) {
-        $param.attr('data-attributes', JSON.stringify(info.attributes));
+      val = $('<span />', dumpOpts.attribs).addClass('t_string').html(val)[0].outerHTML;
+    } else if (abs.typeMore === 'json') {
+      $span.find('.nav-link').eq(0).html('json');
+      if (abs.prettified || abs.strlen) {
+        abs.typeMore = null; // unset typeMore to prevent loop
+        val = this.dumper.dump(abs);
       }
-      if (typeof info.type === 'string') {
-        $param.append('<span class="t_type">' + info.type + '</span> ');
+    } else if (abs.typeMore === 'serialized') {
+      $span.find('.nav-link').eq(0).html('serialized');
+      $span.find('.nav-link').eq(1).html('unserialized');
+    }
+    $span.find('.string-raw').html(val);
+    $span.find('.string-decoded').html(this.dumper.dump(abs.valueDecoded));
+    // console.groupEnd()
+    return $span[0].outerHTML
+  };
+
+  DumpString.prototype.helper = function (val) {
+    var bytes = val.substr(0, 6) === '_b64_:'
+      ? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
+      : strDump.encodeUTF16toUTF8(val);
+    var dumpOpts = this.dumper.getDumpOpts();
+    val = dumpOpts.sanitize
+      ? strDump.dump(bytes, true)
+      : strDump.dump(bytes, false);
+    if (dumpOpts.visualWhiteSpace) {
+      val = visualWhiteSpace(val);
+    }
+    return val
+  };
+
+  /**
+   * Add whitespace markup
+   *
+   * @param string str string which to add whitespace html markup
+   *
+   * @return string
+   */
+  function visualWhiteSpace (str) {
+    // display \r, \n, & \t
+    var i = 0;
+    var strBr = '';
+    var searchReplacePairs = [
+      [/\r/g, '<span class="ws_r"></span>'],
+      [/\n/g, '<span class="ws_n"></span>' + strBr + '\n']
+    ];
+    var length = searchReplacePairs.length;
+    str = str.replace(/(\r\n|\r|\n)/g, function (match) {
+      for (i = 0; i < length; i++) {
+        match = match.replace(searchReplacePairs[i][0], searchReplacePairs[i][1]);
       }
-      $param.append('<span class="t_parameter-name"' +
-        (info.desc !== null
-          ? ' title="' + info.desc.escapeHtml().replace('\n', ' ') + '"'
-          : ''
-        ) + '>' + info.name.escapeHtml() + '</span>');
-      if (info.defaultValue !== self.dump.UNDEFINED) {
-        defaultValue = info.defaultValue;
-        if (typeof defaultValue === 'string') {
-          defaultValue = defaultValue.replace('\n', ' ');
-        }
-        $param.append(' <span class="t_operator">=</span> ' +
-          $(self.dump.dump(defaultValue, true, true, false))
-            .addClass('t_parameter-default')[0].outerHTML
-        );
-      }
-      params[i] = $param[0].outerHTML;
-    });
+      return match
+    })
+      .replace(/(<br \/>)?\n$/g, '')
+      .replace(/\t/g, '<span class="ws_t">\t</span>');
+    return str
+  }
+
+  var dumpOptStack = [
     /*
-    if (html.length) {
-      html = html.substr(0, html.length - 2) // remove ', '
+    {
+      attribs
+      opts
+      postDump
+      tagName
+      type
+      typeMore
     }
     */
-    return params.join('<span class="t_punct">,</span> ')
-  };
-
-  function magicMethodInfo (abs, methods) {
-    var i = 0;
-    var methodsHave = [];
-    var method;
-    for (i = 0; i < methods.length; i++) {
-      method = methods[i];
-      if (abs.methods[method]) {
-        methodsHave.push('<code>' + method + '</code>');
-      }
-    }
-    if (methodsHave.length < 1) {
-      return ''
-    }
-    methods = methodsHave.join(' and ');
-    methods = methodsHave.length === 1
-      ? 'a ' + methods + ' method'
-      : methods + ' methods';
-    return '<dd class="magic info">This object has ' + methods + '</dd>'
-  }
-
-  var strDump = new StrDump();
-  var typeMore = null;
-  var $span;
-  var valAttribs = {};
-  var valAttribsStack = [];
-  var valOpts = {}; // per-value options
+  ];
 
   var Dump = function () {
     this.objectDumper = new DumpObject(this);
+    this.stringDumper = new DumpString(this);
+    this.ABSTRACTION = '\x00debug\x00'.parseHex();
+    this.NOT_INSPECTED = '\x00notInspected\x00'.parseHex();
+    this.RECURSION = '\x00recursion\x00'.parseHex();
+    this.UNDEFINED = '\x00undefined\x00'.parseHex();
   };
 
-  Dump.prototype.ABSTRACTION = '\x00debug\x00'.parseHex();
-  Dump.prototype.NOT_INSPECTED = '\x00notInspected\x00'.parseHex();
-  Dump.prototype.RECURSION = '\x00recursion\x00'.parseHex();
-  Dump.prototype.UNDEFINED = '\x00undefined\x00'.parseHex();
+  Dump.prototype.checkTimestamp = function (val) {
+    var secs = 86400 * 90; // 90 days worth o seconds
+    var tsNow = Date.now() / 1000;
+    var date;
+    var dumpOpts;
+    val = parseFloat(val, 10);
+    if (val > tsNow - secs && val < tsNow + secs) {
+      date = (new Date(val * 1000)).toString();
+      dumpOpts = this.getDumpOpts();
+      dumpOpts.postDump = function (val, dumpOpts) {
+        return $('<span />', {
+          class: 'timestamp value-container',
+          'data-type': dumpOpts.type,
+          title: date
+        }).html(val)
+      };
+    }
+  };
 
-  Dump.prototype.dump = function (val, opts, wrap) {
-    // console.log('dump', JSON.stringify(val))
-    var type = this.getType(val);
-    var method = 'dump' + type.ucfirst();
+  Dump.prototype.dump = function (val, opts) {
+    var $wrap;
+    var dumpOpts = $.extend({
+      addQuotes: true,
+      attribs: {
+        class: []
+      },
+      postDump: null, // set to function
+      sanitize: true,
+      tagName: '__default__',
+      type: null,
+      typeMore: null,
+      visualWhiteSpace: true
+    }, opts || {});
+    var tagName;
+    var type; // = this.getType(val)
+    var method; // = 'dump' + type[0].ucfirst()
+    /*
     var optsDefault = {
       addQuotes: true,
       sanitize: true,
       visualWhiteSpace: true
-    };
-    valAttribs = {
-      class: []
-    };
-    if (opts === undefined || opts === true) {
-      opts = [];
     }
-    if (wrap === undefined) {
-      wrap = true;
+    // console.warn('dump', type, JSON.stringify(val))
+    if (opts === undefined) {
+      opts = {}
     }
-    valOpts = $.extend(optsDefault, opts);
-    $span = $('<span />');
-    val = typeMore === 'abstraction'
+    if (tagName === undefined) {
+      tagName =
+    }
+    */
+    if (dumpOpts.type === null) {
+      type = this.getType(val);
+      dumpOpts.type = type[0];
+      dumpOpts.typeMore = type[1];
+    }
+    dumpOptStack.push(dumpOpts);
+    method = 'dump' + dumpOpts.type.ucfirst();
+    val = dumpOpts.typeMore === 'abstraction'
       ? this.dumpAbstraction(val)
       : this[method](val);
-    if (wrap) {
-      if (valAttribs.class && valAttribs.class.length) {
-        $span.addClass(valAttribs.class);
+    dumpOpts = dumpOptStack.pop();
+    tagName = dumpOpts.tagName;
+    if (tagName === '__default__') {
+      tagName = 'span';
+      if (dumpOpts.type === 'object') {
+        tagName = 'div';
       }
-      delete valAttribs.class;
-      $span.attr(valAttribs);
-      val = $span.addClass('t_' + type).html(val)[0].outerHTML;
+      dumpOpts.tagName = tagName;
     }
-    $span = $('<span />');
+    if (tagName) {
+      dumpOpts.attribs.class.push('t_' + dumpOpts.type);
+      if (dumpOpts.typeMore !== null && dumpOpts.typeMore !== 'maxLen') {
+        dumpOpts.attribs.class.push(dumpOpts.typeMore);
+      }
+      $wrap = $('<' + tagName + ' />')
+        .addClass(dumpOpts.attribs.class.join(' '));
+      delete dumpOpts.attribs.class;
+      $wrap.attr(dumpOpts.attribs);
+      val = $wrap.html(val)[0].outerHTML;
+    }
+    if (dumpOpts.postDump) {
+      val = dumpOpts.postDump(val, dumpOpts);
+      if (typeof val === 'object') {
+        val = val[0].outerHTML;
+      }
+    }
     return val
   };
 
   Dump.prototype.dumpAbstraction = function (abs) {
+    var dumpOpts = this.getDumpOpts();
     var k;
     var method = 'dump' + abs.type.ucfirst();
     var simpleTypes = [
@@ -1645,18 +1884,20 @@
       'null',
       'string'
     ];
-    // var method = 'dump' + abs.type.ucfirst()
-    for (k in valOpts) {
+    dumpOpts.attribs = abs.attribs || { };
+    if (dumpOpts.attribs.class === undefined) {
+      dumpOpts.attribs.class = [];
+    }
+    for (k in dumpOpts) {
       if (abs[k] !== undefined) {
-        valOpts[k] = abs[k];
+        dumpOpts[k] = abs[k];
       }
     }
-    valAttribs = abs.attribs || { class: [] };
     if (abs.options) {
-      $.extend(valOpts, abs.options);
+      $.extend(dumpOpts, abs.options);
     }
     if (simpleTypes.indexOf(abs.type) > -1) {
-      typeMore = abs.typeMore; // likely null
+      dumpOpts.typeMore = abs.typeMore; // likely null
       return this[method](abs.value, abs)
     }
     return this[method](abs)
@@ -1668,17 +1909,17 @@
     var length = keys.length;
     var key;
     var i;
-    var opts = $.extend({
+    var dumpOpts = $.extend({
       asFileTree: false,
       expand: null,
       showListKeys: true
-    }, valOpts);
+    }, this.getDumpOpts());
     // console.log('array', JSON.parse(JSON.stringify(array)))
-    if (opts.expand !== null) {
-      valAttribs['data-expand'] = opts.expand;
+    if (dumpOpts.expand !== null) {
+      dumpOpts.attribs['data-expand'] = dumpOpts.expand;
     }
-    if (opts.asFileTree) {
-      valAttribs.class.push('array-file-tree');
+    if (dumpOpts.asFileTree) {
+      dumpOpts.attribs.class.push('array-file-tree');
     }
     if (length === 0) {
       return '<span class="t_keyword">array</span>' +
@@ -1686,7 +1927,6 @@
           '<span class="t_punct">)</span>'
     }
     delete array.__debug_key_order__;
-    valAttribsStack.push(valAttribs);
     html = '<span class="t_keyword">array</span>' +
       '<span class="t_punct">(</span>\n' +
       '<ul class="array-inner list-unstyled">\n';
@@ -1695,17 +1935,15 @@
       html += '\t<li>' +
           '<span class="t_key' + (/^\d+$/.test(key) ? ' t_int' : '') + '">' + key + '</span>' +
           '<span class="t_operator">=&gt;</span>' +
-          this.dump(array[key], true) +
+          this.dump(array[key]) +
         '</li>\n';
     }
     html += '</ul>' +
       '<span class="t_punct">)</span>';
-    valAttribs = valAttribsStack.pop();
     return html
   };
 
   Dump.prototype.dumpBool = function (val) {
-    $span.addClass(typeMore);
     return val ? 'true' : 'false'
   };
 
@@ -1715,17 +1953,15 @@
   };
 
   Dump.prototype.dumpConst = function (abs) {
-    $span.attr('title', abs.value
+    var dumpOpts = this.getDumpOpts();
+    dumpOpts.attribs.title = abs.value
       ? 'value: ' + this.dump(abs.value)
-      : null);
+      : null;
     return this.markupIdentifier(abs.name)
   };
 
   Dump.prototype.dumpFloat = function (val) {
-    var date = checkTimestamp(val);
-    if (date) {
-      $span.addClass('timestamp').attr('title', date);
-    }
+    this.checkTimestamp(val);
     return val
   };
 
@@ -1742,15 +1978,11 @@
   };
 
   Dump.prototype.dumpObject = function (abs) {
-    var val;
-    valAttribsStack.push(valAttribs);
-    val = this.objectDumper.dumpObject(abs);
-    $span.attr('data-accessible', abs.scopeClass === abs.className
+    var dumpOpts = this.getDumpOpts();
+    dumpOpts.attribs['data-accessible'] = abs.scopeClass === abs.className
       ? 'private'
-      : 'public'
-    );
-    valAttribs = valAttribsStack.pop();
-    return val
+      : 'public';
+    return this.objectDumper.dumpObject(abs)
   };
 
   Dump.prototype.dumpRecursion = function () {
@@ -1762,105 +1994,62 @@
   };
 
   Dump.prototype.dumpString = function (val, abs) {
-    var bytes;
-    var date;
-    var parsed;
-    /*
-    console.warn({
-      val: val,
-      typeMore: typeMore,
-    })
-    */
-    // var sanitize = true
-    if ($.isNumeric(val)) {
-      $span.addClass('numeric');
-      date = checkTimestamp(val);
-      if (date) {
-        $span.addClass('timestamp').attr('title', date);
-      }
-    } else {
-      bytes = val.substr(0, 6) === '_b64_:'
-        ? new Uint8Array(base64Arraybuffer.decode(val.substr(6)))
-        : strDump.encodeUTF16toUTF8(val);
-      // console.log('bytes', bytes)
-      if (valOpts.sanitize) {
-        val = strDump.dump(bytes, true);
-      } else {
-        val = strDump.dump(bytes, false);
-      }
-      if (abs) {
-        if (abs.typeMore === 'classname') {
-          val = this.markupIdentifier(val);
-          parsed = this.parseTag(val);
-          $.extend(valAttribs, parsed.attribs);
-          val = parsed.innerhtml;
-        }
-        if (abs.strlen) {
-          val += '<span class="maxlen">&hellip; ' + (abs.strlen - abs.value.length) + ' more bytes (not logged)</span>';
-        }
-      }
-      if (valOpts.visualWhiteSpace) {
-        val = visualWhiteSpace(val);
-      }
-    }
-    if (!valOpts.addQuotes) {
-      $span.addClass('no-quotes');
-    }
-    return val
+    return this.stringDumper.dump(val, abs)
   };
 
   Dump.prototype.dumpUndefined = function () {
     return ''
   };
 
+  Dump.prototype.getDumpOpts = function () {
+    return dumpOptStack[dumpOptStack.length - 1]
+  };
+
   Dump.prototype.getType = function (val) {
-    var type;
-    typeMore = null;
     if (val === null) {
-      return 'null'
+      return ['null', null]
     }
     if (typeof val === 'boolean') {
-      typeMore = val ? 'true' : 'false';
-      return 'bool'
+      return ['bool', val ? 'true' : 'false']
     }
     if (typeof val === 'string') {
       if (val === this.NOT_INSPECTED) {
-        return 'notInspected'
+        return ['notInspected', null]
       }
       if (val === this.RECURSION) {
-        return 'recursion'
+        return ['recursion', null]
       }
       if (val === this.UNDEFINED) {
-        return 'undefined'
+        return ['undefined', null]
       }
-      return 'string'
+      if ($.isNumeric(val)) {
+        return ['string', 'numeric']
+      }
+      return ['string', null]
     }
     if (typeof val === 'number') {
       if (Number.isInteger(val)) {
-        return 'int'
+        return ['int', null]
       }
-      return 'float'
+      return ['float', null]
     }
     if (typeof val === 'object') { // already checked for null
-      type = 'array';
       if (val.debug === this.ABSTRACTION) {
-        type = val.type;
-        typeMore = 'abstraction';
+        return [val.type, 'abstraction']
       }
-      return type
+      return ['array', null]
     }
     if (typeof val === 'undefined') {
-      return 'undefined'
+      return ['undefined', null]
     }
   };
 
   Dump.prototype.markupIdentifier = function (val, attribs, tag) {
     var classname = '';
-    var operator = '::';
     var identifier = '';
-    var regex = /^(.+)(::|->)(.+)$/;
     var matches = []; // str.match()
-    // var opMethod = ''
+    var operator = '::';
+    var regex = /^(.+)(::|->)(.+)$/;
     var split = [];
     attribs = attribs || {};
     tag = tag || 'span';
@@ -1920,68 +2109,29 @@
         parsed.attribs[this.name] = this.value;
       }
     });
-    if (parsed.attribs.class) {
-      parsed.attribs.class = parsed.attribs.class.split(' ');
-    }
+    parsed.attribs.class = parsed.attribs.class
+      ? parsed.attribs.class.split(' ')
+      : [];
     return parsed
   };
-
-  function checkTimestamp (val) {
-    var secs = 86400 * 90; // 90 days worth o seconds
-    var tsNow = Date.now() / 1000;
-    val = parseFloat(val, 10);
-    if (val > tsNow - secs && val < tsNow + secs) {
-      return (new Date(val * 1000)).toString()
-    }
-    return false
-  }
-
-  /**
-   * Add whitespace markup
-   *
-   * @param string str string which to add whitespace html markup
-   *
-   * @return string
-   */
-  function visualWhiteSpace (str) {
-    // display \r, \n, & \t
-    var strBr = '';
-    var searchReplacePairs = [
-      [/\r/g, '<span class="ws_r"></span>'],
-      [/\n/g, '<span class="ws_n"></span>' + strBr + '\n']
-    ];
-    var i = 0;
-    var length = searchReplacePairs.length;
-    str = str.replace(/(\r\n|\r|\n)/g, function (match) {
-      for (i = 0; i < length; i++) {
-        match = match.replace(searchReplacePairs[i][0], searchReplacePairs[i][1]);
-      }
-      return match
-    })
-      .replace(/(<br \/>)?\n$/g, '')
-      .replace(/\t/g, '<span class="ws_t">\t</span>');
-    return str
-  }
 
   var dump = new Dump();
   var table = new Table(dump);
 
   var methods = {
     alert: function (logEntry, info) {
-      // console.log('logEntry', logEntry)
-      var message = dump.dump(
-        logEntry.args[0],
-        {
-          sanitize: logEntry.meta.sanitizeFirst !== false,
-          visualWhiteSpace: false
-        },
-        false // don't wrap in span
-      );
+      var message;
       var level = logEntry.meta.level || logEntry.meta.class;
       var dismissible = logEntry.meta.dismissible;
-      var $node = $('<div class="m_alert"></div>').addClass('alert-' + level)
-        .html(message)
+      var $node = $('<div class="m_alert"></div>')
+        .addClass('alert-' + level)
+        // .html(message)
         .attr('data-channel', logEntry.meta.channel); // using attr so can use [data-channel="xxx"] selector
+      if (logEntry.args.length > 1) {
+        processSubstitutions(logEntry);
+      }
+      message = logEntry.args[0];
+      $node.html(message);
       if (dismissible) {
         $node.prepend('<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
           '<span aria-hidden="true">&times;</span>' +
@@ -2316,6 +2466,16 @@
         attribs['data-uncollapse'] = 'false';
       }
       if (['assert', 'error', 'info', 'log', 'warn'].indexOf(method) > -1 && logEntry.args.length > 1) {
+        /*
+          update tab
+        */
+        if (method === 'error') {
+          getTab(info).addClass('has-error');
+        } else if (method === 'warn') {
+          getTab(info).addClass('has-warn');
+        } else if (method === 'assert') {
+          getTab(info).addClass('has-assert');
+        }
         processSubstitutions(logEntry);
       }
       $node = buildEntryNode(logEntry);
@@ -2403,6 +2563,8 @@
       sanitize: true,
       sanitizeFirst: null
     }, logEntry.meta);
+    var typeInfo;
+    var typeMore;
     if (meta.sanitizeFirst === null) {
       meta.sanitizeFirst = meta.sanitize;
     }
@@ -2416,11 +2578,17 @@
       }
     }
     for (i = 0; i < numArgs; i++) {
+      typeInfo = dump.getType(args[i]);
+      typeMore = typeInfo[1] !== 'abstraction'
+        ? typeInfo[1]
+        : args[i].typeMore;
       args[i] = dump.dump(args[i], {
+        addQuotes: i !== 0 || typeMore === 'numeric',
         sanitize: i === 0
           ? meta.sanitizeFirst
           : meta.sanitize,
-        addQuotes: i !== 0,
+        type: typeInfo[0],
+        typeMore: typeInfo[1],
         visualWhiteSpace: i !== 0
       });
     }
@@ -2429,6 +2597,13 @@
     } else {
       return $('<li>').html(args.join(glue))
     }
+  }
+
+  function getTab (info) {
+    var classname = 'debug-tab-' + info.channelNameTop.toLowerCase().replace(/\W+/g, '-');
+    return classname === 'debug-tab-general'
+      ? $()
+      : info.$container.find('.debug-menu-bar .nav-link[data-toggle=tab][data-target=".' + classname + '"]')
   }
 
   /**
@@ -2552,18 +2727,18 @@
    */
   function substitutionAsString (val) {
     var type = dump.getType(val);
-    if (type === 'string') {
-      val = dump.dump(val, true, false);
-    } else if (type === 'array') {
-      delete val.__debug_key_order__;
-      val = '<span class="t_keyword">array</span>' +
-        '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>';
-    } else if (type === 'object') {
-      val = dump.markupIdentifier(val.className);
-    } else {
-      val = dump.dump(val);
+    if (type[0] === 'string') {
+      return dump.stringDumper.dumpAsSubstitution(val)
     }
-    return val
+    if (type[0] === 'array') {
+      delete val.__debug_key_order__;
+      return '<span class="t_keyword">array</span>' +
+        '<span class="t_punct">(</span>' + Object.keys(val).length + '<span class="t_punct">)</span>'
+    }
+    if (type[0] === 'object') {
+      return dump.markupIdentifier(val.className)
+    }
+    return dump.dump(val)
   }
 
   function getNodeInfo (meta) {
@@ -2574,7 +2749,7 @@
     var channelNameRoot = $container.data('channelNameRoot') || 'general';
     var channelName = meta.channel || channelNameRoot;
     var channelSplit = channelName.split('.');
-    var channelNameTop = channelSplit.shift();
+    var channelNameTop = channelSplit.shift(); // ie channelName of tab
     var info;
     if ($container.length) {
       $debug = $container.find('.debug');
@@ -2598,7 +2773,7 @@
                 '<a class="active nav-link" data-target=".' + nameToClassname(channelNameRoot) + '" data-toggle="tab" role="tab"><i class="fa fa-list-ul"></i>Log</a>' +
               '</nav>' +
             '</header>' +
-            '<div class="debug-tabs">' +
+            '<div class="tab-panes">' +
               '<div class="active ' + nameToClassname(channelNameRoot) + ' tab-pane tab-primary" role="tabpanel">' +
                 '<div class="sidebar-trigger"></div>' +
                 '<div class="tab-body">' +
@@ -2673,7 +2848,7 @@
       updateSidebar(logEntry, info, $node !== false);
       if ($node) {
         if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-          info.$node = info.$container.find('> .card-body > .debug-tabs > .tab-primary > .tab-body > .debug-log.group-body');
+          info.$node = info.$container.find('> .card-body > .tab-panes > .tab-primary > .tab-body > .debug-log.group-body');
         }
         info.$node.append($node);
         $node.attr('data-channel', meta.channel); // using attr so can use [data-channel="xxx"] selector
@@ -2862,7 +3037,7 @@
   function getTabPane ($container, channelNameTop, meta) {
     // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
     var classname = nameToClassname(channelNameTop);
-    var $tabPane = $container.find('.debug-tabs > .' + classname);
+    var $tabPane = $container.find('> .card-body > .tab-panes > .' + classname);
     var $link;
     if ($tabPane.length) {
       return $tabPane
@@ -2894,7 +3069,7 @@
           '<ul class="debug-log group-body"></ul>'
       }));
     $tabPane.data('nodes', [$tabPane.find('.debug-log')]);
-    $container.find('.debug-tabs').append($tabPane);
+    $container.find('> .card-body > .tab-panes').append($tabPane);
     return $tabPane
   }
 
