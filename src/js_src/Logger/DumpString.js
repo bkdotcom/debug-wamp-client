@@ -85,7 +85,6 @@ DumpString.prototype.dumpBinary = function (abs) {
     : ''
   var strLenDiff = abs.strlen - abs.strlenValue
   // console.warn('dumpBinary', abs)
-  dumpOpts.tagName = null
   if (val.length && strLenDiff) {
     val += '<span class="maxlen">&hellip; ' + strLenDiff + ' more bytes (not logged)</span>'
   }
@@ -96,46 +95,55 @@ DumpString.prototype.dumpBinary = function (abs) {
   lis.push(abs.value.length
     ? '<li class="t_string"><span class="binary">' + val + '</span></li>'
     : '<li>Binary data not collected</li>')
-  return '<span class="t_type">binary string</span>' +
+  val = '<span class="t_type">binary string</span>' +
     '<ul class="list-unstyled value-container" data-type="' + abs.type + '">' +
        lis.join('') +
     '</ul>'
+  if (dumpOpts.tagName === 'td') {
+    val = '<td>' + val + '</td>'
+  }
+  dumpOpts.tagName = null
+  return val
 }
 
 DumpString.prototype.dumpEncoded = function (val, abs) {
   var dumpOpts = this.dumper.getDumpOpts()
-  var $span = $(
-    '<span class="string-encoded tabs-container">' +
+  var tagName = dumpOpts.tagName === '__default__'
+    ? 'span'
+    : dumpOpts.tagName
+  var $tag = $('<' + tagName + '>', {
+    class: 'string-encoded tabs-container',
+    'data-type': abs.typeMore
+  }).html(
       '<nav role="tablist">' +
         '<a class="nav-link" data-target=".string-raw" data-toggle="tab" role="tab"></a>' +
         '<a class="active nav-link" data-target=".string-decoded" data-toggle="tab" role="tab">decoded</a>' +
       '</nav>' +
       '<div class="string-raw tab-pane" role="tabpanel"></div>' +
-      '<div class="active string-decoded tab-pane" role="tabpanel"></div>' +
-    '</span>'
+      '<div class="active string-decoded tab-pane" role="tabpanel"></div>'
   )
-  // console.group('dumpEncoded', abs.typeMore)
+  // console.warn('dumpEncoded', val, abs.typeMore, tagName)
   dumpOpts.tagName = null
   if (abs.typeMore === 'base64') {
-    $span.find('.nav-link').eq(0).html('base64')
+    $tag.find('.nav-link').eq(0).html('base64')
     if (val.length && abs.strlen) {
       val += '<span class="maxlen">&hellip; ' + (abs.strlen - val.length) + ' more bytes (not logged)</span>'
     }
     val = $('<span />', dumpOpts.attribs).addClass('t_string').html(val)[0].outerHTML
   } else if (abs.typeMore === 'json') {
-    $span.find('.nav-link').eq(0).html('json')
+    $tag.find('.nav-link').eq(0).html('json')
     if (abs.prettified || abs.strlen) {
       abs.typeMore = null // unset typeMore to prevent loop
       val = this.dumper.dump(abs)
     }
   } else if (abs.typeMore === 'serialized') {
-    $span.find('.nav-link').eq(0).html('serialized')
-    $span.find('.nav-link').eq(1).html('unserialized')
+    $tag.find('.nav-link').eq(0).html('serialized')
+    $tag.find('.nav-link').eq(1).html('unserialized')
   }
-  $span.find('.string-raw').html(val)
-  $span.find('.string-decoded').html(this.dumper.dump(abs.valueDecoded))
+  $tag.find('.string-raw').html(val)
+  $tag.find('.string-decoded').html(this.dumper.dump(abs.valueDecoded))
   // console.groupEnd()
-  return $span[0].outerHTML
+  return $tag[0].outerHTML
 }
 
 DumpString.prototype.helper = function (val) {

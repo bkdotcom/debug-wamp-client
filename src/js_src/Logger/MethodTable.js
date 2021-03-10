@@ -113,11 +113,14 @@ Table.prototype.buildBody = function (rows, tableInfo, onBuildRow) {
     }
     for (i2 = 0, length2 = tableInfo.columns.length; i2 < length2; i2++) {
       key = tableInfo.columns[i2].key
+      /*
       parsed = this.dump.parseTag(this.dump.dump(row[key], true))
       parsed.attribs.class = parsed.attribs.class.join(' ')
       $tr.append(
         $('<td />').html(parsed.innerhtml).attr(parsed.attribs)
       )
+      */
+      $tr.append(this.dump.dump(row[key], {tagName: 'td'}))
     }
     if (onBuildRow) {
       $tr = onBuildRow($tr, row, rowInfo, rowKey)
@@ -145,8 +148,11 @@ Table.prototype.buildFooter = function (tableInfo) {
     $cell = $('<td></td>')
     if (colHasTotal) {
       info.total = parseFloat(info.total.toFixed(6), 10)
+      /*
       parsed = this.dump.parseTag(this.dump.dump(info.total, true))
       $cell.html(parsed.innerhtml).attr(parsed.attribs)
+      */
+      $cell = this.dump.dump(info.total, {tagName: 'td'})
     }
     cells.push($cell[0].outerHTML)
   }
@@ -177,7 +183,8 @@ Table.prototype.buildHeader = function (tableInfo) {
       label += ' ' + this.dump.markupIdentifier(info.class)
     }
     $theadTr.append(
-      '<th scope="col">' + this.dump.dump(label, true, false) + '</th>'
+      // '<th scope="col">' + this.dump.dump(label, true, false) + '</th>'
+      $('<th scope="col"></th>').html(label)
     )
   }
 }
