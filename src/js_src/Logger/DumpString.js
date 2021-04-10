@@ -20,7 +20,7 @@ DumpString.prototype.dump = function (val, abs) {
   if (abs) {
     return this.dumpAbs(abs)
   }
-  return val
+  return this.helper(val)
 }
 
 DumpString.prototype.dumpAbs = function (abs) {

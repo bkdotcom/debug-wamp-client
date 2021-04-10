@@ -22,6 +22,8 @@ export var Dump = function () {
   this.NOT_INSPECTED = '\x00notInspected\x00'.parseHex()
   this.RECURSION = '\x00recursion\x00'.parseHex()
   this.UNDEFINED = '\x00undefined\x00'.parseHex()
+  this.TYPE_FLOAT_INF = '\x00inf\x00'.parseHex()
+  this.TYPE_FLOAT_NAN = '\x00nan\x00'.parseHex()
 }
 
 Dump.prototype.checkTimestamp = function (val) {
@@ -95,8 +97,8 @@ Dump.prototype.dump = function (val, opts) {
   }
   if (tagName) {
     dumpOpts.attribs.class.push('t_' + dumpOpts.type)
-    if (dumpOpts.typeMore !== null && dumpOpts.typeMore !== 'maxLen') {
-      dumpOpts.attribs.class.push(dumpOpts.typeMore)
+    if (dumpOpts.typeMore) {
+      dumpOpts.attribs['data-type-more'] = dumpOpts.typeMore.replace(/\0/g, '')
     }
     $wrap = $('<' + tagName + ' />')
       .addClass(dumpOpts.attribs.class.join(' '))
@@ -203,6 +205,12 @@ Dump.prototype.dumpConst = function (abs) {
 
 Dump.prototype.dumpFloat = function (val) {
   this.checkTimestamp(val)
+  if (val === this.TYPE_FLOAT_INF) {
+    return 'INF';
+  }
+  if (val === this.TYPE_FLOAT_NAN) {
+    return 'NaN';
+  }
   return val
 }
 

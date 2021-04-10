@@ -14,7 +14,7 @@ export function getNodeInfo (meta) {
   if ($container.length) {
     $debug = $container.find('.debug')
     $tab = getTabPane($container, channelNameTop, meta)
-    $node = $tab.data('nodes').slice(-1)[0]
+    $node = $tab.data('nodes').slice(-1)[0] || $tab.find('> .debug-log')
   } else {
     // create
     $container = $('' +

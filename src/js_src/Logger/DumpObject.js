@@ -48,10 +48,7 @@ DumpObject.prototype.dumpObject = function (abs) {
         this.dumpAttributes(abs) +
         this.dumpConstants(abs) +
         this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
-        (abs.flags & this.OUTPUT_METHODS
-          ? this.dumpMethods(abs)
-          : ''
-        ) +
+        this.dumpMethods(abs) +
         this.dumpPhpDoc(abs) +
       '</dl>'
   } catch (e) {
@@ -292,6 +289,10 @@ DumpObject.prototype.dumpMethods = function (abs) {
   var html = '<dt class="methods">' + label + '</dt>' +
     magicMethodInfo(abs, ['__call', '__callStatic'])
   var self = this
+  var outputMethods = abs.flags & this.OUTPUT_METHODS;
+  if (!outputMethods) {
+    return '';
+  }
   $.each(abs.methods, function (k, info) {
     var $dd = $('<dd class="method"></dd>').addClass(info.visibility)
     var modifiers = []
@@ -340,7 +341,7 @@ DumpObject.prototype.dumpMethods = function (abs) {
     if (info.inheritedFrom) {
       $dd.attr('data-inherited-from', info.inheritedFrom)
     }
-    if (info.phpDoc.deprecated) {
+    if (info.phpDoc && info.phpDoc.deprecated) {
       $dd.attr('data-deprecated-desc', info.phpDoc.deprecated[0].desc)
     }
     if (info.inheritedFrom) {
@@ -394,7 +395,9 @@ DumpObject.prototype.dumpMethodParams = function (params, opts) {
     html = html.substr(0, html.length - 2) // remove ', '
   }
   */
-  return params.join('<span class="t_punct">,</span> ')
+  return params
+    ? params.join('<span class="t_punct">,</span> ')
+    : ''
 }
 
 function magicMethodInfo (abs, methods) {

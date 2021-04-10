@@ -172,7 +172,7 @@
     // note:  navbar may not yet be at final height
     navbarHeight = $('.navbar-collapse').outerHeight();
 
-    $('.clear').on('click', function () {
+    $('.navbar .clear').on('click', function () {
       $('#body > .card').not('.working').remove();
     });
 
@@ -188,6 +188,9 @@
       timeoutHandler = setTimeout(function () {
         // has been long pressed (3 seconds)
         // clear all (incl working)
+        $('#body > .card.working').each(function () {
+          console.warn('removed working session:' + $this.prop('id'));
+        });
         $('#body > .card').remove();
       }, 2000);
     });
@@ -205,7 +208,11 @@
     });
 
     $('body').on('click', '.btn-remove-session', function (e) {
-      $(this).closest('.card').remove();
+      var $card = $(this).closest('.card');
+      if ($card.hasClass('working')) {
+        console.warn('removed working session:' + $card.prop('id'));
+      }
+      $card.remove();
     });
 
     $(window).on('scroll', positionSidebar);
@@ -585,10 +592,7 @@
           this.dumpAttributes(abs) +
           this.dumpConstants(abs) +
           this.dumpProperties(abs, { viaDebugInfo: abs.viaDebugInfo }) +
-          (abs.flags & this.OUTPUT_METHODS
-            ? this.dumpMethods(abs)
-            : ''
-          ) +
+          this.dumpMethods(abs) +
           this.dumpPhpDoc(abs) +
         '</dl>';
     } catch (e) {
@@ -829,6 +833,10 @@
     var html = '<dt class="methods">' + label + '</dt>' +
       magicMethodInfo(abs, ['__call', '__callStatic']);
     var self = this;
+    var outputMethods = abs.flags & this.OUTPUT_METHODS;
+    if (!outputMethods) {
+      return '';
+    }
     $.each(abs.methods, function (k, info) {
       var $dd = $('<dd class="method"></dd>').addClass(info.visibility);
       var modifiers = [];
@@ -877,7 +885,7 @@
       if (info.inheritedFrom) {
         $dd.attr('data-inherited-from', info.inheritedFrom);
       }
-      if (info.phpDoc.deprecated) {
+      if (info.phpDoc && info.phpDoc.deprecated) {
         $dd.attr('data-deprecated-desc', info.phpDoc.deprecated[0].desc);
       }
       if (info.inheritedFrom) {
@@ -931,7 +939,9 @@
       html = html.substr(0, html.length - 2) // remove ', '
     }
     */
-    return params.join('<span class="t_punct">,</span> ')
+    return params
+      ? params.join('<span class="t_punct">,</span> ')
+      : ''
   };
 
   function magicMethodInfo (abs, methods) {
@@ -1608,7 +1618,7 @@
     if (abs) {
       return this.dumpAbs(abs)
     }
-    return val
+    return this.helper(val)
   };
 
   DumpString.prototype.dumpAbs = function (abs) {
@@ -1795,6 +1805,8 @@
     this.NOT_INSPECTED = '\x00notInspected\x00'.parseHex();
     this.RECURSION = '\x00recursion\x00'.parseHex();
     this.UNDEFINED = '\x00undefined\x00'.parseHex();
+    this.TYPE_FLOAT_INF = '\x00inf\x00'.parseHex();
+    this.TYPE_FLOAT_NAN = '\x00nan\x00'.parseHex();
   };
 
   Dump.prototype.checkTimestamp = function (val) {
@@ -1868,8 +1880,8 @@
     }
     if (tagName) {
       dumpOpts.attribs.class.push('t_' + dumpOpts.type);
-      if (dumpOpts.typeMore !== null && dumpOpts.typeMore !== 'maxLen') {
-        dumpOpts.attribs.class.push(dumpOpts.typeMore);
+      if (dumpOpts.typeMore) {
+        dumpOpts.attribs['data-type-more'] = dumpOpts.typeMore.replace(/\0/g, '');
       }
       $wrap = $('<' + tagName + ' />')
         .addClass(dumpOpts.attribs.class.join(' '));
@@ -1976,6 +1988,12 @@
 
   Dump.prototype.dumpFloat = function (val) {
     this.checkTimestamp(val);
+    if (val === this.TYPE_FLOAT_INF) {
+      return 'INF';
+    }
+    if (val === this.TYPE_FLOAT_NAN) {
+      return 'NaN';
+    }
     return val
   };
 
@@ -2341,7 +2359,9 @@
         info.$node.hasClass('m_groupSummary');
       var $group;
       var $toggle;
-      nodes.pop();
+      if (nodes.length > 1) {
+        nodes.pop();
+      }
       if (!isSummaryRoot) {
         $toggle = info.$node.prev();
         $group = $toggle.parent();
@@ -2595,14 +2615,14 @@
       typeInfo = dump.getType(args[i]);
       typeMore = typeInfo[1] !== 'abstraction'
         ? typeInfo[1]
-        : args[i].typeMore;
+        : (args[i].typeMore || null);
       args[i] = dump.dump(args[i], {
         addQuotes: i !== 0 || typeMore === 'numeric',
         sanitize: i === 0
           ? meta.sanitizeFirst
           : meta.sanitize,
         type: typeInfo[0],
-        typeMore: typeInfo[1],
+        typeMore: typeInfo[1] || null,
         visualWhiteSpace: i !== 0
       });
     }
@@ -2768,7 +2788,7 @@
     if ($container.length) {
       $debug = $container.find('.debug');
       $tab = getTabPane($container, channelNameTop, meta);
-      $node = $tab.data('nodes').slice(-1)[0];
+      $node = $tab.data('nodes').slice(-1)[0] || $tab.find('> .debug-log');
     } else {
       // create
       $container = $('' +

@@ -214,7 +214,9 @@ export var methods = {
       info.$node.hasClass('m_groupSummary')
     var $group
     var $toggle
-    nodes.pop()
+    if (nodes.length > 1) {
+      nodes.pop()
+    }
     if (!isSummaryRoot) {
       $toggle = info.$node.prev()
       $group = $toggle.parent()
@@ -471,14 +473,14 @@ function buildEntryNode (logEntry) {
     typeInfo = dump.getType(args[i])
     typeMore = typeInfo[1] !== 'abstraction'
       ? typeInfo[1]
-      : args[i].typeMore
+      : (args[i].typeMore || null)
     args[i] = dump.dump(args[i], {
       addQuotes: i !== 0 || typeMore === 'numeric',
       sanitize: i === 0
         ? meta.sanitizeFirst
         : meta.sanitize,
       type: typeInfo[0],
-      typeMore: typeInfo[1],
+      typeMore: typeInfo[1] || null,
       visualWhiteSpace: i !== 0
     })
   }

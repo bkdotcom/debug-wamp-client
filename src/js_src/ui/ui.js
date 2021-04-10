@@ -16,7 +16,7 @@ export function init (config) {
   // note:  navbar may not yet be at final height
   navbarHeight = $('.navbar-collapse').outerHeight()
 
-  $('.clear').on('click', function () {
+  $('.navbar .clear').on('click', function () {
     $('#body > .card').not('.working').remove()
   })
 
@@ -32,6 +32,9 @@ export function init (config) {
     timeoutHandler = setTimeout(function () {
       // has been long pressed (3 seconds)
       // clear all (incl working)
+      $('#body > .card.working').each(function () {
+        console.warn('removed working session:' + $this.prop('id'))
+      })
       $('#body > .card').remove()
     }, 2000)
   })
@@ -49,7 +52,11 @@ export function init (config) {
   })
 
   $('body').on('click', '.btn-remove-session', function (e) {
-    $(this).closest('.card').remove()
+    var $card = $(this).closest('.card')
+    if ($card.hasClass('working')) {
+      console.warn('removed working session:' + $card.prop('id'))
+    }
+    $card.remove()
   })
 
   $(window).on('scroll', positionSidebar)
