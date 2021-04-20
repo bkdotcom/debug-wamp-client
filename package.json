@@ -8,15 +8,16 @@
   ],
   "main": "index.js",
   "scripts": {
-    "_build:css": "scss -t compact --sourcemap=none scss/Debug.scss css/Debug.css",
-    "_watch:scss": "npx nodemon --watch scss/ --ext scss --exec \"npm run build:css\"",
     "build": "npx npm-run-all --parallel build:*",
+    "build:css": "scss -t compact --sourcemap=none ./src/scss/WampClient.scss ./src/css/WampClient.css",
     "build:js": "npx rollup -c",
-    "comment:build:scss": "node-sass-chokidar --output-style compact scss/ --output scss/css",
-    "cs": "npx eslint src/js_src/*",
+    "cs": "npx npm-run-all --continue-on-error cs:*",
+    "cs:css": "npx stylelint ./src/scss",
+    "cs:js": "npx eslint ./src/js_src/*",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "npx npm-run-all --parallel watch:*",
-    "watch:js": "NODE_ENV=watch npx nodemon --watch js_src/ --ext js --exec \"npm run build:js\""
+    "watch:js": "NODE_ENV=watch npx nodemon --watch js_src/ --ext js --exec \"npm run build:js\"",
+    "watch:scss": "npx nodemon --watch ./src/scss/ --ext scss --exec \"npm run build:css\""
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",

@@ -23,7 +23,7 @@ export function init (config) {
   })
 
   $('#modal-settings').on('hide.bs.modal', function (e) {
-    updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'))
+    updateCssProperty('wampClientCss', '#debug-cards', 'font-size', config.get('fontSize'))
   })
 
   $('#modal-settings').on('show.bs.modal', function (e) {

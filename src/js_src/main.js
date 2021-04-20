@@ -28,9 +28,9 @@ $(function () {
 
   ui.init(config)
   /*
-    init on #body vs body so we can stop event propagation before bubbles to body  (ie clipboard.js)
+    init on #debug-cards vs body so we can stop event propagation before bubbles to body  (ie clipboard.js)
   */
-  $('#body').debugEnhance('init', {
+  $('#debug-cards').debugEnhance('init', {
     sidebar: true,
     useLocalStorage: false
   })
@@ -55,7 +55,7 @@ $(function () {
       if ($('#alert.closed').length) {
         return
       }
-      $('#body').prepend(
+      $('#debug-cards').prepend(
         '<div id="alert" class="alert alert-warning alert-dismissible closed">' +
           'Not connected to debug server' +
           '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +

@@ -289,9 +289,9 @@ DumpObject.prototype.dumpMethods = function (abs) {
   var html = '<dt class="methods">' + label + '</dt>' +
     magicMethodInfo(abs, ['__call', '__callStatic'])
   var self = this
-  var outputMethods = abs.flags & this.OUTPUT_METHODS;
+  var outputMethods = abs.flags & this.OUTPUT_METHODS
   if (!outputMethods) {
-    return '';
+    return ''
   }
   $.each(abs.methods, function (k, info) {
     var $dd = $('<dd class="method"></dd>').addClass(info.visibility)

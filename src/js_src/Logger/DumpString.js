@@ -115,12 +115,12 @@ DumpString.prototype.dumpEncoded = function (val, abs) {
     class: 'string-encoded tabs-container',
     'data-type': abs.typeMore
   }).html(
-      '<nav role="tablist">' +
-        '<a class="nav-link" data-target=".string-raw" data-toggle="tab" role="tab"></a>' +
-        '<a class="active nav-link" data-target=".string-decoded" data-toggle="tab" role="tab">decoded</a>' +
-      '</nav>' +
-      '<div class="string-raw tab-pane" role="tabpanel"></div>' +
-      '<div class="active string-decoded tab-pane" role="tabpanel"></div>'
+    '<nav role="tablist">' +
+      '<a class="nav-link" data-target=".string-raw" data-toggle="tab" role="tab"></a>' +
+      '<a class="active nav-link" data-target=".string-decoded" data-toggle="tab" role="tab">decoded</a>' +
+    '</nav>' +
+    '<div class="string-raw tab-pane" role="tabpanel"></div>' +
+    '<div class="active string-decoded tab-pane" role="tabpanel"></div>'
   )
   // console.warn('dumpEncoded', val, abs.typeMore, tagName)
   dumpOpts.tagName = null

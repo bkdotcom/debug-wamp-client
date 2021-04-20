@@ -28,7 +28,7 @@ export var methods = {
     if (logEntry.meta.icon) {
       $node.data('icon', logEntry.meta.icon)
     }
-    info.$tab.find('> .tab-body > .debug-log-summary').before($node)
+    info.$tabPane.find('> .tab-body > .debug-log-summary').before($node)
     $node.debugEnhance()
   },
   clear: function (logEntry, info) {
@@ -42,7 +42,7 @@ export var methods = {
     }
     var flags = logEntry.meta.flags
     var i
-    var $tab = info.$tab
+    var $tabPane = info.$tabPane
     var $curNodeLog
     var $curTreeSummary
     var $curTreeLog
@@ -67,10 +67,10 @@ export var methods = {
       }
     }
     if (flags.alerts) {
-      $tab.find('.alert').filter(channelFilter).remove()
+      $tabPane.find('.alert').filter(channelFilter).remove()
     }
     if (flags.summary) {
-      $tab.find('.debug-log-summary > .m_groupSummary').each(function () {
+      $tabPane.find('.debug-log-summary > .m_groupSummary').each(function () {
         $remove = $(this)
           .find('*')
           .not($curTreeSummary)
@@ -82,10 +82,10 @@ export var methods = {
         $remove.remove()
       })
     } else if (flags.summaryErrors) {
-      $tab.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove()
+      $tabPane.find('.debug-log-summary .m_error, .debug-log-summary .m_warn').filter(channelFilter).remove()
     }
     if (flags.log) {
-      $remove = $tab
+      $remove = $tabPane
         .find('.debug-log > *, .debug-log .m_group > *')
         .not($curTreeLog)
         .filter(channelFilter)
@@ -95,12 +95,12 @@ export var methods = {
       $remove.filter('.group-header').not('.enhanced').debugEnhance('expand')
       $remove.remove()
     } else if (flags.logErrors) {
-      $tab.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove()
+      $tabPane.find('.debug-log .m_error, .debug-log .m_warn').filter(channelFilter).remove()
     }
     if (!flags.silent) {
       if (info.$node.closest('.debug-log-summary').length) {
         // we're in summary.. let's switch to content
-        info.$node = info.$tab.find('.debug-log')
+        info.$node = $tabPane.find('.debug-log')
       }
       info.$node = $curNodeLog
       return $('<li>', attribs).html(logEntry.args[0])
@@ -111,7 +111,7 @@ export var methods = {
     var responseCode = logEntry.meta.responseCode
     $container.removeClass('working')
     $container.find('.card-header .fa-spinner').remove()
-    $container.find('.card-body > .fa-spinner').remove()
+    $container.find('.debug > .fa-spinner').remove()
     if (responseCode && responseCode !== '200') {
       $container.find('.card-title').append(' <span class="label label-default" title="Response Code">' + responseCode + '</span>')
       if (responseCode.toString().match(/^5/)) {
@@ -121,15 +121,15 @@ export var methods = {
   },
   errorNotConsoled: function (logEntry, info) {
     var $container = info.$container
-    var $tab = info.$tab
-    var $node = $tab.find('.alert.error-summary')
+    var $tabPane = info.$tabPane
+    var $node = $tabPane.find('.alert.error-summary')
     if (!$node.length) {
       $node = $('<div class="alert alert-error error-summary">' +
         '<h3><i class="fa fa-lg fa-times-circle"></i> Error(s)</h3>' +
         '<ul class="list-unstyled">' +
         '</ul>' +
         '</div>')
-      $tab.prepend($node)
+      $tabPane.prepend($node)
     }
     $node = $node.find('ul')
     $node.append($('<li></li>').text(logEntry.args[0]))
@@ -137,10 +137,11 @@ export var methods = {
       $container
         .addClass('bg-danger')
         .removeClass('bg-warning') // could keep it.. but lets remove ambiguity
-    } else if (!$container.hasClass('bg-danger')) {
+      return
+    }
+    if (!$container.hasClass('bg-danger')) {
       $container.addClass('bg-warning')
     }
-    // $container.removeClass('bg-default')
   },
   group: function (logEntry, info) {
     var $group = $('<li>', {
@@ -150,7 +151,7 @@ export var methods = {
     var $groupBody = $('<ul>', {
       class: 'group-body'
     })
-    var nodes = info.$tab.data('nodes')
+    var nodes = info.$tabPane.data('nodes')
     if (logEntry.meta.hideIfEmpty) {
       $group.addClass('hide-if-empty')
     }
@@ -179,9 +180,9 @@ export var methods = {
       ? logEntry.meta.priority // v2.1
       : logEntry.args[0]
     var $node
-    var $tab = info.$tab
-    var nodes = $tab.data('nodes')
-    $tab.find('.debug-log-summary .m_groupSummary').each(function () {
+    var $tabPane = info.$tabPane
+    var nodes = $tabPane.data('nodes')
+    $tabPane.find('.debug-log-summary .m_groupSummary').each(function () {
       var priorityCur = $(this).data('priority')
       if (priorityCur === priority) {
         $node = $(this)
@@ -200,7 +201,7 @@ export var methods = {
         .addClass('m_groupSummary')
         .data('priority', priority)
         .html('<ul class="group-body"></ul>')
-      info.$tab
+      $tabPane
         .find('.debug-log-summary')
         .append($node)
     }
@@ -208,8 +209,8 @@ export var methods = {
     nodes.push($node)
   },
   groupEnd: function (logEntry, info) {
-    var $tab = info.$tab
-    var nodes = $tab.data('nodes')
+    var $tabPane = info.$tabPane
+    var nodes = $tabPane.data('nodes')
     var isSummaryRoot = nodes.length > 1 &&
       info.$node.hasClass('m_groupSummary')
     var $group
@@ -261,7 +262,6 @@ export var methods = {
     info.$container.data('options', {
       drawer: meta.drawer
     })
-    // info.$container.find('.card-header .card-header-body .float-right').remove()
     if (meta.interface) {
       info.$container.find('.card-header').attr('data-interface', meta.interface)
     }
@@ -343,15 +343,12 @@ export var methods = {
       if (!meta.isSuppressed) {
         if (method === 'error') {
           // if suppressed, don't update card
-          // console.log('bg-danger')
           $container
             .addClass('bg-danger')
             .removeClass('bg-warning') // could keep it.. but lets remove ambiguity
         } else if (!$container.hasClass('bg-danger')) {
-          // console.log('card warning')
           $container.addClass('bg-warning')
         }
-        // $container.removeClass('bg-default')
       }
     }
     if (meta.uncollapse === false) {

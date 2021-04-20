@@ -2,24 +2,38 @@ import $ from 'jquery' // external global
 import * as methods from './Methods.js'
 
 export function getNodeInfo (meta) {
-  var $node
   var $container = $('#' + meta.requestId)
   var $debug
-  var $tab
+  var $node
+  var $tabPane
   var channelNameRoot = $container.data('channelNameRoot') || 'general'
   var channelName = meta.channel || channelNameRoot
   var channelSplit = channelName.split('.')
-  var channelNameTop = channelSplit.shift() // ie channelName of tab
-  var info
+  var info = {
+    $container: $container,
+    $node: null,
+    $tabPane: null,
+    channelName: channelName,
+    channelNameRoot: channelNameRoot,
+    channelNameTop: channelSplit.shift(), // ie channelName of tab
+    channels: []
+  }
   if ($container.length) {
-    $debug = $container.find('.debug')
-    $tab = getTabPane($container, channelNameTop, meta)
-    $node = $tab.data('nodes').slice(-1)[0] || $tab.find('> .debug-log')
+    $tabPane = getTabPane(info, meta)
+    $node = $tabPane.data('nodes').slice(-1)[0] || $tabPane.find('> .debug-log')
   } else {
     // create
+    //   header and card are separate so we can sticky the header
+    /*
+    $header = $('' +
+      '<div class="card" id="' + meta.requestId + '-header">' +
+        // formerly header was inside card-body
+      '</div>'
+    )
+    */
     $container = $('' +
-      '<div class="card mb-3 working">' +
-        '<div class="card-header" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .card-body.collapse">' +
+      '<div class="card mb-3 sticky working" id="' + meta.requestId + '">' +
+        '<div class="card-header" data-toggle="collapse" data-target="#' + meta.requestId + ' &gt; .collapse">' +
           '<i class="fa fa-chevron-right"></i>' +
           '<i class="fa fa-times float-right btn-remove-session"></i>' +
           '<div class="card-header-body">' +
@@ -49,29 +63,27 @@ export function getNodeInfo (meta) {
     $debug = $container.find('.debug')
     $debug.data('channels', [])
     $debug.data('channelNameRoot', channelNameRoot)
-    $container.debugEnhance('sidebar', 'add')
-    $container.debugEnhance('sidebar', 'close')
-    $container.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>')
-    $tab = $debug.find('.tab-primary')
-    $node = $tab.find('.debug-log')
-    $tab.data('nodes', [
+    $debug.debugEnhance('sidebar', 'add')
+    $debug.debugEnhance('sidebar', 'close')
+    // $debug.find('nav').data('tabPanes', $debug.find('.tab-panes'))
+    $debug.find('.debug-sidebar .sidebar-toggle').html('<i class="fa fa-lg fa-filter"></i>')
+    $tabPane = $debug.find('.tab-primary')
+    $node = $tabPane.find('.debug-log')
+    $tabPane.data('nodes', [
       $node
     ])
-    $tab.data('options', {
+    $tabPane.data('options', {
       sidebar: true
     })
-    $container.attr('id', meta.requestId)
-    $('#body').append($container)
+    $('#debug-cards').append($container)
+    $container.trigger('added.debug.card')
   }
-  info = {
+  $.extend(info, {
     $container: $container,
     $node: $node,
-    $tab: $tab,
-    channelName: channelName,
-    channelNameRoot: channelNameRoot,
-    channelNameTop: channelNameTop, // ie channelName of tab
-    channels: $debug.data('channels')
-  }
+    $tabPane: $tabPane,
+    channels: $container.find('.debug').data('channels')
+  })
   addChannel(info, meta)
   return info
 }
@@ -108,7 +120,7 @@ export function processEntry (logEntry) {
     updateSidebar(logEntry, info, $node !== false)
     if ($node) {
       if (meta.attribs && meta.attribs.class && meta.attribs.class === 'php-shutdown') {
-        info.$node = info.$container.find('> .card-body > .tab-panes > .tab-primary > .tab-body > .debug-log.group-body')
+        info.$node = info.$container.find('> .debug > .tab-panes > .tab-primary > .tab-body > .debug-log.group-body')
       }
       info.$node.append($node)
       $node.attr('data-channel', meta.channel) // using attr so can use [data-channel="xxx"] selector
@@ -263,9 +275,9 @@ function addError (logEntry, info) {
   }
 }
 
-function addTab ($container, $link) {
+function addTab (info, $link) {
   // console.warn('insertTab', $link.text(), $link.data('sort'))
-  var $navLinks = $container.find('.debug-menu-bar').removeClass('hide').find('.nav-link')
+  var $navLinks = info.$container.find('.debug-menu-bar').removeClass('hide').find('.nav-link')
   var length = $navLinks.length
   var sort = $link.data('sort')
   var text = $link.text().trim()
@@ -294,10 +306,11 @@ function addTab ($container, $link) {
   })
 }
 
-function getTabPane ($container, channelNameTop, meta) {
-  // console.log('getTabPane', channelNameTop, $container.data('channelNameRoot'));
-  var classname = nameToClassname(channelNameTop)
-  var $tabPane = $container.find('> .card-body > .tab-panes > .' + classname)
+function getTabPane (info, meta) {
+  // console.log('getTabPane', info.channelNameTop, info.$container.data('channelNameRoot'));
+  var classname = nameToClassname(info.channelNameTop)
+  var $tabPanes = info.$container.find('> .debug > .tab-panes')
+  var $tabPane = $tabPanes.find('> .' + classname)
   var $link
   if ($tabPane.length) {
     return $tabPane
@@ -309,7 +322,7 @@ function getTabPane ($container, channelNameTop, meta) {
     'data-target': '.' + classname,
     'data-toggle': 'tab',
     role: 'tab',
-    html: channelNameTop
+    html: info.channelNameTop
   })
   if (meta.channelIcon) {
     $link.prepend(
@@ -318,7 +331,7 @@ function getTabPane ($container, channelNameTop, meta) {
         : $('<i>').addClass(meta.channelIcon)
     )
   }
-  addTab($container, $link)
+  addTab(info, $link)
   $tabPane = $('<div>', {
     class: 'tab-pane ' + classname,
     role: 'tabpanel'
@@ -329,7 +342,7 @@ function getTabPane ($container, channelNameTop, meta) {
         '<ul class="debug-log group-body"></ul>'
     }))
   $tabPane.data('nodes', [$tabPane.find('.debug-log')])
-  $container.find('> .card-body > .tab-panes').append($tabPane)
+  $tabPanes.append($tabPane)
   return $tabPane
 }
 
@@ -366,7 +379,7 @@ function updateSidebar (logEntry, info, haveNode) {
   /*
     Show "Expand All Groups" button
   */
-  if (method === 'group' && info.$tab.find('.m_group').length > 2) {
+  if (method === 'group' && info.$tabPane.find('.m_group').length > 2) {
     info.$container.find('.debug-sidebar .expand-all').show()
   }
 }

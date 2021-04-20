@@ -6,18 +6,45 @@ var classCollapsed = 'fa-chevron-right'
 var classExpanded = 'fa-chevron-down'
 var timeoutHandler
 var navbarHeight // = $('.navbar-collapse').outerHeight()
+var $cardsInViewport = $()
 
 export function init (config) {
-  updateCssProperty('wampClientCss', '.debug', 'font-size', 'inherit')
-  updateCssProperty('wampClientCss', '#body', 'font-size', config.get('fontSize'))
-
-  configModal.init(config)
-
-  // note:  navbar may not yet be at final height
-  navbarHeight = $('.navbar-collapse').outerHeight()
+  var io = new IntersectionObserver(
+    function (entries) {
+      // console.log('IntersectionObserver update', entries)
+      var i
+      var len = entries.length
+      var entry
+      for (i = 0; i < len; i++) {
+        entry = entries[i]
+        if (entry.isIntersecting === false) {
+          // console.log('no longer visible', entry.target)
+          $cardsInViewport = $cardsInViewport.not(entry.target)
+          continue
+        }
+        // console.log('now visible', entry.target)
+        $cardsInViewport = $cardsInViewport.add(entry.target)
+      }
+      // console.log('open cardsInViewport', $cardsInViewport.filter('.expanded').length, $cardsInViewport.filter('.expanded'))
+    },
+    {
+      // options
+      rootMargin: '-39px 0px 0px 0px'
+    }
+  )
 
   $('.navbar .clear').on('click', function () {
-    $('#body > .card').not('.working').remove()
+    $('#debug-cards > .card').not('.working').trigger('removed.debug.card').remove()
+  })
+
+  $('#debug-cards').on('added.debug.card', function (e) {
+    // console.warn('card added', e.target, e)
+    io.observe(e.target)
+  })
+  $('#debug-cards').on('removed.debug.card', function (e) {
+    // console.warn('card removed', e.target, e)
+    io.unobserve(e.target)
+    $cardsInViewport = $cardsInViewport.not(e.target)
   })
 
   $('body').on('mouseup', function (e) {
@@ -28,61 +55,69 @@ export function init (config) {
     }
   })
 
+  // test for long-press of main clear button
   $('.clear').on('mousedown', function (e) {
     timeoutHandler = setTimeout(function () {
       // has been long pressed (3 seconds)
       // clear all (incl working)
-      $('#body > .card.working').each(function () {
-        console.warn('removed working session:' + $this.prop('id'))
+      $('#debug-cards > .card.working').each(function () {
+        console.warn('removed working session:' + $(this).prop('id'))
       })
-      $('#body > .card').remove()
+      $('#debug-cards > .card').trigger('removed.debug.card').remove()
     }, 2000)
   })
 
   $('body').on('shown.bs.collapse hidden.bs.collapse', '.card-body', function (e) {
-    var $icon = $(this).closest('.card').find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded)
+    var $cardBody = $(this)
+    var $card = $cardBody.closest('.card')
+    var $icon = $card.find('.card-header .' + classCollapsed + ', .card-header .' + classExpanded)
     $icon.toggleClass(classExpanded + ' ' + classCollapsed)
+    $card.toggleClass('expanded')
     if (e.type === 'shown') {
-      // $(this).find('.m_alert, .m_groupSummary > .group-body, .debug-log').debugEnhance()
-      // console.group('card shown -> enhance')
-      //  > *:not(.filter-hidden, .enhanced)
-      $(this).find('.m_alert, .group-body:visible').debugEnhance()
-      // console.groupEnd()
+      $cardBody.find('> .debug-menu-bar').css('top', (navbarHeight + $card.find('> .card-header').outerHeight()) + 'px')
+      $cardBody.find('.m_alert, .group-body:visible').debugEnhance()
     }
   })
 
+  // close btn on card-header clicked
   $('body').on('click', '.btn-remove-session', function (e) {
     var $card = $(this).closest('.card')
     if ($card.hasClass('working')) {
       console.warn('removed working session:' + $card.prop('id'))
     }
-    $card.remove()
+    $card.trigger('removed.debug.card').remove()
   })
 
-  $(window).on('scroll', positionSidebar)
+  $(window).on('scroll', debounce(function () {
+    // console.group('scroll')
+    $cardsInViewport.filter('.expanded').each(function () {
+      positionSidebar($(this))
+    })
+    // console.groupEnd()
+  }, 50))
 
   $('body').on('open.debug.sidebar', function (e) {
     // console.warn('open.debug.sidebar')
-    positionSidebar(true)
-    var sidebarContentHeight = $(e.target).find('.sidebar-content').height()
-    var $card = $(e.target).closest('.card')
-    var minHeight = Math.max(sidebarContentHeight + 8, 200)
-    $card.find('.card-body > .tab-panes > .tab-pane.active').css({
-      minHeight: minHeight + 'px'
+    var $sidebar = $(e.target)
+    var $card = $sidebar.closest('.card')
+    var sidebarContentHeight = $sidebar.find('.sidebar-content').height()
+    // var minHeight = Math.max(sidebarContentHeight + 8, 200)
+    $card.find('.card-body > .tab-panes > .tab-pane').css({
+      minHeight: sidebarContentHeight + 'px'
     })
+    positionSidebar($card)
     $('body').on('click', onBodyClick)
   })
 
   $('body').on('close.debug.sidebar', function (e) {
     // remove minHeight
-    positionSidebar(true)
     var $card = $(e.target).closest('.card')
-    $card.find('.card-body .tab-pane.active').attr('style', '')
+    positionSidebar($card)
+    // $card.find('.card-body .tab-pane').attr('style', '')
     $('body').off('click', onBodyClick)
   })
 
   $('body').on('click', '.card-header[data-toggle=collapse]', function () {
-    // data-target selector doesn't seem to work like it did in bootstrap 3
     var $target = $($(this).data('target'))
     navbarHeight = $('.navbar-collapse').outerHeight()
     $target.collapse('toggle')
@@ -90,8 +125,8 @@ export function init (config) {
 
   /*
   $('body').on('click', '.sidebar-tab', function (e){
-    var $card = $(e.target).closest('.card'),
-      sidebarIsOpen = $card.find('.debug-sidebar.show').length > 0
+    var $card = $(e.target).closest('.card')
+    var sidebarIsOpen = $card.find('.debug-sidebar.show').length > 0
     $card.debugEnhance('sidebar', sidebarIsOpen ? 'close' : 'open')
   })
   */
@@ -103,6 +138,29 @@ export function init (config) {
   $('body').on('mouseleave', '.debug-sidebar', function () {
     $(this).closest('.card').debugEnhance('sidebar', 'close')
   })
+
+  updateCssProperty('wampClientCss', '.debug', 'font-size', 'inherit')
+  updateCssProperty('wampClientCss', '#debug-cards', 'font-size', config.get('fontSize'))
+
+  configModal.init(config)
+
+  // note:  navbar may not yet be at final height
+  navbarHeight = $('.navbar-collapse').outerHeight()
+}
+
+function debounce (fn, ms) {
+  // Avoid wrapping in `setTimeout` if ms is 0 anyway
+  if (ms === 0) {
+    return fn
+  }
+
+  var timeout
+  return function (arg) {
+    clearTimeout(timeout)
+    timeout = setTimeout(function () {
+      fn(arg)
+    }, ms)
+  }
 }
 
 function onBodyClick (e) {
@@ -111,91 +169,35 @@ function onBodyClick (e) {
   }
 }
 
-function positionSidebar (transition) {
-  // var navbarHeight = $('.navbar-collapse').outerHeight()
-  var scrollTop = $(window).scrollTop() + navbarHeight
-  var windowHeight = $(window).height()
-  var $sidebar = $('.debug-sidebar.show')
-  var $panelBody
-  var panelOffset = 0
-  var panelHeight = 0
-  // var sidebarX = 0
-  var heightAvail = 0
-  var contentHeight = 0
-  transition = typeof transition === 'boolean' ? transition : false
-  if ($sidebar.length === 0) {
-    // no sidebar open... find first visible open card
-    $('body').find('.card-body.in').each(function () {
-      // var rect = this.getBoundingClientRect()
-      $panelBody = $(this)
-      panelOffset = $panelBody.offset().top
-      panelHeight = $panelBody.innerHeight()
-      if (panelOffset < scrollTop || panelOffset + panelHeight > scrollTop) {
-        $sidebar = $panelBody.find('.debug-sidebar')
-        panelOffset = $panelBody.offset().top
-        return false // break
-      }
-    })
-    if ($sidebar.length === 0) {
-      return
-    }
-  } else {
-    $panelBody = $sidebar.closest('.card-body')
-    panelOffset = $panelBody.offset().top
-    panelHeight = $panelBody.innerHeight()
-    heightAvail = panelOffset + panelHeight - scrollTop
-    contentHeight = $sidebar.find('.sidebar-content').height()
-  }
-  // $sidebarTab = $panelBody.find('.sidebar-tab')
-  // sidebarTabStyleWas = $sidebarTab.attr('style')
-  // console.log('sidebarTabStyleWas', sidebarTabStyleWas)
+function positionSidebar ($card) {
+  var $cardBody = $card.find('.card-body')
+  var $sidebar = $card.find('.debug-sidebar')
+  // var scrollTop = $(window).scrollTop()
+  var cardOffset = $card[0].getBoundingClientRect().top
+  var isSticky = cardOffset <= navbarHeight
+  // for height calculations, we will consider menubar as part of header vs body
+  var menubarHeight = $cardBody.find('> .debug-menu-bar').outerHeight()
+  var bodyHeight = $cardBody.outerHeight() - menubarHeight
+  var bodyOffset = $cardBody[0].getBoundingClientRect().top + menubarHeight
+  var headerHeight = bodyOffset - cardOffset + menubarHeight
+  // var headerHeight = $card.find('> .card-header').outerHeight() + menubarHeight
+  var heightVis = bodyOffset + bodyHeight - headerHeight
+  var heightHidden = bodyHeight - heightVis
+  var contentHeight = $sidebar.find('.sidebar-content').height()
+  // var sidebarTopFixed = navbarHeight + headerHeight
+  var sidebarTop = heightHidden + (parseInt($('body').css('paddingTop')) - navbarHeight)
+
   $sidebar.attr('style', '')
-  // $sidebarTab.attr('style', '')
-  if (panelOffset < scrollTop) {
-    // console.log('top scrolled above view', $sidebar.is('.show'))
+  if (isSticky) {
+    if (contentHeight > heightVis && $sidebar.hasClass('show')) {
+      sidebarTop -= contentHeight - heightVis + 8
+    }
     $sidebar.css({
-      position: 'fixed',
-      marginTop: 0,
-      top: navbarHeight + 'px'
+      // position: 'fixed', // sticky would be nice, but still visible when
+                            //  docked off to the left
+      // top: topSidebarFixed + 'px', // position: fixed
+      top: sidebarTop + 'px' // position absolute
+      // height: heightVis + 'px'
     })
-    // }
-    if (panelOffset + panelHeight < scrollTop + windowHeight) {
-      // console.log('bottom is vis')
-      if (heightAvail < contentHeight) {
-        // console.warn('not enough height')
-        $sidebar.css({
-          position: 'absolute',
-          top: 'unset',
-          bottom: 0,
-          height: (contentHeight + 4) + 'px'
-        })
-      } else {
-        // console.warn('enough height')
-        $sidebar.css({
-          height: heightAvail + 'px'
-        })
-      }
-    }
-    /*
-    $sidebarTab.css({
-      position: 'fixed',
-      top: navbarHeight+'px'
-    })
-    sidebarX = $sidebar.is('.show')
-      ? '134px'
-      : '16px'
-    */
   }
-  /*
-  else if ($sidebar.is('.show')) {
-    sidebarX = '119px'
-  }
-  if (sidebarX) {
-    if (transition || sidebarTabStyleWas.match('translateX('+sidebarX+')')) {
-      $sidebarTab.css({ transform: 'translateX('+sidebarX+')' })
-    } else {
-      $sidebarTab.css({ left: sidebarX })
-    }
-  }
-  */
 }

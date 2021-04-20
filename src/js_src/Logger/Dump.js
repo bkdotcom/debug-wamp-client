@@ -206,10 +206,10 @@ Dump.prototype.dumpConst = function (abs) {
 Dump.prototype.dumpFloat = function (val) {
   this.checkTimestamp(val)
   if (val === this.TYPE_FLOAT_INF) {
-    return 'INF';
+    return 'INF'
   }
   if (val === this.TYPE_FLOAT_NAN) {
-    return 'NaN';
+    return 'NaN'
   }
   return val
 }
